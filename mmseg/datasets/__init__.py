@@ -5,6 +5,7 @@ from .basesegdataset import BaseCDDataset, BaseSegDataset
 from .bdd100k import BDD100KDataset
 from .chase_db1 import ChaseDB1Dataset
 from .cityscapes import CityscapesDataset
+from .cityscapes_instances import CityscapesInstancesDataset
 from .coco_stuff import COCOStuffDataset
 from .dark_zurich import DarkZurichDataset
 from .dataset_wrappers import MultiImageMixDataset
@@ -61,5 +62,5 @@ __all__ = [
     'MapillaryDataset_v2', 'Albu', 'LEVIRCDDataset',
     'LoadMultipleRSImageFromFile', 'LoadSingleRSImageFromFile',
     'ConcatCDInput', 'BaseCDDataset', 'DSDLSegDataset', 'BDD100KDataset',
-    'NYUDataset', 'HSIDrive20Dataset'
+    'NYUDataset', 'HSIDrive20Dataset', 'CityscapesInstancesDataset'
 ]

@@ -4,6 +4,7 @@ from .loading import (LoadAnnotations, LoadBiomedicalAnnotation,
                       LoadBiomedicalData, LoadBiomedicalImageFromFile,
                       LoadDepthAnnotation, LoadImageFromNDArray,
                       LoadMultipleRSImageFromFile, LoadSingleRSImageFromFile)
+from .load_instance_annotations import LoadInstanceAnnotations
 # yapf: disable
 from .transforms import (CLAHE, AdjustGamma, Albu, BioMedical3DPad,
                          BioMedical3DRandomCrop, BioMedical3DRandomFlip,
@@ -26,5 +27,5 @@ __all__ = [
     'BioMedical3DRandomFlip', 'BioMedicalRandomGamma', 'BioMedical3DPad',
     'RandomRotFlip', 'Albu', 'LoadSingleRSImageFromFile', 'ConcatCDInput',
     'LoadMultipleRSImageFromFile', 'LoadDepthAnnotation', 'RandomDepthMix',
-    'RandomFlip', 'Resize'
+    'RandomFlip', 'Resize', 'LoadInstanceAnnotations'
 ]

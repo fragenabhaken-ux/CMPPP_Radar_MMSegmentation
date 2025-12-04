@@ -11,6 +11,8 @@ from .dpt_head import DPTHead
 from .ema_head import EMAHead
 from .enc_head import EncHead
 from .fcn_head import FCNHead
+from .ppp_head import PPPHead
+from .ppp_head_v2 import PPPHead_V2
 from .fpn_head import FPNHead
 from .gc_head import GCHead
 from .ham_head import LightHamHead
@@ -44,5 +46,6 @@ __all__ = [
     'SETRMLAHead', 'DPTHead', 'SETRMLAHead', 'SegmenterMaskTransformerHead',
     'SegformerHead', 'ISAHead', 'STDCHead', 'IterativeDecodeHead',
     'KernelUpdateHead', 'KernelUpdator', 'MaskFormerHead', 'Mask2FormerHead',
-    'LightHamHead', 'PIDHead', 'DDRHead', 'VPDDepthHead', 'SideAdapterCLIPHead'
+    'LightHamHead', 'PIDHead', 'DDRHead', 'VPDDepthHead', 'SideAdapterCLIPHead',
+    'PPPHead', 'PPPHead_V2'
 ]
