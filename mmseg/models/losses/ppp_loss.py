@@ -5,28 +5,34 @@ from mmseg.registry import MODELS
 @MODELS.register_module()
 class PPPLoss(nn.Module):
 
-    def __init__(self, test_resolution=(1024, 2048), loss_weight=1.0):
+    def __init__(self, test_resolution=(512,1024), loss_weight=1.0):
         super().__init__()
         self.loss_weight = loss_weight
         self.test_resolution = test_resolution
 
     def forward(self, inputs, targets, avg_factor=1.0):
+        """
+        inputs:  (N,1,H,W) logits f(x)
+        targets: (N,1,H,W) binary mask of observed points
+        """
 
         N, C, H, W = inputs.shape
         assert C == 1
 
-        # Diskretisierung
-        H0, W0 = self.test_resolution
-        pixel_scale = (H0 * W0) / (H * W)
+        # pixel area of original resolution
+        pixel_scale = torch.tensor(self.test_resolution, device=inputs.device).prod()
 
-        # λ = exp(f)
-        lam = torch.exp(inputs)
+        # intensity
+        lam = torch.exp(inputs) / pixel_scale      # λ = exp(f)/pixel_area
 
-        # ∫ λ dx
-        integral_term = lam.sum() * pixel_scale
+        # ∫ λ dx (approximated as sum over grid)
+        integral_term = lam.sum()
 
-        # ∑ f(x_i)   (log λ = f)
-        observation_term = (targets * inputs).sum()
+        # sum_i log λ(x_i)
+        # but log λ = f(x) - log(pixel_scale)
+        log_lambda_at_points = targets * (inputs - torch.log(pixel_scale))
+
+        observation_term = log_lambda_at_points.sum()
 
         loss = (integral_term - observation_term) / avg_factor
         return loss * self.loss_weight
