@@ -12,7 +12,7 @@ custom_imports = dict(
     allow_failed_imports=False
 )
 
-crop_size = (512, 1024)
+crop_size = (256, 512)
 
 data_preprocessor = dict(
     type='SegDataPreProcessor',
@@ -32,27 +32,36 @@ model = dict(
         depth=18,
         num_stages=4,
         out_indices=(0, 1, 2, 3),
+        # d8-Setup: kein Downsampling in den letzten beiden Stages,
+        # stattdessen Dilated Convs
+        strides=(1, 2, 1, 1),
         dilations=(1, 1, 2, 4),
-        strides=(1, 2, 2, 1),
+        norm_cfg=dict(type='BN', requires_grad=True),
+        norm_eval=False,
+        style='pytorch',
     ),
     decode_head=dict(
-    type='PPPHead',
-    in_channels=512,
-    channels=128,
-    num_convs=2,
-    num_classes=1,  # GANZ WICHTIG: 1 Kanal für Intensitäts-Heatmap
-    loss_decode=dict(type='CrossEntropyLoss', loss_weight=0.0),
-    loss_ppp=dict(type='PPPLoss', loss_weight=1.0),
-    in_index=-1,       
+        type='PPPHead',
+        in_channels=512,
+        channels=32,
+        num_convs=2,
+        num_classes=1,          # 1-Kanal-Intensitätsmap
+        loss_ppp=dict(
+            type='PPPLoss',
+            loss_weight=1.0,
+            test_resolution=crop_size
+        ),
+        in_index=-1,            # letztes Feature (x[3])
+        align_corners=False,    # wie in den meisten mmseg-Heads
     ),
     auxiliary_head=None,
-    test_cfg=dict(mode='whole')
+    test_cfg=dict(mode='whole'),
 )
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadInstanceAnnotations'),
-    # dict(type='RandomResize', scale=(512, 1024), ratio_range=(0.5, 2.0)),
+    dict(type='RandomResize', scale=(512, 1024), ratio_range=(0.5, 2.0)),
     dict(type='RandomCrop', crop_size=crop_size),
     dict(type='RandomFlip', prob=0.5),
     dict(type='PackSegInputs')
@@ -70,7 +79,7 @@ data_root = '/home/lorenz-linux/repositories/mmsegmentation/data/cityscapes'
 
 train_dataloader = dict(
     batch_size=2,
-    num_workers=2,
+    num_workers=12,
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
@@ -84,7 +93,7 @@ train_dataloader = dict(
 
 val_dataloader = dict(
     batch_size=1,
-    num_workers=2,
+    num_workers=12,
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
@@ -108,20 +117,25 @@ optim_wrapper = dict(
     )
 )
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=80000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=50000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
 val_evaluator = dict(type='PPPMetric')
 test_evaluator = dict(type='PPPMetric')
 
-default_hooks = dict(checkpoint=dict(by_epoch=False, interval=2000))
+default_hooks = dict(checkpoint=dict(by_epoch=False, interval=1000))
 
 
 custom_hooks = [
     dict(
         type='PPPVisualizationHook',
-        interval=500,
+        interval=200,
         out_dir='work_dirs/ppp_vis'
     )
 ]
+
+# custom_hooks = [
+#     dict(type='PPPVisualizationHook', interval=500, out_dir='work_dirs/ppp_vis'),
+#     dict(type='PPPDebugHook', interval=200, out_dir='work_dirs/debug_ppp')
+# ]

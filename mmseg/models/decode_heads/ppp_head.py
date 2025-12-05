@@ -34,6 +34,14 @@ class PPPHead(BaseDecodeHead):
         self.kernel_size = kernel_size
         self.loss_ppp = MODELS.build(loss_ppp)
 
+        self.final_conv = nn.Sequential(
+            nn.Conv2d(self.channels, self.channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True)
+        )
+        self.up1 = nn.ConvTranspose2d(self.channels, 128, 4, stride=2, padding=1)
+        self.up2 = nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1)
+        self.up3 = nn.ConvTranspose2d(64, 32, 4, stride=2, padding=1)   
+
         conv_padding = (kernel_size // 2) * dilation
         convs = []
         convs.append(
@@ -86,6 +94,10 @@ class PPPHead(BaseDecodeHead):
     def forward(self, inputs):
         """Produce heatmap logits (N, 1, H, W)."""
         feats = self._forward_feature(inputs)
+        feats = self.final_conv(feats)
+        feats = F.relu(self.up1(feats))  # (N, 128, 64, 128)
+        feats = F.relu(self.up2(feats))  # (N, 64, 128, 256)
+        feats = F.relu(self.up3(feats))  # (N, 32, 256, 512)  
         seg_logits = self.cls_seg(feats)  # num_classes sollte 1 sein
         return seg_logits
 
@@ -95,39 +107,22 @@ class PPPHead(BaseDecodeHead):
         # if isinstance(seg_logits, (tuple, list)):
         #     seg_logits = seg_logits[0]
 
-        labels = []
-        for sample in batch_data_samples:
-            data = sample.gt_sem_seg.data
-            if isinstance(data, torch.Tensor):
-                labels.append(data)
-            elif isinstance(data, (tuple, list)):
-                for x in data:
-                    if isinstance(x, torch.Tensor):
-                        labels.append(x)
-                        break
-                else:
-                    raise TypeError("gt_sem_seg.data contains no tensor")
-            else:
-                raise TypeError("Unsupported gt_sem_seg.data type")
+        seg_labels = torch.stack(
+            [sample.gt_sem_seg.data for sample in batch_data_samples]
+        ).to(seg_logits.device)
 
-        seg_labels = torch.stack(labels).to(seg_logits.device)
-
-        centers_gt = self.extract_centers_from_label(seg_labels)
-
-        heatmap_logits = seg_logits[:, 0:1, :, :]
-        
+        centers_gt = self.extract_centers_from_label(seg_labels)        
 
         center_mask = self.centers_to_mask(
             centers_gt,
-            heatmap_logits[:, 0],
+            seg_logits[:, 0],
             meta=batch_data_samples[0].metainfo
-        ).unsqueeze(1)
-
+        )
 
         # print("PPP centers per image:", [c.shape[0] for c in centers_gt])
         # print("Max in center_mask:", center_mask.max().item())
 
-        loss_ppp = self.loss_ppp(heatmap_logits, center_mask)
+        loss_ppp = self.loss_ppp(seg_logits, center_mask, avg_factor=len(centers_gt))
 
         return {'loss_ppp': loss_ppp}
 
@@ -199,5 +194,5 @@ class PPPHead(BaseDecodeHead):
                 if 0 <= cx < W and 0 <= cy < H:
                     mask[b, cy, cx] = 1.0
 
-        return mask
+        return mask.unsqueeze(1)
 

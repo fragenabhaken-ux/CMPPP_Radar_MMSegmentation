@@ -9,6 +9,7 @@ from mmengine.registry import HOOKS
 
 
 THING_CLASSES = {24,25,26,27,28,31,32,33}
+# THING_CLASSES = {26,27,28}
 
 
 def extract_centers_from_instanceIds(instance_map):
@@ -109,26 +110,32 @@ class PPPVisualizationHook(Hook):
         )[0,0].numpy()
 
         # ----------------------------------------------------------------------
-        # 3) Plotten
+        # 3) Plotten (3-Panel: original, overlay, pure heatmap)
         # ----------------------------------------------------------------------
         out_path = os.path.join(self.out_dir, f"vis_full_{runner.iter}.png")
-        plt.figure(figsize=(16,6))
+        plt.figure(figsize=(24, 6))
 
-        # Original mit Zentren
-        plt.subplot(1,2,1)
+        # 1) Original Image + GT centers
+        plt.subplot(1, 3, 1)
         plt.imshow(img_full)
         plt.title(f"FULL IMAGE + GT CENTERS\n{os.path.basename(img_path)}")
         for (cx, cy) in centers_full:
             plt.plot(cx, cy, 'rx', markersize=10, markeredgewidth=2)
         plt.axis("off")
 
-        # Heatmap + Zentren
-        plt.subplot(1,2,2)
+        # 2) Heatmap Overlay
+        plt.subplot(1, 3, 2)
         plt.imshow(img_full, alpha=0.4)
         plt.imshow(heat_up, cmap='hot', alpha=0.6)
-        plt.title("PPP Heatmap (upsampled) + GT")
+        plt.title("PPP Heatmap (overlay)")
         for (cx, cy) in centers_full:
             plt.plot(cx, cy, 'x', color='cyan', markersize=10, markeredgewidth=2)
+        plt.axis("off")
+
+        # 3) Pure Heatmap (no background)
+        plt.subplot(1, 3, 3)
+        plt.imshow(heat_up, cmap='hot')
+        plt.title("PPP Heatmap (pure)")
         plt.axis("off")
 
         plt.tight_layout()

@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 # -------------------------------------------------------------
 #  Extract Centers from Cityscapes InstanceIds
 # -------------------------------------------------------------
-THING_CLASSES = {24, 25, 26, 27, 28, 31, 32, 33}
+# THING_CLASSES = {24, 25, 26, 27, 28, 31, 32, 33}
+THING_CLASSES = {26}
 
 
 def extract_centers_from_label(instance_map):
