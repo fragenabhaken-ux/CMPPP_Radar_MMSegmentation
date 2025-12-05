@@ -33,7 +33,6 @@ class PPPHead(BaseDecodeHead):
         self.concat_input = concat_input
         self.kernel_size = kernel_size
         self.loss_ppp = MODELS.build(loss_ppp)
-        self.x = 0
 
         self.final_conv = nn.Sequential(
             nn.Conv2d(self.channels, self.channels, kernel_size=3, padding=1),
