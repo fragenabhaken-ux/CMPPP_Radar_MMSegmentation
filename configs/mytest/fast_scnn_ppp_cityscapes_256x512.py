@@ -30,7 +30,7 @@ model = dict(
     pretrained=None,
     backbone=dict(
         type='ResNet',
-        depth=18,
+        depth=34,
         num_stages=4,
         out_indices=(0, 1, 2, 3),
         # d8-Setup: kein Downsampling in den letzten beiden Stages,
@@ -118,13 +118,21 @@ val_dataloader = dict(
 
 test_dataloader = val_dataloader
 
+optim_wrapper = None
+
 optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
-        type='SGD',
-        lr=0.01,
-        momentum=0.9,
-        weight_decay=0.0005
+        _delete_=True,     # ensures momentum from SGD is removed
+        type='AdamW',
+        lr=0.0003,
+        weight_decay=0.01,
+        betas=(0.9, 0.999),
+    ),
+    paramwise_cfg=dict(
+        custom_keys={
+            'backbone': dict(lr_mult=0.5),
+        }
     )
 )
 
