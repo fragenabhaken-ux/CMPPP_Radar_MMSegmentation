@@ -13,6 +13,7 @@ custom_imports = dict(
 )
 
 crop_size = (256, 512)
+# crop_size = (512, 1024)
 
 data_preprocessor = dict(
     type='SegDataPreProcessor',
@@ -61,9 +62,19 @@ model = dict(
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadInstanceAnnotations'),
-    dict(type='RandomResize', scale=(512, 1024), ratio_range=(0.5, 2.0)),
-    dict(type='RandomCrop', crop_size=crop_size),
-    dict(type='RandomFlip', prob=0.5),
+    dict(type='RandomResize', scale=(512, 1024), ratio_range=(0.8, 1.2)),
+    # dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.8),
+    # dict(
+    #     type='MiddleBandRandomHorizontalCrop',
+    #     crop_size=(512, 1024),
+    #     vertical_band_ratio=(0.25, 0.75)
+    # ),
+    dict(
+        type='MiddleBandRandomHorizontalCrop',
+        crop_size=crop_size,
+        vertical_band_ratio=(0.25, 0.75)
+    ),
+    # dict(type='RandomFlip', prob=0.5),
     dict(type='PackSegInputs')
 ]
 
@@ -136,6 +147,6 @@ custom_hooks = [
 ]
 
 # custom_hooks = [
-#     dict(type='PPPVisualizationHook', interval=500, out_dir='work_dirs/ppp_vis'),
-#     dict(type='PPPDebugHook', interval=200, out_dir='work_dirs/debug_ppp')
+#     dict(type='PPPVisualizationHook', interval=200, out_dir='work_dirs/ppp_vis'),
+#     dict(type='PPPDebugHook', interval=50, out_dir='work_dirs/debug_ppp')
 # ]

@@ -74,14 +74,14 @@ class PPPHead(BaseDecodeHead):
 
         # Cityscapes "thing classes" (die mit Instanzen)
         self.thing_classes = {
-            24,  # person
-            25,  # rider
+            # 24,  # person
+            # 25,  # rider
             26,  # car
             27,  # truck
             28,  # bus
-            31,  # train
-            32,  # motorcycle
-            33   # bicycle
+            # 31,  # train
+            # 32,  # motorcycle
+            # 33   # bicycle
         }
 
     def _forward_feature(self, inputs):
@@ -104,14 +104,13 @@ class PPPHead(BaseDecodeHead):
 
     def loss(self, inputs, batch_data_samples, train_cfg=None):
         seg_logits = self.forward(inputs)
-        # if isinstance(seg_logits, (tuple, list)):
-        #     seg_logits = seg_logits[0]
 
+        # collect GT labels
         seg_labels = torch.stack(
-            [sample.gt_sem_seg.data for sample in batch_data_samples]
+            [s.gt_sem_seg.data for s in batch_data_samples]
         ).to(seg_logits.device)
 
-        centers_gt = self.extract_centers_from_label(seg_labels)        
+        centers_gt = self.extract_centers_from_label(seg_labels)
 
         center_mask = self.centers_to_mask(
             centers_gt,
@@ -166,15 +165,14 @@ class PPPHead(BaseDecodeHead):
 
     def centers_to_mask(self, batch_centers, heatmap_logits, meta):
         """
-        batch_centers: List[tensor(K_i, 2)]
-        heatmap_logits: (N, H, W)
-        meta: dict with ori_shape
+        batch_centers: List[tensor(K_i, 2)] in coords of gt_sem_seg
+        heatmap_logits: (N, H_out, W_out)
+        meta: metainfo of that sample
         """
-
-        N, H, W = heatmap_logits.shape
+        N, H_out, W_out = heatmap_logits.shape
         mask = torch.zeros_like(heatmap_logits)
 
-        H_ori, W_ori = meta['ori_shape'][:2]
+        H_src, W_src = meta['img_shape'][:2]
 
         for b in range(N):
             centers = batch_centers[b]
@@ -184,15 +182,14 @@ class PPPHead(BaseDecodeHead):
             for j in range(centers.size(0)):
                 cx, cy = centers[j]
 
-                # scale original resize
-                cx = cx * (W / W_ori)
-                cy = cy * (H / H_ori)
+                # scale from label/img space → heatmap space
+                cx = cx * (W_out / W_src)
+                cy = cy * (H_out / H_src)
 
                 cx = int(round(cx.item()))
                 cy = int(round(cy.item()))
 
-                if 0 <= cx < W and 0 <= cy < H:
+                if 0 <= cx < W_out and 0 <= cy < H_out:
                     mask[b, cy, cx] = 1.0
 
         return mask.unsqueeze(1)
-
