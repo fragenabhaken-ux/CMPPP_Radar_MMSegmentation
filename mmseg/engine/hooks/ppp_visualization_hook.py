@@ -8,7 +8,16 @@ from mmengine.hooks import Hook
 from mmengine.registry import HOOKS
 
 
-THING_CLASSES = {26, 27, 28}
+THING_CLASSES = {
+            24,  # person
+            25,  # rider
+            26,  # car
+            27,  # truck
+            28,  # bus
+            31,  # train
+            32,  # motorcycle
+            33   # bicycle
+        }
 
 
 # -----------------------------------------------------------
@@ -53,7 +62,7 @@ def upscale_heatmap(heat_logits, H, W):
 # -----------------------------------------------------------
 # Utility 4: Plotting
 # -----------------------------------------------------------
-def plot_visualization(img, heat, centers, loss_text, save_path):
+def plot_visualization(img, lambd, centers, loss_text, save_path):
     plt.figure(figsize=(28, 8))
 
     # (1) GT centers
@@ -67,18 +76,18 @@ def plot_visualization(img, heat, centers, loss_text, save_path):
     # (2) Overlay
     plt.subplot(1,3,2)
     plt.imshow(img, alpha=0.4)
-    plt.imshow(heat, cmap="hot", alpha=0.6)
+    plt.imshow(lambd, cmap="hot", alpha=0.6)
     for (cx, cy) in centers:
         plt.plot(cx, cy, "cx", markersize=10, markeredgewidth=2)
-    plt.title("Heatmap overlay")
+    plt.title("Intensity overlay")
     plt.axis("off")
 
     # (3) Pure heatmap
     plt.subplot(1,3,3)
-    plt.imshow(heat, cmap="hot")
-    plt.title("Heatmap")
+    plt.imshow(lambd, cmap="hot")
+    plt.title("Intensity")
     plt.text(10,20, loss_text, color="white", fontsize=12,
-             bbox=dict(facecolor="black", alpha=0.5))
+            bbox=dict(facecolor="black", alpha=0.5))
     plt.axis("off")
 
     plt.tight_layout()
@@ -152,6 +161,11 @@ class PPPVisualizationHook(Hook):
         # -----------------------------------------------------------
         heat_up = upscale_heatmap(heat_logits, Hc, Wc)
 
+        # --- Convert logits f(x) → PPP intensity lambda(x)
+        pixel_area = Hc * Wc
+        lambda_map = np.exp(heat_up) / pixel_area
+
+
         # -----------------------------------------------------------
         # Filename setup
         # -----------------------------------------------------------
@@ -161,8 +175,9 @@ class PPPVisualizationHook(Hook):
 
         vis_path = os.path.join(self.out_dir, f"{prefix}_vis.png")
         
-        # ---- 1) Save heatmap ----
+        # ---- 1) Save heatmap and intensity ----
         np.save(os.path.join(self.out_dir, f"{prefix}_heatmap.npy"), heat_up)
+        np.save(os.path.join(self.out_dir, f"{prefix}_lambda.npy"), lambda_map)
 
         # ---- 2) Save cropped RGB image ----
         np.save(os.path.join(self.out_dir, f"{prefix}_img.npy"), img_rgb)
@@ -204,7 +219,7 @@ class PPPVisualizationHook(Hook):
         # -----------------------------------------------------------
         plot_visualization(
             img=img_rgb,
-            heat=heat_up,
+            lambd=lambda_map,
             centers=centers,
             loss_text=loss_text,
             save_path=vis_path

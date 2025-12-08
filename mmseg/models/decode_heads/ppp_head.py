@@ -74,14 +74,14 @@ class PPPHead(BaseDecodeHead):
 
         # Cityscapes "thing classes" (die mit Instanzen)
         self.thing_classes = {
-            # 24,  # person
-            # 25,  # rider
+            24,  # person
+            25,  # rider
             26,  # car
             27,  # truck
             28,  # bus
-            # 31,  # train
-            # 32,  # motorcycle
-            # 33   # bicycle
+            31,  # train
+            32,  # motorcycle
+            33   # bicycle
         }
 
     def _forward_feature(self, inputs):

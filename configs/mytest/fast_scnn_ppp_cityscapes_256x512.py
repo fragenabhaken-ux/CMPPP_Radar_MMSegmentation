@@ -30,7 +30,7 @@ model = dict(
     pretrained=None,
     backbone=dict(
         type='ResNet',
-        depth=34,
+        depth=18,
         num_stages=4,
         out_indices=(0, 1, 2, 3),
         # d8-Setup: kein Downsampling in den letzten beiden Stages,
@@ -63,18 +63,18 @@ train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadInstanceAnnotations'),
     dict(type='RandomResize', scale=(512, 1024), ratio_range=(0.8, 1.2)),
-    # dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.8),
+    dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.8),
     # dict(
     #     type='MiddleBandRandomHorizontalCrop',
     #     crop_size=(512, 1024),
     #     vertical_band_ratio=(0.25, 0.75)
     # ),
-    dict(
-        type='MiddleBandRandomHorizontalCrop',
-        crop_size=crop_size,
-        vertical_band_ratio=(0.25, 0.75)
-    ),
-    # dict(type='RandomFlip', prob=0.5),
+    # dict(
+    #     type='MiddleBandRandomHorizontalCrop',
+    #     crop_size=crop_size,
+    #     vertical_band_ratio=(0.25, 0.75)
+    # ),
+    dict(type='RandomFlip', prob=0.5),
     dict(type='PackSegInputs')
 ]
 
@@ -118,25 +118,17 @@ val_dataloader = dict(
 
 test_dataloader = val_dataloader
 
-optim_wrapper = None
-
 optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
-        _delete_=True,     # ensures momentum from SGD is removed
-        type='AdamW',
-        lr=0.0003,
-        weight_decay=0.01,
-        betas=(0.9, 0.999),
-    ),
-    paramwise_cfg=dict(
-        custom_keys={
-            'backbone': dict(lr_mult=0.5),
-        }
+        type='SGD',
+        lr=0.01,
+        momentum=0.9,
+        weight_decay=0.0005
     )
 )
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=50000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 

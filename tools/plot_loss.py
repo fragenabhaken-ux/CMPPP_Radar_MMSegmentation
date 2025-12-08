@@ -1,7 +1,7 @@
 import re
 import matplotlib.pyplot as plt
 
-logfile = "work_dirs/fast_scnn_ppp_cityscapes_256x512/20251205_232828/20251205_232828.log"
+logfile = "work_dirs/fast_scnn_ppp_cityscapes_256x512/20251208_214835/20251208_214835.log"
 
 iters = []
 losses = []
@@ -18,7 +18,22 @@ with open(logfile, "r") as f:
             losses.append(loss)
 
 plt.figure(figsize=(12,5))
-plt.plot(iters, losses, label="loss", linewidth=1.5)
+plt.plot(iters, losses, label="loss", linewidth=1.2, alpha=0.5)
+
+# --- Smooth the loss curve (EWMA)
+alpha = 0.01
+smoothed = []
+current = None
+
+for x in losses:
+    if current is None:
+        current = x
+    else:
+        current = alpha * x + (1 - alpha) * current
+    smoothed.append(current)
+
+plt.plot(iters, smoothed, label="loss (smoothed)", linewidth=2)
+
 plt.xlabel("Iteration")
 plt.ylabel("Loss")
 plt.title("Training Loss Over Time")

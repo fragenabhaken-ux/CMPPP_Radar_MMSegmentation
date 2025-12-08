@@ -15,8 +15,8 @@ class PPPDebugHook(Hook):
         self.out_dir = out_dir
         os.makedirs(out_dir, exist_ok=True)
 
-        # self.thing_classes = {24, 25, 26, 27, 28, 31, 32, 33}
-        self.thing_classes = {26, 27, 28}
+        self.thing_classes = {24, 25, 26, 27, 28, 31, 32, 33}
+        # self.thing_classes = {26, 27, 28}
 
     # -----------------------------------------------------------
     def extract_centers(self, inst_mask):
