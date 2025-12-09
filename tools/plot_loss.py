@@ -1,7 +1,7 @@
 import re
 import matplotlib.pyplot as plt
 
-logfile = "work_dirs/fast_scnn_ppp_cityscapes_256x512/20251208_214835/20251208_214835.log"
+logfile = "work_dirs/fast_scnn_ppp_cityscapes_256x512/20251209_001010/20251209_001010.log"
 
 iters = []
 losses = []
