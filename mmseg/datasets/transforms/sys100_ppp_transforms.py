@@ -1,3 +1,14 @@
+""" a mmsegmentation-compatible adapter around the SYS100 codebase
+
+Content:
+- SYS100 dataset internals (radar → clusters, camera model), directly from SYS100 codebase
+- PPP target definition (3-channel heatmap, Poisson view)
+- mmseg BaseTransform for PPP-stype supervision
+- Naming, structure, integration into training loop
+"""
+
+
+
 from __future__ import annotations
 
 import numpy as np
@@ -18,13 +29,27 @@ import torch
 @TRANSFORMS.register_module()
 class LoadSys100Sample(BaseTransform):
     """
+    Alle the sensor and video logic comes from Jonas via Sys100Dataset. Here we materialize the sample.
+    
     Loads one SYS100 sample given results['idx'] (provided by the dataset).
     Produces:
-      results['img']        : HWC uint8
-      results['radar']      : torch tensor [C,64,64] (kept for target build)
-      results['rad2cam']    : torch tensor [3,4]
-      results['real_hw']    : torch tensor [2]
-      results['dopplerRange']: torch scalar
+      results['img']        : (H, W, 3), Dtype: uint8, Value range [0, 255]
+      results['radar']      : torch tensor [7,64,64] (normalized radar grid, kept for target build, depth = channel_0, vel = channel_5-channel_6)
+      results['rad2cam']    : torch tensor [3,4] (affine transform from radar coordinates to camera coordinates, used later for geometric projetion)
+      results['real_hw']    : torch tensor [2] (important for fisheye → pinhole conversion)
+      results['dopplerRange']: torch scalar (Doppler ambiguity range, used for velocity folding later)
+      results["radar_normalisation"]: (per-channel scaling to unnormalize radar values, dataset-specific SYS100 information)
+      results["fovs"] : Used to build the pinhole camera
+
+      Radar channels (TODO: double check)
+      Channel index	Meaning (typical)
+        0	Range / depth
+        1	Azimuth-related coordinate (e.g. x)
+        2	Elevation-related or y-coordinate
+        3	Intensity / reflectivity
+        4	SNR or confidence
+        5	Doppler velocity (positive)
+        6	Doppler velocity (negative / folded)
     """
     def __init__(self, sys100_root: str, out_img_size=(544, 1792), undistort=True, fovs=(110, 48.4), strict=False):
         from aumovio.sys100dataset import Sys100Dataset
@@ -81,6 +106,16 @@ class BuildPPPHeatmap(BaseTransform):
 
     Output:
       results['gt_seg_map'] : HWC float32 with 3 channels
+
+    Note: several inner steps deliberately reuse Jonas' code and conventions.
+
+    TODO: The loss for depth was much larger than vel! That must be caused by the different clipping!
+    Also, after Doppler folding, many velocities may concentrate near 0 (depends on traffic scene). 
+    A distribution concentrated near 0 tends to yield smaller residuals early in training than depth.
+    Normalize?
+    gt[..., 1] = depth / self.clip_depth[1] # or 150
+    gt[..., 2] = vel / max(abs(self.clip_vel[0]), abs(self.clip_vel[1])) # or 10
+
     """
     def __init__(
         self,
@@ -103,10 +138,12 @@ class BuildPPPHeatmap(BaseTransform):
         radar = results["radar"].cpu().numpy()  # [C,64,64]
         radar_norm = results["radar_normalisation"]
 
-        # reconstruct clusters EXACTLY like the SYS100 code
+        # reconstruct clusters EXACTLY like the SYS100 code (i.e .Recovering a sparse radar point cloud 
+        # from a dense 64×64 grid representation.)
         radar_grid = radar.transpose(1, 2, 0)[::-1, ::-1] * radar_norm[None, None, :]
         clusters = point_from_gridentry_vectorized(radar_grid, thres=self.thres)
 
+        # init gt heatmap (C=3, intensity, depth, velocity)
         gt = np.zeros((H, W, 3), dtype=np.float32)
 
         if len(clusters) == 0:
@@ -127,7 +164,7 @@ class BuildPPPHeatmap(BaseTransform):
         cam_pts = clusters[:, :2] @ rad2cam[:3, :2].T + rad2cam[:3, 3:].T  # -> [N,3]
         # cam_pts columns: (X,Y,Z)
 
-        # build SAME pinhole model (this is your overlay code)
+        # build SAME pinhole model (this is my overlay code)
         real_hw = results["real_hw"].cpu().numpy()
         hFov, vFov = results["fovs"]
 
@@ -173,7 +210,17 @@ class BuildPPPHeatmap(BaseTransform):
 
 @TRANSFORMS.register_module()
 class PPPRandomCrop(BaseTransform):
-    """Crop img (HWC) and gt_seg_map (HWC float) identically."""
+    """
+    Note: Preceding this we constructed:
+    - results["img"]         # HWC uint8
+    - results["gt_seg_map"]  # HWC float32, 3 channels (PPP target)
+    
+    Now we: Rdm crop img (HWC) and gt_seg_map (HWC float) identically to specified crop size.
+
+    Padding if the image is too small: 
+    - This guarantees: The crop always exists, no sample is dropped.
+    - Note: Padding adds no artificial radar points (zeros = no intensity)
+    """
     def __init__(self, crop_size):
         self.crop_h, self.crop_w = crop_size
 
@@ -194,6 +241,7 @@ class PPPRandomCrop(BaseTransform):
         y1 = np.random.randint(0, H - ch + 1)
         x1 = np.random.randint(0, W - cw + 1)
 
+        # Update image and metadata
         results["img"] = img[y1:y1+ch, x1:x1+cw]
         results["gt_seg_map"] = gt[y1:y1+ch, x1:x1+cw]
         results["img_shape"] = (ch, cw)
@@ -202,7 +250,12 @@ class PPPRandomCrop(BaseTransform):
 
 @TRANSFORMS.register_module()
 class PPPRandomFlip(BaseTransform):
-    """Flip img + gt_seg_map together."""
+    """
+    Flip img + gt_seg_map together.
+    
+    TODO: Here I flip horizontally and vertically. Maybe a vertical flip (flip ground and sky is not recommended)
+    I.e. flip horizontally only?!
+    """
     def __init__(self, prob=0.5, direction="horizontal"):
         self.prob = prob
         self.direction = direction
@@ -229,7 +282,11 @@ class PPPRandomFlip(BaseTransform):
 @TRANSFORMS.register_module()
 class PPPPackSegInputs(BaseTransform):
     """
-    Pack outputs into mmseg’s expected format.
+    Pack outputs into mmseg’s expected format:
+    return {
+        "inputs": <torch.Tensor>,
+        "data_samples": <SegDataSample>
+    }
     Supports multi-channel float gt_seg_map.
     """
 
@@ -239,9 +296,9 @@ class PPPPackSegInputs(BaseTransform):
         # -------------------------
         img = results["img"]  # HWC uint8
 
-        # IMPORTANT: kill negative strides
+        # IMPORTANT: fixes negative strides (important after flips, pure framework hygiene)
         img = np.ascontiguousarray(img)
-
+        # HWC → CHW (PyTorch standard)
         img = torch.from_numpy(img).permute(2, 0, 1).contiguous()
         img = img.float()
 
@@ -261,6 +318,7 @@ class PPPPackSegInputs(BaseTransform):
         from mmseg.structures import SegDataSample
         from mmengine.structures import PixelData
 
+        # Wrap into mmseg containers
         data_sample = SegDataSample()
         data_sample.set_metainfo(
             dict(

@@ -1,7 +1,7 @@
 import re
 import matplotlib.pyplot as plt
 
-logfile = "work_dirs/fast_scnn_ppp_cityscapes_256x512/20251209_211009/20251209_211009.log"
+logfile = "work_dirs/fast_scnn_ppp_sys100heatmaps_256x512/20251214_003523/20251214_003523.log"
 
 iters = []
 losses = []
@@ -21,7 +21,7 @@ plt.figure(figsize=(12,5))
 plt.plot(iters, losses, label="loss", linewidth=1.2, alpha=0.5)
 
 # --- Smooth the loss curve (EWMA)
-alpha = 0.01
+alpha = 0.05
 smoothed = []
 current = None
 

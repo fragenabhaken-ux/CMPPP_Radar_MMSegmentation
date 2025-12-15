@@ -49,7 +49,7 @@ class PPPMarkVisualizationHook(Hook):
         model.eval()
 
         # ---------------------------------------------------------
-        # Apply data preprocessor (IMPORTANT)
+        # Apply data preprocesso
         # ---------------------------------------------------------
         proc = model.data_preprocessor(data_batch)
         inputs = proc['inputs']
@@ -168,6 +168,8 @@ class PPPMarkVisualizationHook(Hook):
                 axs[1, 0].axis("off")
 
             if vel_np is not None:
+                # coolwarm :Blue - negative values, White / light - values near 0, Red - positive values
+                # Note: matplotlip autoscales the scale (so color != a certail vel value)
                 axs[1, 1].imshow(vel_np, cmap='coolwarm')
                 axs[1, 1].set_title("Predicted velocity")
             else:

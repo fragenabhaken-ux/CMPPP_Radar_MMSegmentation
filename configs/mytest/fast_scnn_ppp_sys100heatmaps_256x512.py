@@ -9,7 +9,7 @@ custom_imports = dict(
         'mmseg.datasets.sys100_ppp_heatmap_dataset',
         'mmseg.datasets.transforms.sys100_ppp_transforms',
         'mmseg.evaluation.metrics.ppp_metrics',
-        'mmseg.engine.hooks.ppp_visualization_hook'
+        'mmseg.engine.hooks.ppp_mark_visualization_hook' # 'mmseg.engine.hooks.ppp_visualization_hook'
     ],
     allow_failed_imports=False
 )
