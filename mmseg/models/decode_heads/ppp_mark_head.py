@@ -147,8 +147,12 @@ class PPPMarkHead(BaseDecodeHead):
         gt_vel = gt[:, 2]           # (N,H,W)
 
         pred_int = preds[:, 0:1]    # (N,1,H,W) logits
-        pred_depth = preds[:, 1]    # (N,H,W)
-        pred_vel = preds[:, 2]      # (N,H,W)
+        raw_depth = preds[:, 1]    # (N,H,W)
+        raw_vel = preds[:, 2]      # (N,H,W)
+
+        # apply link to depth and velocity
+        pred_depth = torch.exp(raw_depth)  # depth > 0
+        pred_vel = raw_vel ** 3   # signed
 
         # PPP loss only on intensity channel
         avg_factor = max(float(gt_int.sum().item()), 1.0)

@@ -153,7 +153,8 @@ class BuildPPPHeatmap(BaseTransform):
         doppler = results["dopplerRange"]
         doppler = float(doppler.item() if hasattr(doppler, "item") else doppler)
 
-        # velocity definition like SYS100
+        # velocity definition like SYS100 (sys100dataset.py Zeile 987)
+        # Note: I clip the vel and depth further down.
         vel = clusters[:, 5] - clusters[:, 6]
         vel -= doppler * np.floor(vel / doppler + 0.5)
 

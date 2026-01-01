@@ -106,6 +106,18 @@ class PPPMarkVisualizationHook(Hook):
             gt_vel_np = gt_velocity.cpu().numpy() if gt_velocity is not None else None
 
             # ---------------------------------------------
+            # Get metrics - counts (Convert to numpy)
+            # ---------------------------------------------
+
+            H, W = lam_np.shape
+            pixel_area = H * W
+            lam_norm = lam_np / pixel_area      # match PPPLoss normalization
+            expected_count = lam_norm.sum()
+
+            gt_count = float(gt_lam_np.sum())
+
+
+            # ---------------------------------------------
             # Meta information
             # ---------------------------------------------
             meta = data_samples[i].metainfo
@@ -141,6 +153,11 @@ class PPPMarkVisualizationHook(Hook):
                 "losses": {
                     k: float(v) for k, v in (outputs or {}).items()
                     if torch.is_tensor(v)
+                },
+                "ppp_diagnostics": {
+                    "expected_count_full": float(expected_count),
+                    "gt_count_full": int(gt_count),
+                    "count_error": float(expected_count - gt_count)
                 }
             }
 
@@ -158,20 +175,51 @@ class PPPMarkVisualizationHook(Hook):
             axs[0, 1].imshow(lam_np, cmap='hot')
             axs[0, 1].set_title("Predicted λ(x)")
 
+            axs[0, 1].text(
+                0.02, 0.95,
+                "PPP Count Diagnostic\n"
+                f"∫λ dx = {expected_count:.2f}\n"
+                f"GT = {gt_count}\n"
+                f"Δ = {expected_count - gt_count:+.2f}",
+                transform=axs[0, 1].transAxes,
+                fontsize=11,
+                color="white",
+                verticalalignment="top",
+                bbox=dict(facecolor="black", alpha=0.5, pad=4)
+            )
+
             axs[0, 2].imshow(gt_lam_np, cmap='gray')
             axs[0, 2].set_title("GT intensity")
 
             if depth_np is not None:
-                axs[1, 0].imshow(depth_np, cmap='viridis')
+                im_depth = axs[1, 0].imshow(depth_np, cmap='viridis')
+                # # uncomment to fix the scale image to image
+                # im_depth = axs[1, 0].imshow(
+                #     depth_np,
+                #     cmap='viridis',
+                #     vmin=0.0,
+                #     vmax=80.0   # or max sensor range
+                # )
                 axs[1, 0].set_title("Predicted depth")
+                cbar = fig.colorbar(im_depth, ax=axs[1, 0], fraction=0.046, pad=0.04)
+                cbar.set_label("Depth (meters)")
             else:
                 axs[1, 0].axis("off")
 
             if vel_np is not None:
                 # coolwarm :Blue - negative values, White / light - values near 0, Red - positive values
                 # Note: matplotlip autoscales the scale (so color != a certail vel value)
-                axs[1, 1].imshow(vel_np, cmap='coolwarm')
+                im_vel = axs[1, 1].imshow(vel_np, cmap='coolwarm')
+                # # uncomment to fix the scale image to image
+                # im_vel = axs[1, 1].imshow(
+                #     vel_np,
+                #     cmap='coolwarm',
+                #     vmin=-20.0,
+                #     vmax=20.0   # doppler range
+                # )
                 axs[1, 1].set_title("Predicted velocity")
+                cbar = fig.colorbar(im_vel, ax=axs[1, 1], fraction=0.046, pad=0.04)
+                cbar.set_label("Velocity (m/s)")
             else:
                 axs[1, 1].axis("off")
 
