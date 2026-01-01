@@ -2,6 +2,11 @@ import os
 import json
 import numpy as np
 import torch
+
+# to remedy "Tcl_AsyncDelete: async handler deleted by the wrong thread"
+import matplotlib
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 
@@ -173,14 +178,14 @@ class PPPMarkVisualizationHook(Hook):
             axs[0, 0].set_title("Image")
 
             axs[0, 1].imshow(lam_np, cmap='hot')
-            axs[0, 1].set_title("Predicted λ(x)")
+            axs[0, 1].set_title("Predicted Intensity")
 
             axs[0, 1].text(
                 0.02, 0.95,
                 "PPP Count Diagnostic\n"
-                f"∫λ dx = {expected_count:.2f}\n"
+                f"E[N] = {expected_count:.2f}\n"
                 f"GT = {gt_count}\n"
-                f"Δ = {expected_count - gt_count:+.2f}",
+                f"Diff. = {expected_count - gt_count:+.2f}",
                 transform=axs[0, 1].transAxes,
                 fontsize=11,
                 color="white",
@@ -230,6 +235,7 @@ class PPPMarkVisualizationHook(Hook):
 
             plt.tight_layout()
             plt.savefig(os.path.join(self.out_dir, f"{prefix}_vis.png"))
-            plt.close()
+            # plt.close()
+            plt.close("all") # entered "all" to remedy "Tcl_AsyncDelete: async handler deleted by the wrong thread"
 
         model.train()

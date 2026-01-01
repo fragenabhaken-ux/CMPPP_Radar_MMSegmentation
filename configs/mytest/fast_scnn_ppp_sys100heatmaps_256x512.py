@@ -18,11 +18,11 @@ crop_size = (256, 512)
 
 data_preprocessor = dict(
     type='SegDataPreProcessor',
-    mean=[123.675, 116.28, 103.53],
+    mean=[123.675, 116.28, 103.53],  #TODO: Determine mean and std of Aumovio data.
     std=[58.395, 57.12, 57.375],
     size=crop_size,
     pad_val=0,
-    seg_pad_val=255,
+    seg_pad_val=0, # for seg label data, 255 is the "ignore" label (nonissue, since no padding necessary)
 )
 
 model = dict(
@@ -77,6 +77,7 @@ model = dict(
 # ----------------------------
 DATA_PATH = '/home/lorenz-linux/repositories/aumovio_data/aumovio_sys100_data'
 
+# Note: This is my sys100_ppp_transforms
 train_pipeline = [
     dict(
         type='LoadSys100Sample',
@@ -151,9 +152,21 @@ optim_wrapper = dict(
     paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.5)})
 )
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=80000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
+
+# redefine the scheduler, because I inherit the 40k one above.
+param_scheduler = [
+    dict(
+        type='CosineAnnealingLR',
+        T_max=80000,
+        eta_min=1e-6,
+        begin=0,
+        end=80000,
+        by_epoch=False
+    )
+]
 
 val_evaluator = dict(type='PPPMetric')
 test_evaluator = dict(type='PPPMetric')

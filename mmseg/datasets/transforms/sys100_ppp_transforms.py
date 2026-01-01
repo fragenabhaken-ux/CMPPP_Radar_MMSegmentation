@@ -15,6 +15,8 @@ import numpy as np
 import torch
 import cv2
 
+import logging
+
 from mmseg.registry import TRANSFORMS
 from mmseg.datasets.transforms.loading import BaseTransform
 
@@ -25,6 +27,17 @@ from mmseg.structures import SegDataSample
 from mmengine.structures import PixelData
 from mmseg.registry import TRANSFORMS
 import torch
+
+LOGGER_NAME = "ppp.transforms"
+LOG_LEVEL = logging.INFO  # change to logging.INFO, logging.DEBUG 
+
+logger = logging.getLogger(__name__)
+logger.setLevel(LOG_LEVEL)
+
+if not logger.hasHandlers():
+    handler = logging.StreamHandler()
+    handler.setLevel(LOG_LEVEL)
+    logger.addHandler(handler)
 
 @TRANSFORMS.register_module()
 class LoadSys100Sample(BaseTransform):
@@ -138,10 +151,17 @@ class BuildPPPHeatmap(BaseTransform):
         radar = results["radar"].cpu().numpy()  # [C,64,64]
         radar_norm = results["radar_normalisation"]
 
-        # reconstruct clusters EXACTLY like the SYS100 code (i.e .Recovering a sparse radar point cloud 
+        # reconstruct clusters like the SYS100 code (i.e .Recovering a sparse radar point cloud 
         # from a dense 64×64 grid representation.)
         radar_grid = radar.transpose(1, 2, 0)[::-1, ::-1] * radar_norm[None, None, :]
         clusters = point_from_gridentry_vectorized(radar_grid, thres=self.thres)
+
+        assert clusters.ndim == 2 and clusters.shape[1] >= 7, (
+            f"Expected clusters shape (N,>=7), got {clusters.shape}"
+        )
+
+        # GT point cloud count sanity check
+        logger.debug(f'Debug sys100_ppp_transforms (line 164, import of radar data):\n - {clusters.shape}, (N, K)') # set debug checkpoint
 
         # init gt heatmap (C=3, intensity, depth, velocity)
         gt = np.zeros((H, W, 3), dtype=np.float32)
@@ -185,12 +205,27 @@ class BuildPPPHeatmap(BaseTransform):
         v = np.divide(cam_pts[:, 1], z, out=np.zeros_like(z), where=z != 0)
         x_pix, y_pix = pinhole_cam.real_world_to_pinhole(u, v)
 
+        # GT point cloud count sanity check
+        logger.debug(f'Debug sys100_ppp_transforms (line 209, pinhole camera transfomr, pre_clip):') # set debug checkpoint
+        # logger.debug('x_pix[:10], y_pix[:10]', x_pix[:10], y_pix[:10])
+        logger.debug(f' - x_pix.min(), x_pix.max(): {x_pix.min()}, {x_pix.max()}')
+        logger.debug(f' - y_pix.min(), y_pix.max(): {y_pix.min()}, {y_pix.max()}')
+        # Note: Even before transforming to ints in the next step, they are all the same (for the first data point)
+        coords = np.stack([y_pix, x_pix], axis=1)
+        n_unique_pixels = np.unique(coords, axis=0).shape[0]
+        logger.debug(f" - valid_points={len(x_pix)}, unique_pixels={n_unique_pixels}")
+
         x_pix = x_pix.astype(np.int32)
         y_pix = y_pix.astype(np.int32)
 
         valid = (x_pix >= 0) & (x_pix < W) & (y_pix >= 0) & (y_pix < H)
         x_pix = x_pix[valid]
         y_pix = y_pix[valid]
+
+        logger.debug(f'Debug sys100_ppp_transforms (line 225, pinhole camera transfomr post_clip):') # set debug checkpoint
+        coords = np.stack([y_pix, x_pix], axis=1)
+        n_unique_pixels = np.unique(coords, axis=0).shape[0]
+        logger.debug(f" - valid_points={len(x_pix)}, unique_pixels={n_unique_pixels}")
 
         depth = depth[valid]
         vel = vel[valid]
@@ -203,6 +238,14 @@ class BuildPPPHeatmap(BaseTransform):
         gt[y_pix, x_pix, 0] = 1.0
         gt[y_pix, x_pix, 1] = depth
         gt[y_pix, x_pix, 2] = vel
+
+        # GT point cloud count sanity check
+        logger.debug(f'Debug sys100_ppp_transforms (line 243, img trasform, =1):\n - N={(gt[..., 0] == 1).sum()}') # set debug checkpoint
+        logger.debug(f'Debug sys100_ppp_transforms (line 244, img trasform, W, H):\n - ({W}, {H})')
+
+        assert np.all((gt[..., 0] == 0) | (gt[..., 0] == 1))
+        assert np.all(gt[..., 1][gt[..., 0] == 0] == 0)
+        assert np.all(gt[..., 2][gt[..., 0] == 0] == 0)
 
         results["gt_seg_map"] = gt
         results["seg_fields"] = ["gt_seg_map"]  # mmseg convention
@@ -246,6 +289,12 @@ class PPPRandomCrop(BaseTransform):
         results["img"] = img[y1:y1+ch, x1:x1+cw]
         results["gt_seg_map"] = gt[y1:y1+ch, x1:x1+cw]
         results["img_shape"] = (ch, cw)
+
+        # GT point cloud count sanity check
+        logger.debug(f'Debug sys100_ppp_transforms (line 294, PPPRandomCrop, x=1):\n - N={(results["gt_seg_map"][..., 0] ==1).sum()}') # set debug checkpoint
+        logger.debug(f'Debug sys100_ppp_transforms (line 295, PPPRandomCrop, 0<x<1):\n - {((results["gt_seg_map"][..., 0] >0)&(results["gt_seg_map"][..., 0] <1)).sum()} (sanity check)') # set debug checkpoint
+        logger.debug(f'Debug sys100_ppp_transforms (line 296, PPPRandomCrop, W, H):\n - {results["img_shape"]}')
+
         return results
 
 
@@ -254,8 +303,8 @@ class PPPRandomFlip(BaseTransform):
     """
     Flip img + gt_seg_map together.
     
-    TODO: Here I flip horizontally and vertically. Maybe a vertical flip (flip ground and sky is not recommended)
-    I.e. flip horizontally only?!
+    Here I flip horizontally and vertically. The vertical flip (flip ground and sky is not recommended)
+    according to Tobias.
     """
     def __init__(self, prob=0.5, direction="horizontal"):
         self.prob = prob
@@ -271,9 +320,9 @@ class PPPRandomFlip(BaseTransform):
         if self.direction == "horizontal":
             results["img"] = img[:, ::-1, :]
             results["gt_seg_map"] = gt[:, ::-1, :]
-        elif self.direction == "vertical":
-            results["img"] = img[::-1, :, :]
-            results["gt_seg_map"] = gt[::-1, :, :]
+        # elif self.direction == "vertical":
+        #     results["img"] = img[::-1, :, :]
+        #     results["gt_seg_map"] = gt[::-1, :, :]
         else:
             raise ValueError(f"Unknown direction: {self.direction}")
 
@@ -328,6 +377,22 @@ class PPPPackSegInputs(BaseTransform):
             )
         )
         data_sample.gt_sem_seg = PixelData(data=gt)
+
+        logger.debug(
+            "Debug sys100_ppp_transforms (line 382, PackSegInputs):\n - img dim=%s,\n - gt dim=%s,\n - gt count=%d\n",
+            tuple(img.shape),
+            tuple(gt.shape),
+            (gt[0] == 1).sum()
+        )
+
+        # Assert: intensity channel must be binary {0,1}
+        unique_vals = torch.unique(gt[0])
+        assert torch.all(
+            (unique_vals == 0) | (unique_vals == 1)
+        ), (
+            f"PPP intensity channel is not binary. "
+            f"Found values: {unique_vals.tolist()}"
+        )
 
         return dict(
             inputs=img,

@@ -99,7 +99,7 @@ class EncoderDecoder(BaseSegmentor):
 
     def _init_decode_head(self, decode_head: ConfigType) -> None:
         """Initialize ``decode_head``"""
-        self.decode_head = MODELS.build(decode_head)
+        self.decode_head = MODELS.build(decode_head) # This is the head I set (i.e. ppp_mark_head.py)
         self.align_corners = self.decode_head.align_corners
         self.num_classes = self.decode_head.num_classes
         self.out_channels = self.decode_head.out_channels
@@ -134,10 +134,31 @@ class EncoderDecoder(BaseSegmentor):
     def _decode_head_forward_train(self, inputs: List[Tensor],
                                    data_samples: SampleList) -> dict:
         """Run forward function and calculate loss for decode head in
-        training."""
+        training.
+        input: output of the backbone (and neck, if present)
+            What exactly is inputs (shape & meaning)?
+                Because your backbone is ResNet-34 with:
+                out_indices=(0, 1, 2, 3)
+                inputs is a list of feature maps, typically:
+                inputs[0]: (N, C1, H/4,  W/4)
+                inputs[1]: (N, C2, H/8,  W/8)
+                inputs[2]: (N, C3, H/16, W/16)
+                inputs[3]: (N, C4, H/32, W/32) -> this is the one in_index = -1
+
+        data_samples: 
+            In your pipeline (PPPPackSegInputs), you created:
+            data_sample.gt_sem_seg = PixelData(data=gt)
+            So for each sample:
+                data_samples[i].gt_sem_seg.data
+                has shape: (3, H, W)
+                with:
+                    channel 0: PPP intensity mask {0,1}
+                    channel 1: depth (continuous)
+                    channel 2: velocity (continuous)
+        """
         losses = dict()
         loss_decode = self.decode_head.loss(inputs, data_samples,
-                                            self.train_cfg)
+                                            self.train_cfg) # This is the head I set
 
         losses.update(add_prefix(loss_decode, 'decode'))
         return losses
@@ -169,6 +190,8 @@ class EncoderDecoder(BaseSegmentor):
 
         Returns:
             dict[str, Tensor]: a dictionary of loss components
+
+        GT sanity check: [(i, int(s.gt_sem_seg.data[0].sum().item())) for i, s in enumerate(data_samples)]
         """
 
         x = self.extract_feat(inputs)
