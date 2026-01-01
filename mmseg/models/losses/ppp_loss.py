@@ -18,6 +18,16 @@ class PPPLoss(nn.Module):
 
         N, C, H, W = inputs.shape
         assert C == 1
+        assert inputs.shape == targets.shape
+
+        assert torch.isfinite(inputs).all(), "PPPLoss | inputs contain NaN/Inf"
+        assert torch.isfinite(targets).all(), "PPPLoss | targets contain NaN/Inf"
+
+        if not torch.all((targets == 0) | (targets == 1)):
+            raise ValueError(
+                f"PPPLoss | targets not binary, "
+                f"unique values: {torch.unique(targets)}"
+            )
 
         # pixel area of original resolution
         pixel_scale = torch.tensor(self.test_resolution, device=inputs.device).prod()
