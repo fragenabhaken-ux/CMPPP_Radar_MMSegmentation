@@ -11,7 +11,7 @@ from mmseg.utils import stack_batch
 import logging
 
 LOGGER_NAME = "preoprocessor"
-LOG_LEVEL = logging.DEBUG  # change to logging.INFO, logging.DEBUG 
+LOG_LEVEL = logging.INFO  # change to logging.INFO, logging.DEBUG 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(LOG_LEVEL)
