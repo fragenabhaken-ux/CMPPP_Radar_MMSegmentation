@@ -184,5 +184,14 @@ default_hooks = dict(
 )
 
 custom_hooks = [
-    dict(type='PPPMarkVisualizationHook', interval=200)
+    dict(type='PPPMarkVisualizationHook', interval=200),
+    dict(type='LossPlotHook', out_file='loss.png', smooth_alpha=0.05),
 ]
+
+visualizer = dict(
+    type='Visualizer',
+    vis_backends=[
+        dict(type='LocalVisBackend'),
+        dict(type='TensorboardVisBackend'),
+    ]
+)
