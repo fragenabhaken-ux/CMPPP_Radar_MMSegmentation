@@ -26,6 +26,8 @@ class Sys100PPPHeatmapDataset(BaseDataset):
     Then the data loader can choose an index
     sample_id = 123
     results = data_list[123]  # {"idx": 123}
+
+    Stide argument. I.e. not take every frame a.e. for test run.
     """
 
     def __init__(
@@ -34,6 +36,7 @@ class Sys100PPPHeatmapDataset(BaseDataset):
         out_img_size=(544, 1792),
         undistort=True,
         fovs=(110, 48.4),
+        frame_stride=1,
         strict=False,
         **kwargs,
     ):
@@ -48,8 +51,12 @@ class Sys100PPPHeatmapDataset(BaseDataset):
             fovs=fovs,
             strict=strict,
         )
+        self.frame_stride = frame_stride
 
         super().__init__(**kwargs)
 
     def load_data_list(self):
-        return [{"idx": i} for i in range(len(self.sys100))]
+        return [
+            {"idx": i}
+            for i in range(0, len(self.sys100), self.frame_stride)
+        ]

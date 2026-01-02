@@ -18,7 +18,7 @@ crop_size = (256, 512)
 
 data_preprocessor = dict(
     type='SegDataPreProcessor',
-    mean=[123.675, 116.28, 103.53],  #TODO: Determine mean and std of Aumovio data.
+    mean=[123.675, 116.28, 103.53],  #TODO: Determine mean and std of Aumovio data. Note: Set in vis_hook also!!
     std=[58.395, 57.12, 57.375],
     size=crop_size,
     pad_val=0,
@@ -134,6 +134,7 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH,
+        frame_stride=10,
         pipeline=test_pipeline,
     )
 )
@@ -152,7 +153,7 @@ optim_wrapper = dict(
     paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.5)})
 )
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=80000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=80000, val_interval=4000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -171,8 +172,17 @@ param_scheduler = [
 val_evaluator = dict(type='PPPMetric')
 test_evaluator = dict(type='PPPMetric')
 
-default_hooks = dict(checkpoint=dict(by_epoch=False, interval=1000))
+default_hooks = dict(
+    checkpoint=dict(
+        type='CheckpointHook',
+        by_epoch=False,
+        interval=4000,
+        max_keep_ckpts=5,
+        save_best='ppp/count_abs_error', # after distance/velocity normalization save_best='ppp/selection_score', -> ppp_metrics
+        rule='less'
+    ),
+)
 
 custom_hooks = [
-    dict(type='PPPMarkVisualizationHook', interval=200, out_dir='work_dirs/ppp_vis')
+    dict(type='PPPMarkVisualizationHook', interval=200)
 ]

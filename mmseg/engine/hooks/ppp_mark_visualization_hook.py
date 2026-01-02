@@ -35,23 +35,20 @@ class PPPMarkVisualizationHook(Hook):
     def __init__(
         self,
         interval=200,
-        out_dir='work_dirs/ppp_mark_vis',
         max_samples=1,
     ):
-        self.interval = interval
-        self.out_dir = out_dir
+        self.interval = interval # this is for train. For test/val we display all (but filter using dataset stride)
         self.max_samples = max_samples
-        os.makedirs(out_dir, exist_ok=True)
 
     def after_train_iter(self, runner, batch_idx, data_batch=None, outputs=None):
 
-        if (runner.iter + 1) % self.interval != 0:
+        if runner.iter % self.interval != 0:
             return
         if not isinstance(data_batch, dict):
             return
 
         model = runner.model
-        model.eval()
+        model.eval() # this switches the model into eval mode (at the end we reset it to training mode)
 
         # ---------------------------------------------------------
         # Apply data preprocesso
@@ -60,17 +57,105 @@ class PPPMarkVisualizationHook(Hook):
         inputs = proc['inputs']
         data_samples = proc['data_samples']
 
-        device = inputs.device
-
         with torch.no_grad():
             feats = model.extract_feat(inputs)
             preds = model.decode_head(feats)   # (N,C,H,W)
 
+        self.visualize_ppp_batch(
+            runner=runner,
+            inputs=inputs,
+            preds=preds,
+            data_samples=data_samples,
+            outputs=outputs,
+            phase="train",
+        )
+
+        model.train()
+
+    def after_test_iter(self, runner, batch_idx, data_batch=None, outputs=None):
+        """
+        Visualization during testing / evaluation.
+        Runs for every test batch (or you can subsample via batch_idx).
+        """
+
+        if not isinstance(data_batch, dict):
+            return
+
+        model = runner.model
+        model.eval()  # ensure eval mode (already true in test loop, but explicit is fine)
+
+        proc = model.data_preprocessor(data_batch)
+        inputs = proc["inputs"]
+        data_samples = proc["data_samples"]
+
+        with torch.no_grad():
+            feats = model.extract_feat(inputs)
+            preds = model.decode_head(feats)
+
+        self.visualize_ppp_batch(
+            runner=runner,
+            inputs=inputs,
+            preds=preds,
+            data_samples=data_samples,
+            outputs=None,      # no losses during test
+            phase="test",
+        )
+
+    def after_val_iter(self, runner, batch_idx, data_batch=None, outputs=None):
+        """
+        Visualization during validation.
+        """
+
+        if not isinstance(data_batch, dict):
+            return
+
+        model = runner.model
+        model.eval()  # val loop already uses eval, explicit is fine
+
+        proc = model.data_preprocessor(data_batch)
+        inputs = proc["inputs"]
+        data_samples = proc["data_samples"]
+
+        with torch.no_grad():
+            feats = model.extract_feat(inputs)
+            preds = model.decode_head(feats)
+
+        self.visualize_ppp_batch(
+            runner=runner,
+            inputs=inputs,
+            preds=preds,
+            data_samples=data_samples,
+            outputs=None,   # losses are not passed here either
+            phase="val",
+        )
+
+    def _get_vis_dir(self, runner, phase: str) -> str:
+        vis_dir = os.path.join(
+            runner.log_dir,
+            "vis_data",
+            phase
+        )
+        os.makedirs(vis_dir, exist_ok=True)
+        return vis_dir
+
+    def visualize_ppp_batch(
+        self,
+        *,
+        runner,
+        inputs: torch.Tensor,              # (N, 3, H, W)
+        preds: torch.Tensor,               # (N, C, H, W)
+        data_samples: list,                # list[SegDataSample]
+        outputs: dict | None = None,        # losses (train only)
+        phase: str = "train",               # "train" | "test"
+        ):
+
+        num_vis = min(self.max_samples, preds.size(0))
+        device = inputs.device
+        out_dir = self._get_vis_dir(runner, phase)
+
         # ---------------------------------------------------------
         # Loop over first few samples only
         # ---------------------------------------------------------
-        num_vis = min(self.max_samples, preds.size(0))
-
         for i in range(num_vis):
 
             pred = preds[i]
@@ -126,35 +211,39 @@ class PPPMarkVisualizationHook(Hook):
             # Meta information
             # ---------------------------------------------
             meta = data_samples[i].metainfo
-            sample_id = meta.get('img_path', f'sample_{i}')
-            sample_id = os.path.splitext(os.path.basename(sample_id))[0]
-            prefix = f"iter_{runner.iter:07d}_{sample_id}"
+            
+            frame_idx = int(meta["frame_idx"])
+            prefix = (
+                f"iter_{runner.iter:07d}_"
+                f"{phase}_"
+                f"frame_{frame_idx:06d}_"
+                f"s{i}"
+            )
 
             # ---------------------------------------------
             # Save raw arrays
             # ---------------------------------------------
-            np.save(os.path.join(self.out_dir, f"{prefix}_img.npy"), img)
-            np.save(os.path.join(self.out_dir, f"{prefix}_lambda_pred.npy"), lam_np)
-            np.save(os.path.join(self.out_dir, f"{prefix}_lambda_gt.npy"), gt_lam_np)
+            np.save(os.path.join(out_dir, f"{prefix}_img.npy"), img)
+            np.save(os.path.join(out_dir, f"{prefix}_lambda_pred.npy"), lam_np)
+            np.save(os.path.join(out_dir, f"{prefix}_lambda_gt.npy"), gt_lam_np)
 
             if depth_np is not None:
-                np.save(os.path.join(self.out_dir, f"{prefix}_depth_pred.npy"), depth_np)
-                np.save(os.path.join(self.out_dir, f"{prefix}_depth_gt.npy"), gt_depth_np)
+                np.save(os.path.join(out_dir, f"{prefix}_depth_pred.npy"), depth_np)
+                np.save(os.path.join(out_dir, f"{prefix}_depth_gt.npy"), gt_depth_np)
 
             if vel_np is not None:
-                np.save(os.path.join(self.out_dir, f"{prefix}_velocity_pred.npy"), vel_np)
-                np.save(os.path.join(self.out_dir, f"{prefix}_velocity_gt.npy"), gt_vel_np)
+                np.save(os.path.join(out_dir, f"{prefix}_velocity_pred.npy"), vel_np)
+                np.save(os.path.join(out_dir, f"{prefix}_velocity_gt.npy"), gt_vel_np)
 
             # ---------------------------------------------
             # Save meta + losses
             # ---------------------------------------------
             meta_dump = {
-                "iter": runner.iter,
-                "img_path": meta.get("img_path", ""),
+                "iter": int(runner.iter),
+                "frame_idx": int(meta["frame_idx"]),
+                "sample_in_batch": int(i),
                 "img_shape": meta.get("img_shape", None),
                 "ori_shape": meta.get("ori_shape", None),
-                "scale_factor": meta.get("scale_factor", None),
-                "crop_bbox": meta.get("img_crop_bbox", None),
                 "losses": {
                     k: float(v) for k, v in (outputs or {}).items()
                     if torch.is_tensor(v)
@@ -166,7 +255,7 @@ class PPPMarkVisualizationHook(Hook):
                 }
             }
 
-            with open(os.path.join(self.out_dir, f"{prefix}_meta.json"), "w") as f:
+            with open(os.path.join(out_dir, f"{prefix}_meta.json"), "w") as f:
                 json.dump(meta_dump, f, indent=2)
 
             # ---------------------------------------------
@@ -178,13 +267,12 @@ class PPPMarkVisualizationHook(Hook):
             axs[0, 0].set_title("Image")
 
             axs[0, 1].imshow(lam_np, cmap='hot')
-            axs[0, 1].set_title("Predicted Intensity")
+            axs[0, 1].set_title("Predicted intensity")
 
             axs[0, 1].text(
                 0.02, 0.95,
-                "PPP Count Diagnostic\n"
                 f"E[N] = {expected_count:.2f}\n"
-                f"GT = {gt_count}\n"
+                f"GTN  = {gt_count}\n"
                 f"Diff. = {expected_count - gt_count:+.2f}",
                 transform=axs[0, 1].transAxes,
                 fontsize=11,
@@ -234,8 +322,7 @@ class PPPMarkVisualizationHook(Hook):
                 ax.axis("off")
 
             plt.tight_layout()
-            plt.savefig(os.path.join(self.out_dir, f"{prefix}_vis.png"))
+            plt.savefig(os.path.join(out_dir, f"{prefix}_vis.png"))
             # plt.close()
             plt.close("all") # entered "all" to remedy "Tcl_AsyncDelete: async handler deleted by the wrong thread"
 
-        model.train()

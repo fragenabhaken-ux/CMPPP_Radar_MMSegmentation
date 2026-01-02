@@ -374,6 +374,7 @@ class PPPPackSegInputs(BaseTransform):
             dict(
                 img_shape=results.get("img_shape"),
                 ori_shape=results.get("ori_shape"),
+                frame_idx=int(results["idx"]),
             )
         )
         data_sample.gt_sem_seg = PixelData(data=gt)
