@@ -15,11 +15,13 @@ custom_imports = dict(
 )
 
 crop_size = (256, 512)
+data_rbg_mean = [80.182, 87.428, 79.65]
+data_rbg_std = [25.751, 25.934, 27.112]
 
 data_preprocessor = dict(
     type='SegDataPreProcessor',
-    mean=[123.675, 116.28, 103.53],  #TODO: Determine mean and std of Aumovio data. Note: Set in vis_hook also!!
-    std=[58.395, 57.12, 57.375],
+    mean=data_rbg_mean,
+    std=data_rbg_std,
     size=crop_size,
     pad_val=0,
     seg_pad_val=0, # for seg label data, 255 is the "ignore" label (nonissue, since no padding necessary)
@@ -184,7 +186,7 @@ default_hooks = dict(
 )
 
 custom_hooks = [
-    dict(type='PPPMarkVisualizationHook', interval=200),
+    dict(type='PPPMarkVisualizationHook', interval=200, mean=data_rbg_mean, std=data_rbg_std),
     dict(type='LossPlotHook', out_file='loss.png', smooth_alpha=0.05),
 ]
 

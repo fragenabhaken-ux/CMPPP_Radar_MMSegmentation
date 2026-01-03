@@ -36,9 +36,20 @@ class PPPMarkVisualizationHook(Hook):
         self,
         interval=200,
         max_samples=1,
+        img_mean=None,
+        img_std=None,
     ):
         self.interval = interval # this is for train. For test/val we display all (but filter using dataset stride)
         self.max_samples = max_samples
+
+        self.img_mean = (
+            np.array(img_mean, dtype=np.float32)[:, None, None]
+            if img_mean is not None else None
+        )
+        self.img_std = (
+            np.array(img_std, dtype=np.float32)[:, None, None]
+            if img_std is not None else None
+        )
 
     def after_train_iter(self, runner, batch_idx, data_batch=None, outputs=None):
 
@@ -178,9 +189,11 @@ class PPPMarkVisualizationHook(Hook):
             # Image (de-normalize)
             # ---------------------------------------------
             img = inputs[i].cpu().numpy()
-            mean = np.array([123.675, 116.28, 103.53])[:, None, None]
-            std = np.array([58.395, 57.12, 57.375])[:, None, None]
-            img = (img * std + mean).clip(0, 255).astype(np.uint8)
+
+            if self.img_mean is not None and self.img_std is not None:
+                img = img * self.img_std + self.img_mean
+
+            img = img.clip(0, 255).astype(np.uint8)
             img = np.transpose(img, (1, 2, 0))
 
             # ---------------------------------------------
