@@ -14,9 +14,10 @@ custom_imports = dict(
     allow_failed_imports=False
 )
 
-crop_size = (256, 512)
-data_rbg_mean = [80.182, 87.428, 79.65]
+crop_size = (384, 768) # (256, 512) # hat nicht gut auf das ganze Bild generalisiert
+data_rbg_mean = [80.182, 87.428, 79.65] # -> marked_ppp_gt_exploration.ipynb
 data_rbg_std = [25.751, 25.934, 27.112]
+fovs_wo_fisheyeart=(105, 48.4) # (110, 48.4) still had the fisheye artefact on the right
 
 data_preprocessor = dict(
     type='SegDataPreProcessor',
@@ -86,7 +87,7 @@ train_pipeline = [
         sys100_root=DATA_PATH,
         out_img_size=(544, 1792),
         undistort=True,
-        fovs=(110, 48.4),
+        fovs=fovs_wo_fisheyeart,
         strict=False
     ),
     dict(
@@ -95,6 +96,7 @@ train_pipeline = [
         rel_x_centre=0.491,
         rel_y_centre=0.4370,
     ),
+    # dict(type='PPPRandomCrop', crop_size=crop_size),
     dict(type='PPPRandomCrop', crop_size=crop_size),
     dict(type='PPPRandomFlip', prob=0.5, direction='horizontal'),
     dict(type='PPPPackSegInputs'),
@@ -106,7 +108,7 @@ test_pipeline = [
         sys100_root=DATA_PATH,
         out_img_size=(544, 1792),
         undistort=True,
-        fovs=(110, 48.4),
+        fovs=fovs_wo_fisheyeart,
         strict=False
     ),
     dict(
@@ -126,6 +128,7 @@ train_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH,
+        fovs=fovs_wo_fisheyeart,
         pipeline=train_pipeline,
     )
 )
@@ -136,6 +139,7 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH,
+        fovs=fovs_wo_fisheyeart,
         frame_stride=10,
         pipeline=test_pipeline,
     )
@@ -186,7 +190,7 @@ default_hooks = dict(
 )
 
 custom_hooks = [
-    dict(type='PPPMarkVisualizationHook', interval=200, mean=data_rbg_mean, std=data_rbg_std),
+    dict(type='PPPMarkVisualizationHook', interval=200, img_mean=data_rbg_mean, img_std=data_rbg_std),
     dict(type='LossPlotHook', out_file='loss.png', smooth_alpha=0.05),
 ]
 

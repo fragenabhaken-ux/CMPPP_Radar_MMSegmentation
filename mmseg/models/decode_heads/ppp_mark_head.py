@@ -245,11 +245,11 @@ class PPPMarkHead(BaseDecodeHead):
         # on the masked points. The prediction is to be understood as E[m|point], i.e.
         # if PPP has an event here, that is what the mark would be (conditional preds).
         loss_depth = (
-            F.smooth_l1_loss(pred_depth, gt_depth, reduction="none") * mask
+            F.l1_loss(pred_depth, gt_depth, reduction="none") * mask # smooth_l1_loss
         ).sum() / normalizer
 
         loss_velocity = (
-            F.smooth_l1_loss(pred_vel, gt_vel, reduction="none") * mask
+            F.l1_loss(pred_vel, gt_vel, reduction="none") * mask # # smooth_l1_loss
         ).sum() / normalizer
 
         logger.debug(
