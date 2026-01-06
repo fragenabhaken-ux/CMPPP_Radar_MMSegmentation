@@ -5,10 +5,10 @@ from mmseg.registry import MODELS
 @MODELS.register_module()
 class PPPLoss(nn.Module):
 
-    def __init__(self, test_resolution=(512,1024), loss_weight=1.0):
+    def __init__(self loss_weight=1.0): # , test_resolution=(512,1024), Bug Tobi
         super().__init__()
         self.loss_weight = loss_weight
-        self.test_resolution = test_resolution
+        # self.test_resolution = test_resolution # Bug
 
     def forward(self, inputs, targets, avg_factor=1.0):
         """
@@ -30,7 +30,8 @@ class PPPLoss(nn.Module):
             )
 
         # pixel area of original resolution
-        pixel_scale = torch.tensor(self.test_resolution, device=inputs.device).prod()
+        # pixel_scale = torch.tensor(self.test_resolution, device=inputs.device).prod() Bug Tobi
+        pixel_scale = H * W
 
         # intensity
         lam = torch.exp(inputs) / pixel_scale      # λ = exp(f)/pixel_area

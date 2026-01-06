@@ -59,6 +59,7 @@ class PPPMarkVisualizationHook(Hook):
             return
 
         model = runner.model
+        was_training = model.training
         model.eval() # this switches the model into eval mode (at the end we reset it to training mode)
 
         # ---------------------------------------------------------
@@ -81,7 +82,8 @@ class PPPMarkVisualizationHook(Hook):
             phase="train",
         )
 
-        model.train()
+        if was_training:
+            model.train()
 
     def after_test_iter(self, runner, batch_idx, data_batch=None, outputs=None):
         """
@@ -175,13 +177,13 @@ class PPPMarkVisualizationHook(Hook):
             # ---------------------------------------------
             # Split channels
             # ---------------------------------------------
-            pred_intensity_logits = pred[0]
-            pred_intensity = torch.exp(pred_intensity_logits)
+            pred_log_intensity = pred[0] # logits
+            pred_lambda_theta = torch.exp(pred_log_intensity) # pred_intensity
 
             pred_depth = pred[1] if pred.size(0) > 1 else None
             pred_velocity = pred[2] if pred.size(0) > 2 else None
 
-            gt_intensity = gt[0]
+            gt_point_support = gt[0]
             gt_depth = gt[1] if gt.size(0) > 1 else None
             gt_velocity = gt[2] if gt.size(0) > 2 else None
 
@@ -199,8 +201,8 @@ class PPPMarkVisualizationHook(Hook):
             # ---------------------------------------------
             # Convert to numpy
             # ---------------------------------------------
-            lam_np = pred_intensity.cpu().numpy()
-            gt_lam_np = gt_intensity.cpu().numpy()
+            pred_lambda_theta_np = pred_lambda_theta.cpu().numpy()
+            gt_point_support_np = gt_point_support.cpu().numpy()
 
             depth_np = pred_depth.cpu().numpy() if pred_depth is not None else None
             vel_np = pred_velocity.cpu().numpy() if pred_velocity is not None else None
@@ -212,12 +214,12 @@ class PPPMarkVisualizationHook(Hook):
             # Get metrics - counts (Convert to numpy)
             # ---------------------------------------------
 
-            H, W = lam_np.shape
+            H, W = pred_lambda_theta_np.shape
             pixel_area = H * W
-            lam_norm = lam_np / pixel_area      # match PPPLoss normalization
-            expected_count = lam_norm.sum()
+            pred_lambda_mass = pred_lambda_theta_np / pixel_area      # match PPPLoss normalization
+            expected_count = pred_lambda_mass.sum()
 
-            gt_count = float(gt_lam_np.sum())
+            gt_count = float(gt_point_support_np.sum())
 
 
             # ---------------------------------------------
@@ -237,16 +239,17 @@ class PPPMarkVisualizationHook(Hook):
             # Save raw arrays
             # ---------------------------------------------
             np.save(os.path.join(out_dir, f"{prefix}_img.npy"), img)
-            np.save(os.path.join(out_dir, f"{prefix}_lambda_pred.npy"), lam_np)
-            np.save(os.path.join(out_dir, f"{prefix}_lambda_gt.npy"), gt_lam_np)
+            np.save(os.path.join(out_dir, f"{prefix}_pred_log_intensity.npy"), pred_log_intensity.detach().cpu().numpy())
+            np.save(os.path.join(out_dir, f"{prefix}_pred_lambda_mass.npy"), pred_lambda_mass)
+            np.save(os.path.join(out_dir, f"{prefix}_gt_point_support.npy"), gt_point_support_np)
 
             if depth_np is not None:
-                np.save(os.path.join(out_dir, f"{prefix}_depth_pred.npy"), depth_np)
-                np.save(os.path.join(out_dir, f"{prefix}_depth_gt.npy"), gt_depth_np)
+                np.save(os.path.join(out_dir, f"{prefix}_pred_depth.npy"), depth_np)
+                np.save(os.path.join(out_dir, f"{prefix}_gt_depth.npy"), gt_depth_np)
 
             if vel_np is not None:
-                np.save(os.path.join(out_dir, f"{prefix}_velocity_pred.npy"), vel_np)
-                np.save(os.path.join(out_dir, f"{prefix}_velocity_gt.npy"), gt_vel_np)
+                np.save(os.path.join(out_dir, f"{prefix}_pred_velocity.npy"), vel_np)
+                np.save(os.path.join(out_dir, f"{prefix}_gt_velocity.npy"), gt_vel_np)
 
             # ---------------------------------------------
             # Save meta + losses
@@ -262,9 +265,12 @@ class PPPMarkVisualizationHook(Hook):
                     if torch.is_tensor(v)
                 },
                 "ppp_diagnostics": {
-                    "expected_count_full": float(expected_count),
-                    "gt_count_full": int(gt_count),
-                    "count_error": float(expected_count - gt_count)
+                    "H": int(H),
+                    "W": int(W),
+                    "img_area": int(pixel_area),
+                    "expected_count": float(expected_count),
+                    "gt_count": float(gt_count),
+                    "count_error": float(expected_count - gt_count),
                 }
             }
 
@@ -279,8 +285,8 @@ class PPPMarkVisualizationHook(Hook):
             axs[0, 0].imshow(img)
             axs[0, 0].set_title("Image")
 
-            axs[0, 1].imshow(lam_np, cmap='hot')
-            axs[0, 1].set_title("Predicted intensity")
+            axs[0, 1].imshow(pred_lambda_mass, cmap='hot')
+            axs[0, 1].set_title("Predicted intensity lambda")
 
             axs[0, 1].text(
                 0.02, 0.95,
@@ -294,8 +300,8 @@ class PPPMarkVisualizationHook(Hook):
                 bbox=dict(facecolor="black", alpha=0.5, pad=4)
             )
 
-            axs[0, 2].imshow(gt_lam_np, cmap='gray')
-            axs[0, 2].set_title("GT intensity")
+            axs[0, 2].imshow(gt_point_support_np, cmap='gray')
+            axs[0, 2].set_title("GT point support")
 
             if depth_np is not None:
                 im_depth = axs[1, 0].imshow(depth_np, cmap='viridis')
