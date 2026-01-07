@@ -26,6 +26,7 @@ data_preprocessor = dict(
     std=data_rbg_std,
     pad_val=0,
     seg_pad_val=0, # for seg label data, 255 is the "ignore" label (nonissue, since no padding necessary)
+    size=crop_size
 )
 
 model = dict(
@@ -55,7 +56,7 @@ model = dict(
         loss_ppp=dict(
             type='PPPLoss',
             out_img_size=out_img_size,
-            loss_weight=1.0,
+            loss_weight=0.1, # debug oscillating loss
         ),
         # loss_depth=dict(
         #     type='SmoothL1Loss',
@@ -150,9 +151,14 @@ optim_wrapper = dict(
     optimizer=dict(
         _delete_=True,
         type='AdamW',
-        lr=0.0003,
+        lr=0.0001,
         weight_decay=0.01,
-        betas=(0.9, 0.999),
+        betas=(0.9, 0.999)
+    ),
+    clip_grad=dict(
+        _delete_=True,        # 🔑 DAS ist entscheidend
+        max_norm=1.0,
+        norm_type=2
     ),
     paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.5)})
 )
@@ -188,7 +194,7 @@ default_hooks = dict(
 )
 
 custom_hooks = [
-    dict(type='PPPMarkVisualizationHook', interval=200, img_mean=data_rbg_mean, img_std=data_rbg_std),
+    dict(type='PPPMarkVisualizationHook', out_img_size=out_img_size, interval=200, img_mean=data_rbg_mean, img_std=data_rbg_std),
     dict(type='LossPlotHook', out_file='loss.png', smooth_alpha=0.05),
 ]
 

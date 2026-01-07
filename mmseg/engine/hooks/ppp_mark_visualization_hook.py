@@ -174,15 +174,15 @@ class PPPMarkVisualizationHook(Hook):
             pred = preds[i]
             gt = data_samples[i].gt_sem_seg.data.to(device)
 
-            # Debug dim issue (expected count undercounts on full frame)
-            pred_H, pred_W = pred.shape[-2:]
-            gt_H, gt_W = gt.shape[-2:]
+            # # Debug dim issue (expected count undercounts on full frame)
+            # pred_H, pred_W = pred.shape[-2:]
+            # gt_H, gt_W = gt.shape[-2:]
 
-            print(
-                f"[{phase}] pred HW=({pred_H},{pred_W}) | gt HW=({gt_H},{gt_W}) | "
-                f"meta img_shape={data_samples[i].metainfo.get('img_shape')} | "
-                f"ori_shape={data_samples[i].metainfo.get('ori_shape')}"
-            )
+            # print(
+            #     f"[{phase}] pred HW=({pred_H},{pred_W}) | gt HW=({gt_H},{gt_W}) | "
+            #     f"meta img_shape={data_samples[i].metainfo.get('img_shape')} | "
+            #     f"ori_shape={data_samples[i].metainfo.get('ori_shape')}"
+            # )
 
             # ---------------------------------------------
             # Split channels
@@ -224,7 +224,8 @@ class PPPMarkVisualizationHook(Hook):
             # Get metrics - counts (Convert to numpy)
             # ---------------------------------------------
 
-            H, W = pred_lambda_theta_np.shape
+            # H, W = pred_lambda_theta_np.shape
+            H, W = data_samples[i].metainfo["ori_shape"]
             pixel_area = H * W
             pred_lambda_mass = pred_lambda_theta_np / pixel_area      # match PPPLoss normalization
             expected_count = pred_lambda_mass.sum()
