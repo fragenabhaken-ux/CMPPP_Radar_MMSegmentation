@@ -219,7 +219,8 @@ class PPPMarkHead(BaseDecodeHead):
         assert (pred_depth > 0).all(), "pred_depth must be strictly positive"
 
         # PPP loss only on intensity channel
-        avg_factor = max(float(gt_int.sum().item()), 1.0)
+        # avg_factor = max(float(gt_int.sum().item()), 1.0)
+        avg_factor = 1 # Could this be the saling bug??? Normalization by gt_count??)
         loss_ppp = self.loss_ppp(pred_int, gt_int, avg_factor=avg_factor)
 
         # masked mark regression at point locations only

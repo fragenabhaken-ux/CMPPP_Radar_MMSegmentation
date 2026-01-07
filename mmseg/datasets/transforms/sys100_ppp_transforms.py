@@ -235,7 +235,7 @@ class BuildPPPHeatmap(BaseTransform):
         vel = np.clip(vel, self.clip_vel[0], self.clip_vel[1])
 
         # write sparse targets
-        gt[y_pix, x_pix, 0] = 1.0
+        gt[y_pix, x_pix, 0] = 1.0 # TODO: If multiple radar points project to the same pixel, we still store only a single “1”. We are modeling occupied pixels, not points. (???)
         gt[y_pix, x_pix, 1] = depth
         gt[y_pix, x_pix, 2] = vel
 

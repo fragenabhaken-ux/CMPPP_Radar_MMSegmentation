@@ -5,10 +5,16 @@ from mmseg.registry import MODELS
 @MODELS.register_module()
 class PPPLoss(nn.Module):
 
-    def __init__(self loss_weight=1.0): # , test_resolution=(512,1024), Bug Tobi
+    def __init__(self, out_img_size, loss_weight=1.0): # , test_resolution=(512,1024), Bug Tobi
         super().__init__()
         self.loss_weight = loss_weight
         # self.test_resolution = test_resolution # Bug
+        # full reference domain (H_full, W_full)
+        H_full, W_full = out_img_size
+        self.register_buffer(
+            "pixel_scale",
+            torch.tensor(H_full * W_full, dtype=torch.float32)
+        )
 
     def forward(self, inputs, targets, avg_factor=1.0):
         """
@@ -31,7 +37,15 @@ class PPPLoss(nn.Module):
 
         # pixel area of original resolution
         # pixel_scale = torch.tensor(self.test_resolution, device=inputs.device).prod() Bug Tobi
-        pixel_scale = H * W
+        # pixel_scale = torch.tensor(H * W, device=inputs.device, dtype=inputs.dtype)
+        # If we normalized by the local crop area instead, the model would learn a
+        # conditional intensity given the crop. When evaluated on the full frame,
+        # this would systematically undercount, because lambda would implicitly be scaled
+        # to a smaller reference domain.
+        pixel_scale = self.pixel_scale.to(
+            device=inputs.device,
+            dtype=inputs.dtype
+        )
 
         # intensity
         lam = torch.exp(inputs) / pixel_scale      # λ = exp(f)/pixel_area

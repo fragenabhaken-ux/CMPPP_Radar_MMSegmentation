@@ -174,6 +174,16 @@ class PPPMarkVisualizationHook(Hook):
             pred = preds[i]
             gt = data_samples[i].gt_sem_seg.data.to(device)
 
+            # Debug dim issue (expected count undercounts on full frame)
+            pred_H, pred_W = pred.shape[-2:]
+            gt_H, gt_W = gt.shape[-2:]
+
+            print(
+                f"[{phase}] pred HW=({pred_H},{pred_W}) | gt HW=({gt_H},{gt_W}) | "
+                f"meta img_shape={data_samples[i].metainfo.get('img_shape')} | "
+                f"ori_shape={data_samples[i].metainfo.get('ori_shape')}"
+            )
+
             # ---------------------------------------------
             # Split channels
             # ---------------------------------------------

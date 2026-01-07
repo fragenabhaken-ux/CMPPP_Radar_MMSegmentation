@@ -14,7 +14,7 @@ custom_imports = dict(
     allow_failed_imports=False
 )
 
-crop_size = (384, 768) # (256, 512) # hat nicht gut auf das ganze Bild generalisiert
+crop_size = (400, 1000) # (256, 512), (544, 1792)
 data_rbg_mean = [80.182, 87.428, 79.65] # -> marked_ppp_gt_exploration.ipynb
 data_rbg_std = [25.751, 25.934, 27.112]
 fovs_wo_fisheyeart=(105, 48.4) # (110, 48.4) still had the fisheye artefact on the right
@@ -23,7 +23,7 @@ data_preprocessor = dict(
     type='SegDataPreProcessor',
     mean=data_rbg_mean,
     std=data_rbg_std,
-    size=crop_size,
+    # size=crop_size,
     pad_val=0,
     seg_pad_val=0, # for seg label data, 255 is the "ignore" label (nonissue, since no padding necessary)
 )
@@ -55,9 +55,6 @@ model = dict(
         loss_ppp=dict(
             type='PPPLoss',
             loss_weight=1.0,
-            test_resolution=crop_size,
-            # if your PPPLoss supports this:
-            # intensity_channel=0,
         ),
         # loss_depth=dict(
         #     type='SmoothL1Loss',
@@ -101,7 +98,7 @@ train_pipeline = [
     dict(type='PPPRandomFlip', prob=0.5, direction='horizontal'),
     dict(type='PPPPackSegInputs'),
 ]
-
+# test_pipeline = train_pipeline
 test_pipeline = [
     dict(
         type='LoadSys100Sample',
