@@ -45,6 +45,11 @@ class PPPMarkHead(BaseDecodeHead):
         concat_input: bool = True,
         dilation: int = 1,
 
+        # ---- loss weights for marks ----
+        ppp_weight: float = 1,
+        depth_weight: float = 1,
+        velocity_weight: float = 1,
+
         # ---- losses ----
         loss_ppp: dict = dict(type="PPPLoss", loss_weight=1.0),
         # loss_depth: dict = dict(type="SmoothL1Loss", loss_weight=1.0),
@@ -86,6 +91,11 @@ class PPPMarkHead(BaseDecodeHead):
         self.num_convs = int(num_convs)
         self.kernel_size = int(kernel_size)
         self.concat_input = bool(concat_input)
+
+        self.ppp_weight = float(ppp_weight)
+        self.depth_weight = float(depth_weight)
+        self.velocity_weight = float(velocity_weight)
+
 
         self.loss_ppp = MODELS.build(loss_ppp)
         # self.loss_depth = MODELS.build(loss_depth)
@@ -221,7 +231,7 @@ class PPPMarkHead(BaseDecodeHead):
         # PPP loss only on intensity channel
         # avg_factor = max(float(gt_int.sum().item()), 1.0)
         avg_factor = 1 # Could this be the saling bug??? Normalization by gt_count??)
-        loss_ppp = self.loss_ppp(pred_int, gt_int, avg_factor=avg_factor)
+        loss_ppp = self.ppp_weight * self.loss_ppp(pred_int, gt_int, avg_factor=avg_factor)
 
         # masked mark regression at point locations only
         mask = gt_int.squeeze(1)  # (N,H,W)
@@ -245,12 +255,11 @@ class PPPMarkHead(BaseDecodeHead):
         # Note: While the intensity is trained everywhere, the marks are only trained
         # on the masked points. The prediction is to be understood as E[m|point], i.e.
         # if PPP has an event here, that is what the mark would be (conditional preds).
-        DEPTHWEIGHT = 1
-        loss_depth = DEPTHWEIGHT * (
+        loss_depth = self.depth_weight * (
             F.l1_loss(pred_depth, gt_depth, reduction="none") * mask # smooth_l1_loss
         ).sum() / normalizer
 
-        loss_velocity = (
+        loss_velocity = self.velocity_weight * (
             F.l1_loss(pred_vel, gt_vel, reduction="none") * mask # # smooth_l1_loss
         ).sum() / normalizer
 

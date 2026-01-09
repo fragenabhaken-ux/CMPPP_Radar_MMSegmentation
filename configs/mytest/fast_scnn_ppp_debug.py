@@ -53,6 +53,10 @@ model = dict(
         # for marked PPP targets:
         num_classes=3,
 
+        ppp_weight=1,
+        depth_weight=10.0,
+        velocity_weight=100.0,
+
         loss_ppp=dict(
             type='PPPLoss',
             out_img_size=out_img_size,
