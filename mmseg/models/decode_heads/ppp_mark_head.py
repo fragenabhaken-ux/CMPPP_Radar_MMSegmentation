@@ -245,7 +245,8 @@ class PPPMarkHead(BaseDecodeHead):
         # Note: While the intensity is trained everywhere, the marks are only trained
         # on the masked points. The prediction is to be understood as E[m|point], i.e.
         # if PPP has an event here, that is what the mark would be (conditional preds).
-        loss_depth = (
+        DEPTHWEIGHT = 1
+        loss_depth = DEPTHWEIGHT * (
             F.l1_loss(pred_depth, gt_depth, reduction="none") * mask # smooth_l1_loss
         ).sum() / normalizer
 

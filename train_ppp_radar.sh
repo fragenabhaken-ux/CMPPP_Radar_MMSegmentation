@@ -12,3 +12,4 @@ conda activate seg_clone_2311
 # python tools/train.py configs/mytest/fast_scnn_ppp_sys100heatmaps_512x1536.py
 # python tools/test.py configs/mytest/fast_scnn_ppp_sys100heatmaps_256x512.py work_dirs/fast_scnn_ppp_sys100heatmaps_256x512/iter_28000.pth
 python tools/train.py configs/mytest/fast_scnn_ppp_debug.py
+# python tools/test.py configs/mytest/fast_scnn_ppp_debug.py work_dirs/fast_scnn_ppp_debug/iter_80000.pth

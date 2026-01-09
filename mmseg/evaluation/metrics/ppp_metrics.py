@@ -1,7 +1,8 @@
 from mmengine.evaluator import BaseMetric
 from mmengine.registry import METRICS
 import torch
-
+from math import log
+    
 
 @METRICS.register_module()
 class PPPMetric(BaseMetric):
@@ -14,63 +15,57 @@ class PPPMetric(BaseMetric):
       - velocity_mae    (masked by GT intensity)
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, out_img_size, **kwargs):
         super().__init__(prefix='ppp', **kwargs)
+        self.out_img_size = out_img_size
 
-    def _get_tensor(obj):
-        """
-        Extract tensor from:
-        - PixelData
-        - dict {'data': tensor}
-        """
+    def _get_tensor(self, sample, key):
+        obj = sample.get(key, None) if isinstance(sample, dict) else getattr(sample, key, None)
+        if obj is None:
+            return None
         if isinstance(obj, dict):
-            return obj["data"]
-        else:
-            return obj.data
+            return obj.get("data", None)
+        return obj.data
+
 
     def process(self, data_batch, data_samples):
 
+        H, W = self.out_img_size
+        pixel_scale = H * W
+
         for sample in data_samples:
 
-            def get_data(x):
-                return x["data"] if isinstance(x, dict) else x.data
-            
-            pred = get_data(sample["pred_sem_seg"])
-            gt   = get_data(sample["gt_sem_seg"])
+            # --- USE LOGITS, NOT pred_sem_seg ---
+            pred = self._get_tensor(sample, "seg_logits")
+            gt   = self._get_tensor(sample, "gt_sem_seg")
+
+            assert pred is not None, "seg_logits missing"
+            assert gt is not None, "gt_sem_seg missing"
 
             pred = pred.detach()
             gt   = gt.detach()
 
-            # ---------------------------------------------
-            # Intensity / count
-            # ---------------------------------------------
+            # channel 0 = intensity logits
             pred_intensity = torch.exp(pred[0])
             gt_intensity   = gt[0]
 
-            H, W = pred_intensity.shape
-            expected_count = (pred_intensity / (H * W)).sum()
+            expected_count = pred_intensity.sum() / pixel_scale
             gt_count = gt_intensity.sum()
 
-            count_abs_error = torch.abs(expected_count - gt_count)
-
             entry = {
-                "count_abs_error": count_abs_error.item()
+                "count_abs_error": torch.abs(expected_count - gt_count).item(),
+                # optional debug:
+                # "expected_count": expected_count.item(),
+                # "gt_count": gt_count.item(),
             }
 
-            # ---------------------------------------------
-            # Mask for distance / velocity
-            # ---------------------------------------------
-            mask = gt_intensity == 1
-
-            if pred.shape[0] > 1 and mask.any():
-                entry["distance_mae"] = torch.mean(
-                    torch.abs(pred[1][mask] - gt[1][mask])
-                ).item()
-
-            if pred.shape[0] > 2 and mask.any():
-                entry["velocity_mae"] = torch.mean(
-                    torch.abs(pred[2][mask] - gt[2][mask])
-                ).item()
+            diff = expected_count - gt_count
+            print(
+                "[PPPMetric]",
+                f"E[N]={expected_count.item():.2f}",
+                f"N_gt={gt_count.item():.2f}",
+                f"|diff|={diff.abs().item():.2f}",
+            )
 
             self.results.append(entry)
 
@@ -114,47 +109,3 @@ class PPPMetric(BaseMetric):
 
         return metrics
 
-
-
-
-# from mmengine.evaluator import BaseMetric
-# from mmengine.registry import METRICS
-
-# @METRICS.register_module()
-# class PPPMetric(BaseMetric):
-#     """
-#     Placeholder metric for Poisson Point Process (PPP) based segmentation/detection.
-
-#     This metric currently does nothing and returns an empty dict. It exists
-#     only to keep the validation/test pipeline functional until a proper PPP
-#     evaluation is implemented.
-
-#     In the future, this class can be extended to compute:
-#         - point detection precision/recall/F1
-#         - count error (|N_pred - N_gt|)
-#         - PPP negative log-likelihood
-#         - intensity MSE (λ_pred vs λ_gt)
-#         - spatial localization error of predicted points
-#     """
-#     def __init__(self, **kwargs):
-#         super().__init__(**kwargs)
-
-#     def process(self, data_batch, data_samples):
-#         """
-#         Called once per batch during validation/test.
-#         For now, we do nothing and simply ignore all predictions.
-
-#         Args:
-#             data_batch (dict): input batch data (unused).
-#             data_samples (list): model outputs (unused).
-#         """
-#         return  # no-op
-
-#     def compute_metrics(self, results):
-#         """
-#         Called once at the end of validation/test.
-
-#         Returns:
-#             dict: Empty dict (valid metric output for MMEngine).
-#         """
-#         return {}

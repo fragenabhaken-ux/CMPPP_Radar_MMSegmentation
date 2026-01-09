@@ -26,7 +26,7 @@ data_preprocessor = dict(
     std=data_rbg_std,
     pad_val=0,
     seg_pad_val=0, # for seg label data, 255 is the "ignore" label (nonissue, since no padding necessary)
-    size=crop_size
+    size=crop_size # Note: No resizing is applied during validation.
 )
 
 model = dict(
@@ -56,7 +56,7 @@ model = dict(
         loss_ppp=dict(
             type='PPPLoss',
             out_img_size=out_img_size,
-            loss_weight=0.1, # debug oscillating loss
+            loss_weight=1,
         ),
         # loss_depth=dict(
         #     type='SmoothL1Loss',
@@ -151,42 +151,43 @@ optim_wrapper = dict(
     optimizer=dict(
         _delete_=True,
         type='AdamW',
-        lr=0.0001,
+        lr=0.00005,
         weight_decay=0.01,
         betas=(0.9, 0.999)
     ),
     clip_grad=dict(
-        _delete_=True,        # 🔑 DAS ist entscheidend
+        _delete_=True, 
         max_norm=1.0,
         norm_type=2
     ),
     paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.5)})
 )
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=80000, val_interval=4000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=1000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
-# redefine the scheduler, because I inherit the 40k one above.
-param_scheduler = [
-    dict(
-        type='CosineAnnealingLR',
-        T_max=80000,
-        eta_min=1e-6,
-        begin=0,
-        end=80000,
-        by_epoch=False
-    )
-]
+# Default back to 40k scheduler...
+# # redefine the scheduler, because I inherit the 40k one above.
+# param_scheduler = [
+#     dict(
+#         type='CosineAnnealingLR',
+#         T_max=80000,
+#         eta_min=1e-6,
+#         begin=0,
+#         end=80000,
+#         by_epoch=False
+#     )
+# ]
 
-val_evaluator = dict(type='PPPMetric')
-test_evaluator = dict(type='PPPMetric')
+val_evaluator = dict(type='PPPMetric', out_img_size=out_img_size)
+test_evaluator = dict(type='PPPMetric', out_img_size=out_img_size,)
 
 default_hooks = dict(
     checkpoint=dict(
         type='CheckpointHook',
         by_epoch=False,
-        interval=4000,
+        interval=1000,
         max_keep_ckpts=5,
         save_best='ppp/count_abs_error', # after distance/velocity normalization save_best='ppp/selection_score', -> ppp_metrics
         rule='less'
@@ -194,7 +195,7 @@ default_hooks = dict(
 )
 
 custom_hooks = [
-    dict(type='PPPMarkVisualizationHook', out_img_size=out_img_size, interval=200, img_mean=data_rbg_mean, img_std=data_rbg_std),
+    dict(type='PPPMarkVisualizationHook', interval=200, img_mean=data_rbg_mean, img_std=data_rbg_std),
     dict(type='LossPlotHook', out_file='loss.png', smooth_alpha=0.05),
 ]
 
