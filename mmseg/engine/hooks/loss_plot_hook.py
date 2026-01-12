@@ -1,7 +1,5 @@
 # mmseg/engine/hooks/loss_plot_hook.py
 
-# mmseg/engine/hooks/loss_plot_hook.py
-
 from mmengine.hooks import Hook
 from mmengine.registry import HOOKS
 import matplotlib.pyplot as plt
@@ -48,7 +46,7 @@ class LossPlotHook(Hook):
 
         fig, axes = plt.subplots(
             n, 1,
-            figsize=(10, 2.5 * n),
+            figsize=(12, 5.0 * n),
             sharex=True
         )
 
@@ -59,18 +57,21 @@ class LossPlotHook(Hook):
             raw = self.losses[key]
             smooth = self._smooth(raw, self.smooth_alpha)
 
-            ax.plot(self.iters, raw, alpha=0.35, label=key)
-            ax.plot(self.iters, smooth, linewidth=2, label=f"{key} (smoothed)")
+            ax.plot(self.iters, raw, alpha=0.35, label="raw")
+            ax.plot(self.iters, smooth, linewidth=2, label="smoothed")
+
             ax.set_ylabel(key)
-            ax.grid(True)
+            ax.set_yscale("log")
+            ax.grid(True, which="both", linestyle="--", alpha=0.4)
             ax.legend()
 
         axes[-1].set_xlabel("Iteration")
-        fig.suptitle("Training Losses", y=0.98)
+        fig.suptitle("Training Losses (log scale)", y=0.995)
 
         out_path = os.path.join(runner.work_dir, self.out_file)
         plt.savefig(out_path, dpi=150, bbox_inches="tight")
         plt.close()
+
 
 
 # from mmengine.hooks import Hook

@@ -235,9 +235,9 @@ class PPPMarkHead(BaseDecodeHead):
 
         # masked mark regression at point locations only
         mask = gt_int.squeeze(1)  # (N,H,W)
-        # We normalize the loss to make the gradient scale independent of how 
-        # many points happen to be in an image.
-        normalizer = mask.sum().clamp(min=1.0)
+        # # We normalize the loss to make the gradient scale independent of how 
+        # # many points happen to be in an image.
+        # normalizer = mask.sum().clamp(min=1.0)
 
         if mask.sum() == 0:
             logger.debug(
@@ -256,12 +256,12 @@ class PPPMarkHead(BaseDecodeHead):
         # on the masked points. The prediction is to be understood as E[m|point], i.e.
         # if PPP has an event here, that is what the mark would be (conditional preds).
         loss_depth = self.depth_weight * (
-            F.l1_loss(pred_depth, gt_depth, reduction="none") * mask # smooth_l1_loss
-        ).sum() / normalizer
+            F.l1_loss(pred_depth, gt_depth, reduction="none") * mask
+        ).sum()
 
         loss_velocity = self.velocity_weight * (
-            F.l1_loss(pred_vel, gt_vel, reduction="none") * mask # # smooth_l1_loss
-        ).sum() / normalizer
+            F.l1_loss(pred_vel, gt_vel, reduction="none") * mask
+        ).sum()
 
         logger.debug(
             "PPPMarkHead | batch=%d | PPP_points=%d | loss_ppp=%.4f | loss_d=%.4f | loss_v=%.4f",
