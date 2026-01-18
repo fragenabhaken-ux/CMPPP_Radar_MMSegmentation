@@ -1,4 +1,9 @@
--r requirements/optional.txt
--r requirements/runtime.txt
--r requirements/tests.txt
--r requirements/multimodal.txt
+mmengine
+ftfy
+
+# mmcv for torch 2.5 + cu124
+mmcv==2.1.0 \
+  -f https://download.openmmlab.com/mmcv/dist/cu124/torch2.5/index.html
+
+# optional
+# mmsegmentation==1.2.2
