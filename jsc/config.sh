@@ -13,6 +13,29 @@
 # export ENV_NAME="$(basename "$ABSOLUTE_PATH")"             # Default Name of the venv is the directory that contains this file
 # export ENV_DIR="${ABSOLUTE_PATH}"/venv         # Default location of this VENV is "./venv"
 
+# ### JONAS ###
+
+# SOURCE_PATH="${BASH_SOURCE[0]:-${(%):-%x}}"
+
+# ## Check if this script is sourced
+
+# [[ "$0" != "${SOURCE_PATH}" ]] && echo "Setting vars" || ( echo "Vars script must be sourced." && exit 1) ;
+
+# ## Determine location of this file and from this the location of the parent CleanStableDiffusion directory
+
+# RELATIVE_PATH="$(dirname "$SOURCE_PATH")"
+
+# ABSOLUTE_PARENT_PATH="$(realpath "${RELATIVE_PATH}/..")"
+
+# ####################################
+
+# ### User Configuration
+
+# export ENV_NAME="$(basename "$ABSOLUTE_PARENT_PATH")" # Default Name of the venv is the directory that contains this file
+
+# export ENV_DIR="${ABSOLUTE_PARENT_PATH}"/venv         # Default location of this VENV is "./venv"
+ 
+
 ### NEU ###
 
 
@@ -24,13 +47,17 @@ SOURCE_PATH="${BASH_SOURCE[0]:-${(%):-%x}}"
 RELATIVE_PATH="$(dirname "$SOURCE_PATH")"
 ABSOLUTE_PATH="$(realpath "${RELATIVE_PATH}")"
 
+ABSOLUTE_PARENT_PATH="$(realpath "${RELATIVE_PATH}/../../..")"
+echo $ABSOLUTE_PARENT_PATH
+
 # # --- User Configuration (JUWELS) ---
 # export ENV_NAME="mmseg"
 # export ENV_DIR="/p/project1/nxtaim-1/huber7/env_mmseg"
 
 # ENV_NAME bleibt konstant, aber per Repo überschreibbar
 export ENV_NAME="${ENV_NAME:-mmseg}"
-export ENV_DIR="${ENV_DIR:-/p/project1/nxtaim-1/huber7/env_mmseg}"
+export ENV_DIR="$ABSOLUTE_PARENT_PATH/env_mmseg"
+echo $ENV_DIR
 
 export SYS100_DATA_PATH="/p/data1/nxtaim/proprietary/continental/"
 

@@ -26,8 +26,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/config.sh"
 source "$SCRIPT_DIR/modules.sh"
 
+echo $ENV_DIR
 source "$ENV_DIR/bin/activate"
 export PYTHONNOUSERSITE=1
+export PYTHONPATH="/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp:${PYTHONPATH}"
 
 echo "Activated $ENV_NAME at $ENV_DIR" # Frage: Ist wirklich der venv-Python aktiv
 python -V

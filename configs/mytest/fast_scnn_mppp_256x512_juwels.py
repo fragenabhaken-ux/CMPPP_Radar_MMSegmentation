@@ -17,7 +17,7 @@ custom_imports = dict(
 import os
 DATA_PATH = os.environ.get(
     "SYS100_DATA_PATH",
-    "/p/data1/nxtaim/proprietary/continental/"
+    "/p/data1/nxtaim/proprietary_samples/continental_sys100/"
 )
 # wird normalerweise vom runner automatisch auf work_dirs im repo gesetzt, hier überschreiben
 work_dir = os.environ.get(
