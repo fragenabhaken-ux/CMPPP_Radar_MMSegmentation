@@ -17,4 +17,5 @@ conda activate seg_clone_2311
 # python tools/train.py configs/mytest/fast_scnn_mppp_544x1792_nocrop.py
 # python tools/train.py configs/mytest/fast_scnn_mppp_408x1344_nocrop.py
 # python tools/test.py configs/mytest/fast_scnn_mppp_256x512_crop.py work_dirs/fast_scnn_mppp_256x512_crop/best_ppp_count_abs_error_iter_36000.pth
-python tools/train.py configs/mytest/fast_scnn_mppp_256x512_crop_normfix.py
+# python tools/train.py configs/mytest/fast_scnn_mppp_256x512_crop_normfix.py
+python tools/test.py configs/mytest/fast_scnn_mppp_256x512_juwels.py checkpoints/iter_36000.pth

@@ -2,8 +2,7 @@ mmengine
 ftfy
 numpy==1.26.4
 
-mmcv-full==2.1.0 \
-  -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.5/index.html
+mmcv==2.1.0 --find-links https://download.openmmlab.com/mmcv/dist/cu121/torch2.5/index.html
 # numpy==2.2.6
 
 # mmcv for torch 2.5 + cu124
