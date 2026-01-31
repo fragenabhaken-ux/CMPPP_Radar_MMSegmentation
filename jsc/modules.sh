@@ -21,7 +21,8 @@ module load GCCcore/.13.3.0
 module load Python/3.12.3
 
 # PyTorch GPU build
-module load PyTorch/2.5.1
+# module load PyTorch/2.5.1 # for mmcv 2.2.0 (error ops)
+module load PyTorch/2.1.2
 
 # ### NEU 2 ###
 
