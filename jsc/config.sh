@@ -48,16 +48,14 @@ RELATIVE_PATH="$(dirname "$SOURCE_PATH")"
 ABSOLUTE_PATH="$(realpath "${RELATIVE_PATH}")"
 
 ABSOLUTE_PARENT_PATH="$(realpath "${RELATIVE_PATH}/../../..")"
-echo $ABSOLUTE_PARENT_PATH
 
 # # --- User Configuration (JUWELS) ---
 # export ENV_NAME="mmseg"
 # export ENV_DIR="/p/project1/nxtaim-1/huber7/env_mmseg"
 
-# ENV_NAME bleibt konstant, aber per Repo überschreibbar
-export ENV_NAME="${ENV_NAME:-mmseg}"
+# ENV_NAME = mmseg, oder bleibt anders, falls anders gesetzt
+export ENV_NAME="${ENV_NAME:-mmseg}" # env name == mmseg
 export ENV_DIR="$ABSOLUTE_PARENT_PATH/env_mmseg"
-echo $ENV_DIR
 
 export SYS100_DATA_PATH="/p/data1/nxtaim/proprietary/continental/"
 
