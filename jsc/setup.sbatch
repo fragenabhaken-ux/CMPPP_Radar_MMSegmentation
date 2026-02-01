@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=48
-#SBATCH --time=00:10:00
+#SBATCH --time=00:05:00
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
 
@@ -32,6 +32,7 @@ print(torch.__version__)
 print("torch.version.cuda:", torch.version.cuda)
 print("CUDA available:", torch.cuda.is_available())
 import mmcv
+print(mmcv.__version__)
 from pprint import pprint
 print("mmcv dir:")
 pprint(dir(mmcv))

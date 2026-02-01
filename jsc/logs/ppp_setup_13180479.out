@@ -1,0 +1,6 @@
+MASTER_ADDR:MASTER_PORT=10.13.23.11:7010
+Setting vars
+SOURCE_PATH           = /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/config.sh
+ABSOLUTE_PATH         = /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc
+ABSOLUTE_PARENT_PATH  = /p/project1/nxtaim-1/huber7
+ENV_DIR               = /p/project1/nxtaim-1/huber7/env_mmseg

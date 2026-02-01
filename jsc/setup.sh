@@ -29,6 +29,12 @@ source "$SCRIPT_DIR/modules.sh"
 python -m venv --prompt "$ENV_NAME" --system-site-packages "$ENV_DIR"
 source "$SCRIPT_DIR/activate.sh"
 
+echo "VIRTUAL_ENV=$VIRTUAL_ENV"
+which python
+python -c "import sys; print('sys.executable:', sys.executable)"
+which pip
+pip -V
+
 pip install typing-extensions>=4.8.0
 pip install --upgrade pip setuptools wheel
 pip install -r "$SCRIPT_DIR/requirements.txt"

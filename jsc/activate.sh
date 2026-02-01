@@ -28,6 +28,17 @@ source "$SCRIPT_DIR/modules.sh"
 
 echo $ENV_DIR
 source "$ENV_DIR/bin/activate"
+
+# Check where the enviornment is created...
+echo "VIRTUAL_ENV=$VIRTUAL_ENV"
+which python
+python - <<'EOF'
+import sys
+print("sys.executable:", sys.executable)
+print("sys.prefix:", sys.prefix)
+print("base_prefix:", sys.base_prefix)
+EOF
+
 export PYTHONNOUSERSITE=1
 export PYTHONPATH="/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp:${PYTHONPATH}"
 

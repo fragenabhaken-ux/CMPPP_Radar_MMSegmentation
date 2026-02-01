@@ -59,4 +59,10 @@ export ENV_DIR="$ABSOLUTE_PARENT_PATH/env_mmseg"
 
 export SYS100_DATA_PATH="/p/data1/nxtaim/proprietary/continental/"
 
+# i.e. MMSEG_WORK_DIR=/p/scratch/nxtaim-1/huber7/work_dirs/mmsegmentation_ppp
 export MMSEG_WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/$(basename $(pwd))"
+
+echo "SOURCE_PATH           = $SOURCE_PATH"
+echo "ABSOLUTE_PATH         = $ABSOLUTE_PATH"
+echo "ABSOLUTE_PARENT_PATH  = $ABSOLUTE_PARENT_PATH"
+echo "ENV_DIR               = $ENV_DIR"

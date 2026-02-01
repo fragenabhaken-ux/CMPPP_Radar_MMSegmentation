@@ -1,0 +1,4 @@
+kwargs = {'output_size': 7, 'spatial_scale': 1.0}
+
+  File "<stdin>", line 80, in <module>
+  File "<stdin>", line 15, in debug_apply
