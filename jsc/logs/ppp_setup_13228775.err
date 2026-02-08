@@ -22,9 +22,6 @@ The following modules were not unloaded:
   [01;33mThis stage is deprecated. Please consider moving to a new stage (2026
 or newer)[0m
 
-/p/project1/nxtaim-1/huber7/env_mmseg/lib/python3.12/site-packages/mmengine/optim/optimizer/zero_optimizer.py:11: DeprecationWarning: `TorchScript` support for functional optimizers is deprecated and will be removed in a future PyTorch release. Consider using the `torch.compile` optimizer instead.
-  from torch.distributed.optim import \
-Traceback (most recent call last):
-  File "<stdin>", line 80, in <module>
-  File "<stdin>", line 28, in debug_apply
-RuntimeError: STOP HERE
+
+[notice] A new release of pip is available: 24.0 -> 26.0
+[notice] To update, run: pip install --upgrade pip
