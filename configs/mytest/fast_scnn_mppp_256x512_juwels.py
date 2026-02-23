@@ -19,6 +19,10 @@ DATA_PATH = os.environ.get(
     "SYS100_DATA_PATH",
     "/p/data1/nxtaim/proprietary_samples/continental_sys100/"
 )
+#DATA_PATH = os.environ.get(
+#    "SYS100_DATA_PATH",
+#    "/p/data1/nxtaim/proprietary/continental/"
+#)
 # wird normalerweise vom runner automatisch auf work_dirs im repo gesetzt, hier überschreiben
 work_dir = os.environ.get(
     "MMSEG_WORK_DIR",
@@ -135,8 +139,8 @@ test_pipeline = [
 dataset_type = 'Sys100PPPHeatmapDataset'
 
 train_dataloader = dict(
-    batch_size=2,
-    num_workers=4,
+    batch_size=20,
+    num_workers=8,
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH,
@@ -146,8 +150,8 @@ train_dataloader = dict(
 )
 
 val_dataloader = dict(
-    batch_size=1,
-    num_workers=2,
+    batch_size=20,
+    num_workers=8,
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH,
@@ -177,7 +181,7 @@ optim_wrapper = dict(
 )
 
 # train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=1000)
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=3000, val_interval=500) # for develbooster run
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=2000, val_interval=200) # for develbooster run
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
