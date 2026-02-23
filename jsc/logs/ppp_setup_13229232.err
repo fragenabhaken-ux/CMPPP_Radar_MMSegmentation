@@ -1,0 +1,78 @@
+The following modules were not unloaded:
+  (Use "module --force purge" to unload all):
+
+  1) Stages/2026
+
+  [01;33mThis stage is deprecated. Please consider moving to a new stage (2026
+or newer)[0m
+
+
+The following have been reloaded with a version change:
+  1) Stages/2026 => Stages/2025
+
+
+  [01;33mThis stage is deprecated. Please consider moving to a new stage (2026
+or newer)[0m
+
+The following modules were not unloaded:
+  (Use "module --force purge" to unload all):
+
+  1) Stages/2025
+
+  [01;33mThis stage is deprecated. Please consider moving to a new stage (2026
+or newer)[0m
+
+
+[notice] A new release of pip is available: 24.0 -> 26.0
+[notice] To update, run: pip install --upgrade pip
+/p/project1/nxtaim-1/huber7/env_mmseg/lib/python3.12/site-packages/mmengine/optim/optimizer/zero_optimizer.py:11: DeprecationWarning: `TorchScript` support for functional optimizers is deprecated and will be removed in a future PyTorch release. Consider using the `torch.compile` optimizer instead.
+  from torch.distributed.optim import \
+/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/mmseg/models/losses/cross_entropy_loss.py:250: UserWarning: Default ``avg_non_ignore`` is False, if you would like to ignore the certain label and average loss over non-ignore labels, which is the same with PyTorch official cross_entropy, set ``avg_non_ignore=True``.
+  warnings.warn(
+/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/mmseg/engine/hooks/visualization_hook.py:60: UserWarning: The draw is False, it means that the hook for visualization will not take effect. The results will NOT be visualized or stored.
+  warnings.warn('The draw is False, it means that the '
+0 valid, 0 error files: 0it [00:00, ?it/s]0 valid, 0 error files: 0it [00:00, ?it/s]
+Traceback (most recent call last):
+  File "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/tools/test.py", line 123, in <module>
+    main()
+  File "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/tools/test.py", line 119, in main
+    runner.test()
+  File "/p/project1/nxtaim-1/huber7/env_mmseg/lib/python3.12/site-packages/mmengine/runner/runner.py", line 1816, in test
+    self._test_loop = self.build_test_loop(self._test_loop)  # type: ignore
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/p/project1/nxtaim-1/huber7/env_mmseg/lib/python3.12/site-packages/mmengine/runner/runner.py", line 1604, in build_test_loop
+    loop = LOOPS.build(
+           ^^^^^^^^^^^^
+  File "/p/project1/nxtaim-1/huber7/env_mmseg/lib/python3.12/site-packages/mmengine/registry/registry.py", line 570, in build
+    return self.build_func(cfg, *args, **kwargs, registry=self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/p/project1/nxtaim-1/huber7/env_mmseg/lib/python3.12/site-packages/mmengine/registry/build_functions.py", line 121, in build_from_cfg
+    obj = obj_cls(**args)  # type: ignore
+          ^^^^^^^^^^^^^^^
+  File "/p/project1/nxtaim-1/huber7/env_mmseg/lib/python3.12/site-packages/mmengine/runner/loops.py", line 434, in __init__
+    super().__init__(runner, dataloader)
+  File "/p/project1/nxtaim-1/huber7/env_mmseg/lib/python3.12/site-packages/mmengine/runner/base_loop.py", line 26, in __init__
+    self.dataloader = runner.build_dataloader(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/p/project1/nxtaim-1/huber7/env_mmseg/lib/python3.12/site-packages/mmengine/runner/runner.py", line 1370, in build_dataloader
+    dataset = DATASETS.build(dataset_cfg)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/p/project1/nxtaim-1/huber7/env_mmseg/lib/python3.12/site-packages/mmengine/registry/registry.py", line 570, in build
+    return self.build_func(cfg, *args, **kwargs, registry=self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/p/project1/nxtaim-1/huber7/env_mmseg/lib/python3.12/site-packages/mmengine/registry/build_functions.py", line 121, in build_from_cfg
+    obj = obj_cls(**args)  # type: ignore
+          ^^^^^^^^^^^^^^^
+  File "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/mmseg/datasets/sys100_ppp_heatmap_dataset.py", line 43, in __init__
+    self.sys100 = Sys100Dataset(
+                  ^^^^^^^^^^^^^^
+  File "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/aumovio/sys100dataset.py", line 426, in __init__
+    super().__init__(
+  File "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/aumovio/multifiledataset.py", line 410, in __init__
+    self.set_parameters(
+  File "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/aumovio/sys100dataset.py", line 500, in set_parameters
+    super().set_parameters(max_files=max_files, 
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/aumovio/multifiledataset.py", line 567, in set_parameters
+    raise RuntimeError(
+RuntimeError: No valid files found. If no prior error was thrown, check that your source directory  is not empty and contains valid files with the specified file ending and potentially containing specified parts in their names

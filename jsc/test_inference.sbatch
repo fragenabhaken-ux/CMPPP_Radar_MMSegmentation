@@ -15,3 +15,4 @@ cd "$SLURM_SUBMIT_DIR/.." || exit 1
 source jsc/setup.sh
 
 python test_inference.py
+python tools/test.py configs/mytest/fast_scnn_mppp_256x512_juwels.py checkpoints/iter_36000.pth

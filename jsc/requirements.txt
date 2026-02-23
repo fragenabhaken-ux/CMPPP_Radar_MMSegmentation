@@ -15,6 +15,8 @@ matplotlib
 numpy==1.26.4
 
 torchvision==0.20.1
+tensorboard
+future
 
 # for torch 2.4 (hopefully also 2.5) -> 31.1.26 error module 'mmcv' has no attribute 'ops' (attempt v.2.1)
 mmcv @ https://download.openmmlab.com/mmcv/dist/cu121/torch2.4.0/mmcv-2.2.0-cp312-cp312-manylinux1_x86_64.whl

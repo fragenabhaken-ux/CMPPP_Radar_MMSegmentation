@@ -176,7 +176,8 @@ optim_wrapper = dict(
     paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.5)})
 )
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=1000)
+# train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=1000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=3000, val_interval=500) # for develbooster run
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 

@@ -1,0 +1,668 @@
+/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc
+Setting vars
+SOURCE_PATH           = /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/config.sh
+ABSOLUTE_PATH         = /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc
+ABSOLUTE_PARENT_PATH  = /p/project1/nxtaim-1/huber7
+ENV_DIR               = /p/project1/nxtaim-1/huber7/env_mmseg
+Setting vars
+SOURCE_PATH           = /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/config.sh
+ABSOLUTE_PATH         = /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc
+ABSOLUTE_PARENT_PATH  = /p/project1/nxtaim-1/huber7
+ENV_DIR               = /p/project1/nxtaim-1/huber7/env_mmseg
+/p/project1/nxtaim-1/huber7/env_mmseg
+VIRTUAL_ENV=/p/project1/nxtaim-1/huber7/env_mmseg
+/p/project1/nxtaim-1/huber7/env_mmseg/bin/python
+sys.executable: /p/project1/nxtaim-1/huber7/env_mmseg/bin/python
+sys.prefix: /p/project1/nxtaim-1/huber7/env_mmseg
+base_prefix: /p/software/juwelsbooster/stages/2025/software/Python/3.12.3-GCCcore-13.3.0
+Activated mmseg at /p/project1/nxtaim-1/huber7/env_mmseg
+Python 3.12.3
+Requirement already satisfied: pip in /p/project1/nxtaim-1/huber7/env_mmseg/lib/python3.12/site-packages (24.0)
+Collecting pip
+  Using cached pip-26.0.1-py3-none-any.whl.metadata (4.7 kB)
+Requirement already satisfied: setuptools in /p/software/juwelsbooster/stages/2025/software/Python/3.12.3-GCCcore-13.3.0/lib/python3.12/site-packages (70.0.0)
+Collecting setuptools
+  Using cached setuptools-82.0.0-py3-none-any.whl.metadata (6.6 kB)
+Requirement already satisfied: wheel in /p/software/juwelsbooster/stages/2025/software/Python/3.12.3-GCCcore-13.3.0/lib/python3.12/site-packages (0.43.0)
+Collecting wheel
+  Using cached wheel-0.46.3-py3-none-any.whl.metadata (2.4 kB)
+Requirement already satisfied: packaging>=24.0 in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from wheel) (24.1)
+Using cached pip-26.0.1-py3-none-any.whl (1.8 MB)
+Using cached setuptools-82.0.0-py3-none-any.whl (1.0 MB)
+Using cached wheel-0.46.3-py3-none-any.whl (30 kB)
+Installing collected packages: wheel, setuptools, pip
+  Attempting uninstall: wheel
+    Found existing installation: wheel 0.43.0
+    Not uninstalling wheel at /p/software/fs/juwels_booster/stages/2025/software/Python/3.12.3-GCCcore-13.3.0/lib/python3.12/site-packages, outside environment /p/project1/nxtaim-1/huber7/env_mmseg
+    Can't uninstall 'wheel'. No files were found to uninstall.
+  Attempting uninstall: setuptools
+    Found existing installation: setuptools 70.0.0
+    Not uninstalling setuptools at /p/software/fs/juwels_booster/stages/2025/software/Python/3.12.3-GCCcore-13.3.0/lib/python3.12/site-packages, outside environment /p/project1/nxtaim-1/huber7/env_mmseg
+    Can't uninstall 'setuptools'. No files were found to uninstall.
+  Attempting uninstall: pip
+    Found existing installation: pip 24.0
+    Uninstalling pip-24.0:
+      Successfully uninstalled pip-24.0
+Successfully installed pip-26.0.1 setuptools-82.0.0 wheel-0.46.3
+Collecting mmcv @ https://download.openmmlab.com/mmcv/dist/cu121/torch2.4.0/mmcv-2.2.0-cp312-cp312-manylinux1_x86_64.whl (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 22))
+  Using cached https://download.openmmlab.com/mmcv/dist/cu121/torch2.4.0/mmcv-2.2.0-cp312-cp312-manylinux1_x86_64.whl (98.7 MB)
+Collecting mmengine (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 1))
+  Using cached mmengine-0.10.7-py3-none-any.whl.metadata (20 kB)
+Collecting ftfy (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 4))
+  Using cached ftfy-6.3.1-py3-none-any.whl.metadata (7.3 kB)
+Collecting h5py (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 5))
+  Using cached h5py-3.15.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (3.0 kB)
+Collecting einops (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 6))
+  Using cached einops-0.8.2-py3-none-any.whl.metadata (13 kB)
+Collecting opencv-python-headless (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 9))
+  Using cached opencv_python_headless-4.13.0.92-cp37-abi3-manylinux_2_28_x86_64.whl.metadata (19 kB)
+Collecting tqdm (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 12))
+  Using cached tqdm-4.67.3-py3-none-any.whl.metadata (57 kB)
+Collecting matplotlib (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 13))
+  Using cached matplotlib-3.10.8-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (52 kB)
+Requirement already satisfied: numpy==1.26.4 in /p/software/default/stages/2025/software/SciPy-bundle/2024.05-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 15)) (1.26.4)
+Collecting torchvision==0.20.1 (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17))
+  Using cached torchvision-0.20.1-cp312-cp312-manylinux1_x86_64.whl.metadata (6.1 kB)
+Collecting tensorboard (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 18))
+  Downloading tensorboard-2.20.0-py3-none-any.whl.metadata (1.8 kB)
+Requirement already satisfied: future in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 19)) (1.0.0)
+Collecting prettytable (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 36))
+  Using cached prettytable-3.17.0-py3-none-any.whl.metadata (34 kB)
+Collecting addict (from mmcv @ https://download.openmmlab.com/mmcv/dist/cu121/torch2.4.0/mmcv-2.2.0-cp312-cp312-manylinux1_x86_64.whl->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 22))
+  Using cached addict-2.4.0-py3-none-any.whl.metadata (1.0 kB)
+Requirement already satisfied: packaging in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from mmcv @ https://download.openmmlab.com/mmcv/dist/cu121/torch2.4.0/mmcv-2.2.0-cp312-cp312-manylinux1_x86_64.whl->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 22)) (24.1)
+Collecting Pillow (from mmcv @ https://download.openmmlab.com/mmcv/dist/cu121/torch2.4.0/mmcv-2.2.0-cp312-cp312-manylinux1_x86_64.whl->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 22))
+  Using cached pillow-12.1.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (8.8 kB)
+Collecting pyyaml (from mmcv @ https://download.openmmlab.com/mmcv/dist/cu121/torch2.4.0/mmcv-2.2.0-cp312-cp312-manylinux1_x86_64.whl->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 22))
+  Using cached pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+Collecting yapf (from mmcv @ https://download.openmmlab.com/mmcv/dist/cu121/torch2.4.0/mmcv-2.2.0-cp312-cp312-manylinux1_x86_64.whl->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 22))
+  Using cached yapf-0.43.0-py3-none-any.whl.metadata (46 kB)
+Collecting opencv-python>=3 (from mmcv @ https://download.openmmlab.com/mmcv/dist/cu121/torch2.4.0/mmcv-2.2.0-cp312-cp312-manylinux1_x86_64.whl->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 22))
+  Using cached opencv_python-4.13.0.92-cp37-abi3-manylinux_2_28_x86_64.whl.metadata (19 kB)
+Requirement already satisfied: torch==2.5.1 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (2.5.1+cu124)
+Requirement already satisfied: filelock in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (3.15.1)
+Requirement already satisfied: typing-extensions>=4.8.0 in /p/software/juwelsbooster/stages/2025/software/Python/3.12.3-GCCcore-13.3.0/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (4.11.0)
+Requirement already satisfied: networkx in /p/software/default/stages/2025/software/networkx/3.3-GCCcore-13.3.0/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (3.3)
+Requirement already satisfied: jinja2 in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (3.1.4)
+Requirement already satisfied: fsspec in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (2024.6.0)
+Requirement already satisfied: nvidia-cuda-nvrtc-cu12==12.4.127 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (12.4.127)
+Requirement already satisfied: nvidia-cuda-runtime-cu12==12.4.127 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (12.4.127)
+Requirement already satisfied: nvidia-cuda-cupti-cu12==12.4.127 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (12.4.127)
+Requirement already satisfied: nvidia-cudnn-cu12==9.1.0.70 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (9.1.0.70)
+Requirement already satisfied: nvidia-cublas-cu12==12.4.5.8 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (12.4.5.8)
+Requirement already satisfied: nvidia-cufft-cu12==11.2.1.3 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (11.2.1.3)
+Requirement already satisfied: nvidia-curand-cu12==10.3.5.147 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (10.3.5.147)
+Requirement already satisfied: nvidia-cusolver-cu12==11.6.1.9 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (11.6.1.9)
+Requirement already satisfied: nvidia-cusparse-cu12==12.3.1.170 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (12.3.1.170)
+Requirement already satisfied: nvidia-nccl-cu12==2.21.5 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (2.21.5)
+Requirement already satisfied: nvidia-nvtx-cu12==12.4.127 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (12.4.127)
+Requirement already satisfied: nvidia-nvjitlink-cu12==12.4.127 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (12.4.127)
+Requirement already satisfied: triton==3.1.0 in /p/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (3.1.0)
+Requirement already satisfied: setuptools in /p/project1/nxtaim-1/huber7/env_mmseg/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (82.0.0)
+Requirement already satisfied: sympy==1.13.1 in /p/software/default/stages/2025/software/sympy/1.13.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (1.13.1)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in /p/software/default/stages/2025/software/SciPy-bundle/2024.05-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages (from sympy==1.13.1->torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17)) (1.3.0)
+Requirement already satisfied: rich in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from mmengine->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 1)) (13.7.1)
+Collecting termcolor (from mmengine->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 1))
+  Using cached termcolor-3.3.0-py3-none-any.whl.metadata (6.5 kB)
+Requirement already satisfied: wcwidth in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from ftfy->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 4)) (0.2.13)
+INFO: pip is looking at multiple versions of opencv-python-headless to determine which version is compatible with other requirements. This could take a while.
+Collecting opencv-python-headless (from -r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 9))
+  Using cached opencv_python_headless-4.13.0.90-cp37-abi3-manylinux_2_28_x86_64.whl.metadata (19 kB)
+  Using cached opencv_python_headless-4.12.0.88-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (19 kB)
+  Using cached opencv_python_headless-4.11.0.86-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (20 kB)
+Collecting contourpy>=1.0.1 (from matplotlib->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 13))
+  Using cached contourpy-1.3.3-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (5.5 kB)
+Collecting cycler>=0.10 (from matplotlib->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 13))
+  Using cached cycler-0.12.1-py3-none-any.whl.metadata (3.8 kB)
+Collecting fonttools>=4.22.0 (from matplotlib->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 13))
+  Using cached fonttools-4.61.1-cp312-cp312-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl.metadata (114 kB)
+Collecting kiwisolver>=1.3.1 (from matplotlib->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 13))
+  Using cached kiwisolver-1.4.9-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (6.3 kB)
+Requirement already satisfied: pyparsing>=3 in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from matplotlib->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 13)) (3.1.2)
+Requirement already satisfied: python-dateutil>=2.7 in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from matplotlib->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 13)) (2.9.0.post0)
+Collecting absl-py>=0.4 (from tensorboard->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 18))
+  Downloading absl_py-2.4.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting grpcio>=1.48.2 (from tensorboard->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 18))
+  Downloading grpcio-1.78.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.8 kB)
+Collecting markdown>=2.6.8 (from tensorboard->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 18))
+  Downloading markdown-3.10.1-py3-none-any.whl.metadata (5.1 kB)
+Collecting protobuf!=4.24.0,>=3.19.6 (from tensorboard->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 18))
+  Downloading protobuf-6.33.5-cp39-abi3-manylinux2014_x86_64.whl.metadata (593 bytes)
+Collecting tensorboard-data-server<0.8.0,>=0.7.0 (from tensorboard->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 18))
+  Downloading tensorboard_data_server-0.7.2-py3-none-manylinux_2_31_x86_64.whl.metadata (1.1 kB)
+Collecting werkzeug>=1.0.1 (from tensorboard->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 18))
+  Downloading werkzeug-3.1.5-py3-none-any.whl.metadata (4.0 kB)
+Collecting typing-extensions>=4.8.0 (from torch==2.5.1->torchvision==0.20.1->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 17))
+  Using cached typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+INFO: pip is looking at multiple versions of opencv-python to determine which version is compatible with other requirements. This could take a while.
+Collecting opencv-python>=3 (from mmcv @ https://download.openmmlab.com/mmcv/dist/cu121/torch2.4.0/mmcv-2.2.0-cp312-cp312-manylinux1_x86_64.whl->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 22))
+  Using cached opencv_python-4.13.0.90-cp37-abi3-manylinux_2_28_x86_64.whl.metadata (19 kB)
+  Using cached opencv_python-4.12.0.88-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (19 kB)
+  Using cached opencv_python-4.11.0.86-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (20 kB)
+Requirement already satisfied: six>=1.5 in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from python-dateutil>=2.7->matplotlib->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 13)) (1.16.0)
+Requirement already satisfied: markupsafe>=2.1.1 in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from werkzeug>=1.0.1->tensorboard->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 18)) (2.1.5)
+Requirement already satisfied: markdown-it-py>=2.2.0 in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from rich->mmengine->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 1)) (3.0.0)
+Requirement already satisfied: pygments<3.0.0,>=2.13.0 in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from rich->mmengine->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 1)) (2.18.0)
+Requirement already satisfied: mdurl~=0.1 in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from markdown-it-py>=2.2.0->rich->mmengine->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 1)) (0.1.2)
+Requirement already satisfied: platformdirs>=3.5.1 in /p/software/default/stages/2025/software/Python-bundle-PyPI/2024.06-GCCcore-13.3.0/lib/python3.12/site-packages (from yapf->mmcv @ https://download.openmmlab.com/mmcv/dist/cu121/torch2.4.0/mmcv-2.2.0-cp312-cp312-manylinux1_x86_64.whl->-r /p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc/requirements.txt (line 22)) (4.2.2)
+Using cached torchvision-0.20.1-cp312-cp312-manylinux1_x86_64.whl (7.2 MB)
+Using cached mmengine-0.10.7-py3-none-any.whl (452 kB)
+Using cached ftfy-6.3.1-py3-none-any.whl (44 kB)
+Using cached h5py-3.15.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (5.1 MB)
+Using cached einops-0.8.2-py3-none-any.whl (65 kB)
+Using cached opencv_python_headless-4.11.0.86-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (50.0 MB)
+Using cached tqdm-4.67.3-py3-none-any.whl (78 kB)
+Using cached matplotlib-3.10.8-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (8.7 MB)
+Downloading tensorboard-2.20.0-py3-none-any.whl (5.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.5/5.5 MB 99.3 MB/s  0:00:00
+Downloading tensorboard_data_server-0.7.2-py3-none-manylinux_2_31_x86_64.whl (6.6 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.6/6.6 MB 106.7 MB/s  0:00:00
+Using cached prettytable-3.17.0-py3-none-any.whl (34 kB)
+Downloading absl_py-2.4.0-py3-none-any.whl (135 kB)
+Using cached contourpy-1.3.3-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (362 kB)
+Using cached cycler-0.12.1-py3-none-any.whl (8.3 kB)
+Using cached fonttools-4.61.1-cp312-cp312-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl (5.0 MB)
+Downloading grpcio-1.78.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (6.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.7/6.7 MB 88.8 MB/s  0:00:00
+Using cached typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+Using cached kiwisolver-1.4.9-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.5 MB)
+Downloading markdown-3.10.1-py3-none-any.whl (107 kB)
+Using cached opencv_python-4.11.0.86-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (63.0 MB)
+Using cached pillow-12.1.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (7.0 MB)
+Downloading protobuf-6.33.5-cp39-abi3-manylinux2014_x86_64.whl (323 kB)
+Downloading werkzeug-3.1.5-py3-none-any.whl (225 kB)
+Using cached addict-2.4.0-py3-none-any.whl (3.8 kB)
+Using cached pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (807 kB)
+Using cached termcolor-3.3.0-py3-none-any.whl (7.7 kB)
+Using cached yapf-0.43.0-py3-none-any.whl (256 kB)
+Installing collected packages: addict, yapf, werkzeug, typing-extensions, tqdm, termcolor, tensorboard-data-server, pyyaml, protobuf, prettytable, Pillow, opencv-python-headless, opencv-python, markdown, kiwisolver, h5py, ftfy, fonttools, einops, cycler, contourpy, absl-py, matplotlib, grpcio, tensorboard, mmengine, torchvision, mmcv
+  Attempting uninstall: typing-extensions
+    Found existing installation: typing_extensions 4.11.0
+    Not uninstalling typing-extensions at /p/software/fs/juwels_booster/stages/2025/software/Python/3.12.3-GCCcore-13.3.0/lib/python3.12/site-packages, outside environment /p/project1/nxtaim-1/huber7/env_mmseg
+    Can't uninstall 'typing_extensions'. No files were found to uninstall.
+
+Successfully installed Pillow-12.1.0 absl-py-2.4.0 addict-2.4.0 contourpy-1.3.3 cycler-0.12.1 einops-0.8.2 fonttools-4.61.1 ftfy-6.3.1 grpcio-1.78.0 h5py-3.15.1 kiwisolver-1.4.9 markdown-3.10.1 matplotlib-3.10.8 mmcv-2.2.0 mmengine-0.10.7 opencv-python-4.11.0.86 opencv-python-headless-4.11.0.86 prettytable-3.17.0 protobuf-6.33.5 pyyaml-6.0.3 tensorboard-2.20.0 tensorboard-data-server-0.7.2 termcolor-3.3.0 torchvision-0.20.1 tqdm-4.67.3 typing-extensions-4.15.0 werkzeug-3.1.5 yapf-0.43.0
+02/08 21:24:36 - mmengine - INFO - 
+------------------------------------------------------------
+System environment:
+    sys.platform: linux
+    Python: 3.12.3 (main, Jul 26 2024, 17:45:48) [GCC 13.3.0]
+    CUDA available: True
+    MUSA available: False
+    numpy_random_seed: 264789413
+    GPU 0,1,2,3: NVIDIA A100-SXM4-40GB
+    CUDA_HOME: /p/software/juwelsbooster/stages/2025/software/CUDA/12
+    NVCC: Cuda compilation tools, release 12.6, V12.6.20
+    GCC: gcc (GCC) 13.3.0
+    PyTorch: 2.5.1+cu124
+    PyTorch compiling details: PyTorch built with:
+  - GCC 9.3
+  - C++ Version: 201703
+  - Intel(R) oneAPI Math Kernel Library Version 2024.2-Product Build 20240605 for Intel(R) 64 architecture applications
+  - Intel(R) MKL-DNN v3.5.3 (Git Hash 66f0cb9eb66affd2da3bf5f8d897376f04aae6af)
+  - OpenMP 201511 (a.k.a. OpenMP 4.5)
+  - LAPACK is enabled (usually provided by MKL)
+  - NNPACK is enabled
+  - CPU capability usage: AVX2
+  - CUDA Runtime 12.4
+  - NVCC architecture flags: -gencode;arch=compute_50,code=sm_50;-gencode;arch=compute_60,code=sm_60;-gencode;arch=compute_70,code=sm_70;-gencode;arch=compute_75,code=sm_75;-gencode;arch=compute_80,code=sm_80;-gencode;arch=compute_86,code=sm_86;-gencode;arch=compute_90,code=sm_90
+  - CuDNN 90.1
+  - Magma 2.6.1
+  - Build settings: BLAS_INFO=mkl, BUILD_TYPE=Release, CUDA_VERSION=12.4, CUDNN_VERSION=9.1.0, CXX_COMPILER=/opt/rh/devtoolset-9/root/usr/bin/c++, CXX_FLAGS= -D_GLIBCXX_USE_CXX11_ABI=0 -fabi-version=11 -fvisibility-inlines-hidden -DUSE_PTHREADPOOL -DNDEBUG -DUSE_KINETO -DLIBKINETO_NOROCTRACER -DLIBKINETO_NOXPUPTI=ON -DUSE_FBGEMM -DUSE_PYTORCH_QNNPACK -DUSE_XNNPACK -DSYMBOLICATE_MOBILE_DEBUG_HANDLE -O2 -fPIC -Wall -Wextra -Werror=return-type -Werror=non-virtual-dtor -Werror=bool-operation -Wnarrowing -Wno-missing-field-initializers -Wno-type-limits -Wno-array-bounds -Wno-unknown-pragmas -Wno-unused-parameter -Wno-strict-overflow -Wno-strict-aliasing -Wno-stringop-overflow -Wsuggest-override -Wno-psabi -Wno-error=old-style-cast -Wno-missing-braces -fdiagnostics-color=always -faligned-new -Wno-unused-but-set-variable -Wno-maybe-uninitialized -fno-math-errno -fno-trapping-math -Werror=format -Wno-stringop-overflow, LAPACK_INFO=mkl, PERF_WITH_AVX=1, PERF_WITH_AVX2=1, TORCH_VERSION=2.5.1, USE_CUDA=ON, USE_CUDNN=ON, USE_CUSPARSELT=1, USE_EXCEPTION_PTR=1, USE_GFLAGS=OFF, USE_GLOG=OFF, USE_GLOO=ON, USE_MKL=ON, USE_MKLDNN=ON, USE_MPI=OFF, USE_NCCL=1, USE_NNPACK=ON, USE_OPENMP=ON, USE_ROCM=OFF, USE_ROCM_KERNEL_ASSERT=OFF, 
+
+    TorchVision: 0.20.1+cu124
+    OpenCV: 4.11.0
+    MMEngine: 0.10.7
+
+Runtime environment:
+    cudnn_benchmark: True
+    mp_cfg: {'mp_start_method': 'fork', 'opencv_num_threads': 0}
+    dist_cfg: {'backend': 'nccl'}
+    seed: 264789413
+    Distributed launcher: none
+    Distributed training: False
+    GPU number: 1
+------------------------------------------------------------
+
+02/08 21:24:36 - mmengine - INFO - Config:
+DATA_PATH = '/p/data1/nxtaim/proprietary/continental/'
+crop_size = (
+    256,
+    512,
+)
+custom_hooks = [
+    dict(
+        img_mean=[
+            80.182,
+            87.428,
+            79.65,
+        ],
+        img_std=[
+            25.751,
+            25.934,
+            27.112,
+        ],
+        interval=200,
+        type='PPPMarkVisualizationHook'),
+    dict(out_file='loss.png', smooth_alpha=0.05, type='LossPlotHook'),
+]
+custom_imports = dict(
+    allow_failed_imports=False,
+    imports=[
+        'mmseg.models.decode_heads.ppp_mark_head',
+        'mmseg.datasets.sys100_ppp_heatmap_dataset',
+        'mmseg.datasets.transforms.sys100_ppp_transforms',
+        'mmseg.evaluation.metrics.ppp_metrics',
+        'mmseg.engine.hooks.ppp_mark_visualization_hook',
+    ])
+data_preprocessor = dict(
+    mean=[
+        80.182,
+        87.428,
+        79.65,
+    ],
+    pad_val=0,
+    seg_pad_val=0,
+    size=(
+        256,
+        512,
+    ),
+    std=[
+        25.751,
+        25.934,
+        27.112,
+    ],
+    type='SegDataPreProcessor')
+data_rbg_mean = [
+    80.182,
+    87.428,
+    79.65,
+]
+data_rbg_std = [
+    25.751,
+    25.934,
+    27.112,
+]
+dataset_type = 'Sys100PPPHeatmapDataset'
+default_hooks = dict(
+    checkpoint=dict(
+        by_epoch=False,
+        interval=1000,
+        max_keep_ckpts=5,
+        rule='less',
+        save_best='ppp/count_abs_error',
+        type='CheckpointHook'),
+    logger=dict(interval=50, log_metric_by_epoch=False, type='LoggerHook'),
+    param_scheduler=dict(type='ParamSchedulerHook'),
+    sampler_seed=dict(type='DistSamplerSeedHook'),
+    timer=dict(type='IterTimerHook'),
+    visualization=dict(type='SegVisualizationHook'))
+default_scope = 'mmseg'
+env_cfg = dict(
+    cudnn_benchmark=True,
+    dist_cfg=dict(backend='nccl'),
+    mp_cfg=dict(mp_start_method='fork', opencv_num_threads=0))
+fovs_wo_fisheyeart = (
+    105,
+    48.4,
+)
+launcher = 'none'
+load_from = 'checkpoints/iter_36000.pth'
+log_level = 'INFO'
+log_processor = dict(by_epoch=False)
+model = dict(
+    auxiliary_head=None,
+    backbone=dict(
+        depth=34,
+        dilations=(
+            1,
+            1,
+            2,
+            4,
+        ),
+        norm_cfg=dict(requires_grad=True, type='BN'),
+        norm_eval=False,
+        num_stages=4,
+        out_indices=(
+            0,
+            1,
+            2,
+            3,
+        ),
+        strides=(
+            1,
+            2,
+            1,
+            1,
+        ),
+        style='pytorch',
+        type='ResNet'),
+    data_preprocessor=dict(
+        mean=[
+            80.182,
+            87.428,
+            79.65,
+        ],
+        pad_val=0,
+        seg_pad_val=0,
+        size=(
+            256,
+            512,
+        ),
+        std=[
+            25.751,
+            25.934,
+            27.112,
+        ],
+        type='SegDataPreProcessor'),
+    decode_head=dict(
+        align_corners=False,
+        channels=32,
+        depth_weight=1,
+        in_channels=512,
+        in_index=-1,
+        loss_ppp=dict(
+            loss_weight=1, out_img_size=(
+                544,
+                1792,
+            ), type='PPPLoss'),
+        num_classes=3,
+        num_convs=2,
+        ppp_weight=1,
+        type='PPPMarkHead',
+        velocity_weight=1),
+    pretrained=None,
+    test_cfg=dict(mode='whole'),
+    type='EncoderDecoder')
+optim_wrapper = dict(
+    clip_grad=dict(max_norm=1.0, norm_type=2),
+    optimizer=dict(
+        betas=(
+            0.9,
+            0.999,
+        ), lr=5e-05, type='AdamW', weight_decay=0.01),
+    paramwise_cfg=dict(custom_keys=dict(backbone=dict(lr_mult=0.5))),
+    type='OptimWrapper')
+optimizer = dict(lr=0.01, momentum=0.9, type='SGD', weight_decay=0.0005)
+out_img_size = (
+    544,
+    1792,
+)
+param_scheduler = [
+    dict(
+        begin=0,
+        by_epoch=False,
+        end=40000,
+        eta_min=0.0001,
+        power=0.9,
+        type='PolyLR'),
+]
+resume = False
+test_cfg = dict(type='TestLoop')
+test_dataloader = dict(
+    batch_size=1,
+    dataset=dict(
+        fovs=(
+            105,
+            48.4,
+        ),
+        frame_stride=10,
+        pipeline=[
+            dict(
+                fovs=(
+                    105,
+                    48.4,
+                ),
+                out_img_size=(
+                    544,
+                    1792,
+                ),
+                strict=False,
+                sys100_root='/p/data1/nxtaim/proprietary/continental/',
+                type='LoadSys100Sample',
+                undistort=True),
+            dict(
+                rel_x_centre=0.491,
+                rel_y_centre=0.437,
+                thres=0.05,
+                type='BuildPPPHeatmap'),
+            dict(type='PPPPackSegInputs'),
+        ],
+        sys100_root='/p/data1/nxtaim/proprietary/continental/',
+        type='Sys100PPPHeatmapDataset'),
+    num_workers=2)
+test_evaluator = dict(
+    out_img_size=(
+        544,
+        1792,
+    ), type='PPPMetric')
+test_pipeline = [
+    dict(
+        fovs=(
+            105,
+            48.4,
+        ),
+        out_img_size=(
+            544,
+            1792,
+        ),
+        strict=False,
+        sys100_root='/p/data1/nxtaim/proprietary/continental/',
+        type='LoadSys100Sample',
+        undistort=True),
+    dict(
+        rel_x_centre=0.491,
+        rel_y_centre=0.437,
+        thres=0.05,
+        type='BuildPPPHeatmap'),
+    dict(type='PPPPackSegInputs'),
+]
+train_cfg = dict(max_iters=40000, type='IterBasedTrainLoop', val_interval=1000)
+train_dataloader = dict(
+    batch_size=2,
+    dataset=dict(
+        fovs=(
+            105,
+            48.4,
+        ),
+        pipeline=[
+            dict(
+                fovs=(
+                    105,
+                    48.4,
+                ),
+                out_img_size=(
+                    544,
+                    1792,
+                ),
+                strict=False,
+                sys100_root='/p/data1/nxtaim/proprietary/continental/',
+                type='LoadSys100Sample',
+                undistort=True),
+            dict(
+                rel_x_centre=0.491,
+                rel_y_centre=0.437,
+                thres=0.05,
+                type='BuildPPPHeatmap'),
+            dict(crop_size=(
+                256,
+                512,
+            ), type='PPPRandomCrop'),
+            dict(direction='horizontal', prob=0.5, type='PPPRandomFlip'),
+            dict(type='PPPPackSegInputs'),
+        ],
+        sys100_root='/p/data1/nxtaim/proprietary/continental/',
+        type='Sys100PPPHeatmapDataset'),
+    num_workers=4)
+train_pipeline = [
+    dict(
+        fovs=(
+            105,
+            48.4,
+        ),
+        out_img_size=(
+            544,
+            1792,
+        ),
+        strict=False,
+        sys100_root='/p/data1/nxtaim/proprietary/continental/',
+        type='LoadSys100Sample',
+        undistort=True),
+    dict(
+        rel_x_centre=0.491,
+        rel_y_centre=0.437,
+        thres=0.05,
+        type='BuildPPPHeatmap'),
+    dict(crop_size=(
+        256,
+        512,
+    ), type='PPPRandomCrop'),
+    dict(direction='horizontal', prob=0.5, type='PPPRandomFlip'),
+    dict(type='PPPPackSegInputs'),
+]
+tta_model = dict(type='SegTTAModel')
+val_cfg = dict(type='ValLoop')
+val_dataloader = dict(
+    batch_size=1,
+    dataset=dict(
+        fovs=(
+            105,
+            48.4,
+        ),
+        frame_stride=10,
+        pipeline=[
+            dict(
+                fovs=(
+                    105,
+                    48.4,
+                ),
+                out_img_size=(
+                    544,
+                    1792,
+                ),
+                strict=False,
+                sys100_root='/p/data1/nxtaim/proprietary/continental/',
+                type='LoadSys100Sample',
+                undistort=True),
+            dict(
+                rel_x_centre=0.491,
+                rel_y_centre=0.437,
+                thres=0.05,
+                type='BuildPPPHeatmap'),
+            dict(type='PPPPackSegInputs'),
+        ],
+        sys100_root='/p/data1/nxtaim/proprietary/continental/',
+        type='Sys100PPPHeatmapDataset'),
+    num_workers=2)
+val_evaluator = dict(
+    out_img_size=(
+        544,
+        1792,
+    ), type='PPPMetric')
+vis_backends = [
+    dict(type='LocalVisBackend'),
+]
+visualizer = dict(
+    name='visualizer',
+    type='Visualizer',
+    vis_backends=[
+        dict(type='LocalVisBackend'),
+        dict(type='TensorboardVisBackend'),
+    ])
+work_dir = '/p/scratch/nxtaim-1/huber7/work_dirs/mmsegmentation_ppp'
+
+02/08 21:24:37 - mmengine - INFO - Distributed training is not used, all SyncBatchNorm (SyncBN) layers in the model will be automatically reverted to BatchNormXd layers if they are used.
+02/08 21:24:37 - mmengine - INFO - Hooks will be executed in the following order:
+before_run:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+before_train:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+before_train_epoch:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(NORMAL      ) DistSamplerSeedHook                
+ -------------------- 
+before_train_iter:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+after_train_iter:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(NORMAL      ) PPPMarkVisualizationHook           
+(NORMAL      ) LossPlotHook                       
+(BELOW_NORMAL) LoggerHook                         
+(LOW         ) ParamSchedulerHook                 
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+after_train_epoch:
+(NORMAL      ) IterTimerHook                      
+(LOW         ) ParamSchedulerHook                 
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+before_val:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+before_val_epoch:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+before_val_iter:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+after_val_iter:
+(NORMAL      ) IterTimerHook                      
+(NORMAL      ) SegVisualizationHook               
+(NORMAL      ) PPPMarkVisualizationHook           
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+after_val_epoch:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(BELOW_NORMAL) LoggerHook                         
+(LOW         ) ParamSchedulerHook                 
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+after_val:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+after_train:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) LossPlotHook                       
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+before_test:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+before_test_epoch:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+before_test_iter:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+after_test_iter:
+(NORMAL      ) IterTimerHook                      
+(NORMAL      ) SegVisualizationHook               
+(NORMAL      ) PPPMarkVisualizationHook           
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+after_test_epoch:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+after_test:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+after_run:
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+While scanning the files encountered errors:
+  NoValidFilesFound:
+    /p/data1/nxtaim/proprietary/continental
+
+A total of 1 errors in 0 were encountered
