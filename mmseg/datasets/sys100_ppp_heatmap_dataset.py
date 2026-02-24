@@ -15,7 +15,7 @@ class Sys100PPPHeatmapDataset(BaseDataset):
     This class only does sample indexing!
     Sys100PPPHeatmapDataset turns a SYS100 video+radar sequence into a list of integer indices, 
     and lets the pipeline decide how to materialize each index into data. I.e. Here we simply define 
-    what samples exist. It is the transform-pipeline’s job is to define how samples are loaded.
+    what samples exist. It is the transform-pipeline's job is to define how samples are loaded.
     returns a list of samples
     [
     {"idx": 0},

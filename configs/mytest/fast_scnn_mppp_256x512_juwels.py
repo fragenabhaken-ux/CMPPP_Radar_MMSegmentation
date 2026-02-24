@@ -99,13 +99,26 @@ model = dict(
 
 # Note: This is my sys100_ppp_transforms
 train_pipeline = [
+    #dict(
+    #    type='LoadSys100Sample',
+    #    sys100_root=DATA_PATH,
+    #    out_img_size=out_img_size,
+    #    undistort=True,
+    #    fovs=fovs_wo_fisheyeart,
+    #    strict=False
+    #),
     dict(
         type='LoadSys100Sample',
         sys100_root=DATA_PATH,
         out_img_size=out_img_size,
         undistort=True,
         fovs=fovs_wo_fisheyeart,
-        strict=False
+        strict=False,
+        prefetch=True,
+        prefetch_dict={
+            "num_prefetch_workers": 8,
+            "priority": 15
+        }
     ),
     dict(
         type='BuildPPPHeatmap',
@@ -119,13 +132,26 @@ train_pipeline = [
 ]
 
 test_pipeline = [
+    #dict(
+    #    type='LoadSys100Sample',
+    #    sys100_root=DATA_PATH,
+    #    out_img_size=out_img_size,
+    #    undistort=True,
+    #    fovs=fovs_wo_fisheyeart,
+    #    strict=False
+    #),
     dict(
         type='LoadSys100Sample',
         sys100_root=DATA_PATH,
         out_img_size=out_img_size,
         undistort=True,
         fovs=fovs_wo_fisheyeart,
-        strict=False
+        strict=False,
+        prefetch=True,
+        prefetch_dict={
+            "num_prefetch_workers": 8,
+            "priority": 10
+        }
     ),
     dict(
         type='BuildPPPHeatmap',
@@ -139,7 +165,7 @@ test_pipeline = [
 dataset_type = 'Sys100PPPHeatmapDataset'
 
 train_dataloader = dict(
-    batch_size=20,
+    batch_size=100,
     num_workers=8,
     dataset=dict(
         type=dataset_type,
@@ -150,7 +176,7 @@ train_dataloader = dict(
 )
 
 val_dataloader = dict(
-    batch_size=20,
+    batch_size=100,
     num_workers=8,
     dataset=dict(
         type=dataset_type,
@@ -202,6 +228,8 @@ val_evaluator = dict(type='PPPMetric', out_img_size=out_img_size)
 test_evaluator = dict(type='PPPMetric', out_img_size=out_img_size,)
 
 default_hooks = dict(
+    timer=dict(type='IterTimerHook'),
+    logger=dict(type='LoggerHook', interval=5),  # match VRAMHook interval
     checkpoint=dict(
         type='CheckpointHook',
         by_epoch=False,
@@ -214,6 +242,7 @@ default_hooks = dict(
 
 custom_hooks = [
     dict(type='PPPMarkVisualizationHook', interval=200, img_mean=data_rbg_mean, img_std=data_rbg_std),
+    dict(type='VRAMHook', interval=5, reset_peak=True, log_all_ranks=True),
     dict(type='LossPlotHook', out_file='loss.png', smooth_alpha=0.05),
 ]
 

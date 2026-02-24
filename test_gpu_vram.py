@@ -1,4 +1,5 @@
 import torch
+import os
 
 # def get_vram(device):
 #     alloc = torch.cuda.max_memory_allocated(device) / 1024**2
@@ -35,6 +36,10 @@ def get_vram(device=None) -> tuple[float, float, float]:
     Returns a tuple of (max_allocated_MB, max_reserved_MB, available_MB) GPU memory usage
     and resets the peak memory stats.
     """
+    print("SLURM_PROCID:", os.environ.get("SLURM_PROCID"))
+    print("CUDA_VISIBLE_DEVICES:", os.environ.get("CUDA_VISIBLE_DEVICES"))
+    print("device_count:", torch.cuda.device_count())
+
     if not torch.cuda.is_available():
         return 0.0, 0.0, 0.0
     if device is None:

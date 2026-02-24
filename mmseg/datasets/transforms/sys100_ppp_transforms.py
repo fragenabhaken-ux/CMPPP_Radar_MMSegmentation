@@ -64,8 +64,18 @@ class LoadSys100Sample(BaseTransform):
         5	Doppler velocity (positive)
         6	Doppler velocity (negative / folded)
     """
-    def __init__(self, sys100_root: str, out_img_size=(544, 1792), undistort=True, fovs=(110, 48.4), strict=False):
+    def __init__(
+        self, 
+        sys100_root: str, 
+        out_img_size=(544, 1792), 
+        undistort=True, 
+        fovs=(110, 48.4), 
+        strict=False,
+        prefetch=False,
+        prefetch_dict={},
+    ):
         from aumovio.sys100dataset import Sys100Dataset
+        from aumovio.prefetcheddataset import AsyncPrefetchedDatasetWrapper
 
         self.ds = Sys100Dataset(
             source=str(sys100_root),
@@ -78,9 +88,14 @@ class LoadSys100Sample(BaseTransform):
             fovs=fovs,
             strict=strict,
         )
-
         # for radar un-normalization
         self.radar_normalisation = self.ds.radar_normalisation
+        if prefetch:
+            self.ds = AsyncPrefetchedDatasetWrapper(
+                base_dataset = self.ds,
+                **prefetch_dict,
+            )
+
         self.fovs = fovs
 
     def transform(self, results: dict) -> dict:

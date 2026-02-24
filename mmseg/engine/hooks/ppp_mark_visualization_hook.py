@@ -2,6 +2,8 @@ import os
 import json
 import numpy as np
 import torch
+from mmengine.dist import is_main_process
+from mmengine.model import is_model_wrapper
 
 # to remedy "Tcl_AsyncDelete: async handler deleted by the wrong thread"
 import matplotlib
@@ -52,13 +54,16 @@ class PPPMarkVisualizationHook(Hook):
         )
 
     def after_train_iter(self, runner, batch_idx, data_batch=None, outputs=None):
-
+        if not is_main_process():
+            return
         if runner.iter % self.interval != 0:
             return
         if not isinstance(data_batch, dict):
             return
 
         model = runner.model
+        if is_model_wrapper(model):
+            model = model.module
         was_training = model.training
         model.eval() # this switches the model into eval mode (at the end we reset it to training mode)
 
@@ -90,11 +95,16 @@ class PPPMarkVisualizationHook(Hook):
         Visualization during testing / evaluation.
         Runs for every test batch (or you can subsample via batch_idx).
         """
-
+        if not is_main_process():
+            return
+        if runner.iter % self.interval != 0:
+            return
         if not isinstance(data_batch, dict):
             return
 
         model = runner.model
+        if is_model_wrapper(model):
+            model = model.module
         model.eval()  # ensure eval mode (already true in test loop, but explicit is fine)
 
         proc = model.data_preprocessor(data_batch)
@@ -118,11 +128,16 @@ class PPPMarkVisualizationHook(Hook):
         """
         Visualization during validation.
         """
-
+        if not is_main_process():
+            return
+        if runner.iter % self.interval != 0:
+            return
         if not isinstance(data_batch, dict):
             return
 
         model = runner.model
+        if is_model_wrapper(model):
+            model = model.module
         model.eval()  # val loop already uses eval, explicit is fine
 
         proc = model.data_preprocessor(data_batch)
