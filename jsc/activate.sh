@@ -1,4 +1,4 @@
-# #### ALT ###
+# #### ALT 1 ###
 
 # #!/bin/bash
 
@@ -17,30 +17,51 @@
 
 # source "${ENV_DIR}"/bin/activate
 
-### NEU ###
+### ALT 2 ###
+
+# #!/usr/bin/env bash
+
+# SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# source "$SCRIPT_DIR/config.sh"
+# source "$SCRIPT_DIR/modules.sh"
+
+# echo $ENV_DIR
+# source "$ENV_DIR/bin/activate"
+
+# # Check where the enviornment is created...
+# echo "VIRTUAL_ENV=$VIRTUAL_ENV"
+# which python
+# python - <<'EOF'
+# import sys
+# print("sys.executable:", sys.executable)
+# print("sys.prefix:", sys.prefix)
+# print("base_prefix:", sys.base_prefix)
+# EOF
+
+# export PYTHONNOUSERSITE=1
+# export PYTHONPATH="/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp:${PYTHONPATH}"
+
+# echo "Activated $ENV_NAME at $ENV_DIR" # Frage: Ist wirklich der venv-Python aktiv
+# python -V
+
+#### NEU ###
 
 #!/usr/bin/env bash
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# config defines ENV_NAME + ENV_DIR
 source "$SCRIPT_DIR/config.sh"
-source "$SCRIPT_DIR/modules.sh"
 
-echo $ENV_DIR
+# activate venv
 source "$ENV_DIR/bin/activate"
 
-# Check where the enviornment is created...
-echo "VIRTUAL_ENV=$VIRTUAL_ENV"
-which python
-python - <<'EOF'
-import sys
-print("sys.executable:", sys.executable)
-print("sys.prefix:", sys.prefix)
-print("base_prefix:", sys.base_prefix)
-EOF
-
+# safety: ignore user-site packages
 export PYTHONNOUSERSITE=1
+
+# project path (keep if you rely on editable imports without pip -e)
 export PYTHONPATH="/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp:${PYTHONPATH}"
 
-echo "Activated $ENV_NAME at $ENV_DIR" # Frage: Ist wirklich der venv-Python aktiv
-python -V
+echo "Activated $ENV_NAME at $ENV_DIR"

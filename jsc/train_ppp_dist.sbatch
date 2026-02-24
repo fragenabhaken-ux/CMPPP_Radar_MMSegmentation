@@ -11,7 +11,8 @@
 #SBATCH --error=logs/%x_%j.err
 
 cd "$SLURM_SUBMIT_DIR/.." || exit 1
-source jsc/setup.sh
+# Note: Run source jsc/setup.sh before!
+source jsc/activate.sh
 
 # wichtig: NICHT CUDA_VISIBLE_DEVICES setzen!
 unset CUDA_VISIBLE_DEVICES
