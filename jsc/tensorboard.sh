@@ -20,6 +20,11 @@ case "$choice" in
 50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/mmsegmentation_ppp/20260223_201606/vis_data/" \
     --port=12346 serve
     ;;
+  3)
+    tensorboard --logdir_spec="\
+50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/mmsegmentation_ppp/20260223_205728/vis_data/" \
+    --port=12346 serve
+    ;;
 
   *)
     echo "Invalid option: $choice"

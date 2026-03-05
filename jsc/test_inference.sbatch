@@ -13,6 +13,7 @@
 cd "$SLURM_SUBMIT_DIR/.." || exit 1
 
 # Note: Run source jsc/setup.sh before!
+source jsc/modules.sh
 source jsc/activate.sh
 
 python test_inference.py

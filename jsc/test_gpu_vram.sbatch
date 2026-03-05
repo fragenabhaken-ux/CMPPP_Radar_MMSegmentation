@@ -12,7 +12,8 @@
 
 cd "$SLURM_SUBMIT_DIR/.." || exit 1
 
-source jsc/setup.sh
+# Note: Run source jsc/setup.sh before!
+source jsc/activate.sh
 
 echo " -- before --"
 python test_gpu_vram.py

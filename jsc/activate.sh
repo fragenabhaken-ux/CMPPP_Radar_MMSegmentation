@@ -52,16 +52,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# config defines ENV_NAME + ENV_DIR
 source "$SCRIPT_DIR/config.sh"
-
-# activate venv
 source "$ENV_DIR/bin/activate"
 
-# safety: ignore user-site packages
 export PYTHONNOUSERSITE=1
 
-# project path (keep if you rely on editable imports without pip -e)
-export PYTHONPATH="/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp:${PYTHONPATH}"
+if [[ -n "${PYTHONPATH:-}" ]]; then
+  export PYTHONPATH="/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp:${PYTHONPATH}"
+else
+  export PYTHONPATH="/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp"
+fi
 
 echo "Activated $ENV_NAME at $ENV_DIR"

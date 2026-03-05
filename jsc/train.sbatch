@@ -14,7 +14,8 @@
 set -euo pipefail
 
 # SLURM_SUBMIT_DIR zeigt auf das Verzeichnis, aus dem du den Job mit sbatch abgeschickt hast.
-cd $SLURM_SUBMIT_DIR 
+cd $SLURM_SUBMIT_DIR
+source jsc/modules.sh 
 source activate.sh
 python tools/train.py configs/mytest/fast_scnn_mppp_256x512_juwels.py
 python tools/test.py configs/mytest/fast_scnn_mppp_256x512_juwels.py checkpoints/iter_36000.pth

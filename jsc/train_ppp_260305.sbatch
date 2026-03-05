@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
-#SBATCH --time=00:15:00
+#SBATCH --time=00:05:00
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
 #SBATCH --export=ALL
@@ -35,4 +35,4 @@ echo "SLURM_NTASKS=${SLURM_NTASKS:-unset} SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_T
 
 srun --ntasks=4 --gpus-per-task=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
      --gpu-bind=none \
-  python tools/train.py configs/mytest/fast_scnn_mppp_256x512_juwels.py --launcher slurm
+  python tools/train.py configs/mytest/fast_scnn_mppp_256x512_juwels_260305.py --launcher slurm

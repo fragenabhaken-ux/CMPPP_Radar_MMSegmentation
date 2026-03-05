@@ -14,6 +14,8 @@ from __future__ import annotations
 import numpy as np
 import torch
 import cv2
+import time
+import os
 
 import logging
 
@@ -73,12 +75,18 @@ class LoadSys100Sample(BaseTransform):
         strict=False,
         prefetch=False,
         prefetch_dict={},
+        source_is_summary_csv: bool = False,
+        max_files=None,
+        target_dataset_size=None,
     ):
         from aumovio.sys100dataset import Sys100Dataset
         from aumovio.prefetcheddataset import AsyncPrefetchedDatasetWrapper
 
         self.ds = Sys100Dataset(
             source=str(sys100_root),
+            source_is_summary_csv=bool(source_is_summary_csv),
+            max_files=max_files,
+            target_dataset_size=target_dataset_size,
             extract_video=True,
             out_img_size=out_img_size,
             undistort=undistort,
@@ -88,6 +96,7 @@ class LoadSys100Sample(BaseTransform):
             fovs=fovs,
             strict=strict,
         )
+
         # for radar un-normalization
         self.radar_normalisation = self.ds.radar_normalisation
         if prefetch:
@@ -99,6 +108,7 @@ class LoadSys100Sample(BaseTransform):
         self.fovs = fovs
 
     def transform(self, results: dict) -> dict:
+
         idx = int(results["idx"])
         sample = self.ds[idx]
 

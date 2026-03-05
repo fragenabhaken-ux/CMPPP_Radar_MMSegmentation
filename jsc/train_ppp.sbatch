@@ -13,6 +13,7 @@
 cd "$SLURM_SUBMIT_DIR/.." || exit 1
 
 # Note: Run source jsc/setup.sh before!
+source jsc/modules.sh
 source jsc/activate.sh
 
 python tools/train.py configs/mytest/fast_scnn_mppp_256x512_juwels.py

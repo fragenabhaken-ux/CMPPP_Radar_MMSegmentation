@@ -15,21 +15,26 @@ custom_imports = dict(
 )
 
 import os
-DATA_PATH = os.environ.get(
-    "SYS100_DATA_PATH",
-    "/p/data1/nxtaim/proprietary_samples/continental_sys100/"
-)
+# DATA_PATH = os.environ.get(
+#     "SYS100_DATA_PATH",
+#     "/p/data1/nxtaim/proprietary_samples/continental_sys100/"
+# )
 #DATA_PATH = os.environ.get(
 #    "SYS100_DATA_PATH",
 #    "/p/data1/nxtaim/proprietary/continental/"
 #)
+DATA_PATH = os.environ.get(
+   "SYS100_DATA_PATH",
+   "/p/data1/nxtaim/proprietary/continental/sys100/SYS100_Dataset.csv"
+)
+
 # wird normalerweise vom runner automatisch auf work_dirs im repo gesetzt, hier überschreiben
 work_dir = os.environ.get(
     "MMSEG_WORK_DIR",
     "/p/scratch/nxtaim-1/huber7/work_dirs/ppp_mark"
 )
 
-crop_size = (256, 512)
+crop_size = (384, 768) # (256, 512)
 out_img_size = (544, 1792)
 data_rbg_mean = [80.182, 87.428, 79.65] # -> marked_ppp_gt_exploration.ipynb
 data_rbg_std = [25.751, 25.934, 27.112]
@@ -48,9 +53,22 @@ model = dict(
     type='EncoderDecoder',
     data_preprocessor=data_preprocessor,
     pretrained=None,
+    # backbone=dict(
+    #     type='ResNet',
+    #     depth=34,
+    #     num_stages=4,
+    #     out_indices=(0, 1, 2, 3),
+    #     strides=(1, 2, 1, 1),
+    #     dilations=(1, 1, 2, 4),
+    #     norm_cfg=dict(type='BN', requires_grad=True),
+    #     norm_eval=False,
+    #     style='pytorch',
+    # ),
     backbone=dict(
-        type='ResNet',
-        depth=34,
+        type='ResNeXt',
+        depth=101,
+        groups=32,
+        base_width=4,
         num_stages=4,
         out_indices=(0, 1, 2, 3),
         strides=(1, 2, 1, 1),
@@ -61,7 +79,7 @@ model = dict(
     ),
     decode_head=dict(
         type='PPPMarkHead',
-        in_channels=512,
+        in_channels=2048, # This works with a depth of 50. For the ResNet 34 architecture the last layer has 512 channels. 
         channels=32,
         num_convs=2,
 
@@ -110,6 +128,8 @@ train_pipeline = [
     dict(
         type='LoadSys100Sample',
         sys100_root=DATA_PATH,
+        source_is_summary_csv=True,
+        max_files=1,
         out_img_size=out_img_size,
         undistort=True,
         fovs=fovs_wo_fisheyeart,
@@ -143,6 +163,8 @@ test_pipeline = [
     dict(
         type='LoadSys100Sample',
         sys100_root=DATA_PATH,
+        source_is_summary_csv=True,
+        target_dataset_size=1000000,
         out_img_size=out_img_size,
         undistort=True,
         fovs=fovs_wo_fisheyeart,
@@ -163,26 +185,30 @@ test_pipeline = [
 ]
 
 dataset_type = 'Sys100PPPHeatmapDataset'
+batch_size = 10
 
 train_dataloader = dict(
-    batch_size=100,
-    num_workers=8,
+    batch_size=batch_size,
+    num_workers=1, # we parallelize with Jonas' aumovio/prefetcheddataset.py
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH,
+        source_is_summary_csv=True,
+        target_dataset_size=1000000,
         fovs=fovs_wo_fisheyeart,
         pipeline=train_pipeline,
     )
 )
 
 val_dataloader = dict(
-    batch_size=100,
-    num_workers=8,
+    batch_size=batch_size,
+    num_workers=1, # we parallelize with Jonas' aumovio/prefetcheddataset.py
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH,
+        source_is_summary_csv=True,
+        target_dataset_size=batch_size,
         fovs=fovs_wo_fisheyeart,
-        frame_stride=10,
         pipeline=test_pipeline,
     )
 )
@@ -207,7 +233,7 @@ optim_wrapper = dict(
 )
 
 # train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=1000)
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=2000, val_interval=200) # for develbooster run
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=500, ) # for develbooster run # TODO 
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
