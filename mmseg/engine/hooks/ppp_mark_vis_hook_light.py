@@ -265,13 +265,24 @@ class PPPMarkVisHookLight(Hook):
             with open(os.path.join(out_dir, f"{prefix}.json"), "w") as f:
                 json.dump(json_dump, f, indent=2)
 
-            # --- Plot (tight, low whitespace) ---
+            # --- Plot: 2x3 grid, but with horizontal colorbars UNDER the corresponding axes ---
             fig, axs = plt.subplots(2, 3, figsize=self.figsize, constrained_layout=True)
 
             fig.suptitle(
                 f"{phase} | {video_str} | frame {vframe_str} | idx {gidx_str}",
                 fontsize=11,
             )
+
+            # helper: add a horizontal colorbar under one axis
+            def _cbar_under(fig, ax, im, *, height_frac=0.10, pad_frac=0.06, ticksize=8):
+                """
+                Create a colorbar axis directly UNDER `ax` with the same width.
+                Uses an inset axis so constrained_layout keeps behaving.
+                """
+                cax = ax.inset_axes([0.0, -(height_frac + pad_frac), 1.0, height_frac])
+                cb = fig.colorbar(im, cax=cax, orientation="horizontal")
+                cb.ax.tick_params(labelsize=ticksize)
+                return cb
 
             # 1) Image
             axs[0, 0].imshow(img)
@@ -293,7 +304,7 @@ class PPPMarkVisHookLight(Hook):
                 ha="left",
                 bbox=dict(facecolor="black", alpha=0.45, pad=2),
             )
-            fig.colorbar(im0, ax=axs[0, 1], fraction=0.045, pad=0.01)
+            _cbar_under(fig, axs[0, 1], im0)
 
             # 3) GT support
             axs[0, 2].imshow(gt_support.detach().cpu().numpy(), cmap="gray")
@@ -311,7 +322,7 @@ class PPPMarkVisHookLight(Hook):
                 )
                 axs[1, 0].set_title("Pred depth", fontsize=10)
                 axs[1, 0].axis("off")
-                fig.colorbar(im1, ax=axs[1, 0], fraction=0.045, pad=0.01)
+                _cbar_under(fig, axs[1, 0], im1)
             else:
                 axs[1, 0].axis("off")
 
@@ -326,7 +337,7 @@ class PPPMarkVisHookLight(Hook):
                 )
                 axs[1, 1].set_title("Pred vel", fontsize=10)
                 axs[1, 1].axis("off")
-                fig.colorbar(im2, ax=axs[1, 1], fraction=0.045, pad=0.01)
+                _cbar_under(fig, axs[1, 1], im2)
             else:
                 axs[1, 1].axis("off")
 
