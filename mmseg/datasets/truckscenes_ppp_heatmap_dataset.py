@@ -6,7 +6,7 @@ from mmengine.dataset import BaseDataset
 from mmseg.registry import DATASETS
 
 # Must be importable in your env:
-from truckscenes import TruckScenes
+# from truckscenes import TruckScenes
 
 
 @DATASETS.register_module()

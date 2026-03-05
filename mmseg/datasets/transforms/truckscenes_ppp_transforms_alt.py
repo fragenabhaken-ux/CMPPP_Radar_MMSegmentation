@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 from mmcv.transforms import BaseTransform
 from mmseg.registry import TRANSFORMS
-from truckscenes import TruckScenes
+# from truckscenes import TruckScenes
 
 
 @TRANSFORMS.register_module()

@@ -12,7 +12,7 @@ from mmengine.structures import PixelData
 from mmseg.registry import TRANSFORMS
 from mmseg.structures import SegDataSample
 
-from truckscenes import TruckScenes
+# from truckscenes import TruckScenes
 
 
 @TRANSFORMS.register_module()

@@ -34,108 +34,56 @@ if not logger.hasHandlers():
     handler.setLevel(LOG_LEVEL)
     logger.addHandler(handler)
 
+import os
+import numpy as np
+import torch
+
 
 @TRANSFORMS.register_module()
 class LoadSys100Sample(BaseTransform):
-    """
-    All sensor and video logic comes from SYS100Dataset. This transform materializes one sample.
+    ...
 
-    Expects:
-      results["idx"] : global dataset index (provided by the PyTorch Dataset wrapper)
-
-    Produces:
-      results["img"]        : (H, W, 3) uint8 in [0, 255]
-      results["radar"]      : torch.Tensor [7, 64, 64] (normalized radar grid)
-      results["rad2cam"]    : torch.Tensor [3, 4] (affine transform radar→camera)
-      results["real_hw"]    : torch.Tensor [2]
-      results["dopplerRange"]: torch scalar
-      results["radar_normalisation"]: per-channel scaling to unnormalize radar values
-      results["fovs"]       : (hFov, vFov)
-
-    Also sets:
-      results["metainfo"] with:
-        - sample_id
-        - frame_idx (legacy: global idx; keep for backwards compatibility)
-        - global_idx
-        - video_path
-        - video_name
-        - video_frame_idx (true frame counter in the video)
-    """
-
-    def __init__(
-        self,
-        sys100_root: str,
-        out_img_size: Tuple[int, int] = (544, 1792),
-        undistort: bool = True,
-        fovs: Tuple[float, float] = (110, 48.4),
-        strict: bool = False,
-        prefetch: bool = False,
-        prefetch_dict: Optional[dict] = None,
-        source_is_summary_csv: bool = False,
-        max_files=None,
-        target_dataset_size=None,
-    ):
-        from aumovio.sys100dataset import Sys100Dataset
-        from aumovio.prefetcheddataset import AsyncPrefetchedDatasetWrapper
-
-        if prefetch_dict is None:
-            prefetch_dict = {}
-
-        self.ds = Sys100Dataset(
-            source=str(sys100_root),
-            source_is_summary_csv=bool(source_is_summary_csv),
-            max_files=max_files,
-            target_dataset_size=target_dataset_size,
-            extract_video=True,
-            out_img_size=out_img_size,
-            undistort=undistort,
-            project_radar=False,
-            plot_radar=False,
-            display_stats=False,
-            return_metadata=True,
-            fovs=fovs,
-            strict=strict,
-        )
-
-        # for radar un-normalization
-        self.radar_normalisation = self.ds.radar_normalisation
-
-        if prefetch:
-            self.ds = AsyncPrefetchedDatasetWrapper(
-                base_dataset=self.ds,
-                **prefetch_dict,
-            )
-
-        self.fovs = fovs
-
+    @staticmethod
     def _get_md_field(md, key: str, default=None):
+        """
+        Robust metadata accessor.
+        Supports:
+          - dict-like
+          - numpy structured arrays / numpy arrays
+          - list/tuple of dict-like (takes first element)
+        Never raises 'truth value of array is ambiguous'.
+        """
         if md is None:
             return default
+
+        # if it's a list/tuple of metadata items, take first (common in batched/stacked cases)
+        if isinstance(md, (list, tuple)) and len(md) > 0:
+            md0 = md[0]
+            return LoadSys100Sample._get_md_field(md0, key, default)
 
         # dict-like
         if isinstance(md, dict):
             return md.get(key, default)
 
-        # pandas Series / dict-like with .get
-        get_fn = getattr(md, "get", None)
-        if callable(get_fn):
-            try:
-                return get_fn(key, default)
-            except Exception:
-                pass
-
-        # numpy structured / record arrays
+        # numpy structured array / record array
         try:
-            if hasattr(md, "dtype") and md.dtype is not None and md.dtype.names is not None:
+            if isinstance(md, np.ndarray) and md.dtype.names is not None:
                 if key in md.dtype.names:
-                    return md[key]
+                    # if it's array of records, take first
+                    val = md[key]
+                    if isinstance(val, np.ndarray) and val.size > 0:
+                        val = val.flat[0]
+                    return val
         except Exception:
             pass
 
-        # fallback: attribute
-        return getattr(md, key, default)
+        # generic attribute access fallback
+        try:
+            return getattr(md, key)
+        except Exception:
+            return default
 
-    def transform(self, results: Dict[str, Any]) -> Dict[str, Any]:
+    def transform(self, results: dict) -> dict:
         idx = int(results["idx"])
         sample = self.ds[idx]
 
@@ -143,36 +91,20 @@ class LoadSys100Sample(BaseTransform):
         # Meta info (video + frame)
         # -------------------------
         video_path = sample.get("video_path", None)
-
-        frame_in_video = None
         md = sample.get("meta_data", None)
-        vfc = _get_md_field(md, "VideoFrameCounter", None)
 
-        frame_in_video = None
-        if vfc is not None:
-            # vfc might be numpy scalar / array of shape () / python int
-            try:
-                frame_in_video = int(np.asarray(vfc).item())
-            except Exception:
-                frame_in_video = int(vfc)
+        vfc = self._get_md_field(md, "VideoFrameCounter", None)
+        frame_in_video = int(vfc) if vfc is not None else None
 
         results.setdefault("metainfo", {})
-        results["metainfo"].update(
-            dict(
-                sample_id=f"sys100_{idx:06d}",
-                # Keep legacy key for old code: do NOT change meaning silently.
-                frame_idx=idx,
-                global_idx=idx,
-                video_path=video_path,
-                video_name=os.path.basename(video_path) if video_path else None,
-                video_frame_idx=frame_in_video,
-            )
-        )
+        results["metainfo"]["sample_id"] = f"sys100_{idx:06d}"
+        results["metainfo"]["global_idx"] = idx
+        results["metainfo"]["video_path"] = video_path
+        results["metainfo"]["video_name"] = os.path.basename(video_path) if video_path else None
+        results["metainfo"]["video_frame_idx"] = frame_in_video
 
-        # -------------------------
-        # Image (jpg: [3,H,W] in [-1,1] -> HWC uint8 in [0,255])
-        # -------------------------
-        img_t = sample["jpg"]
+        # Image
+        img_t = sample["jpg"]  # [3,H,W], [-1,1]
         img = img_t.detach().cpu().numpy().transpose(1, 2, 0)
         img = np.ascontiguousarray(127.5 * img + 127.5, dtype=np.uint8)
 
@@ -180,9 +112,7 @@ class LoadSys100Sample(BaseTransform):
         results["img_shape"] = img.shape[:2]
         results["ori_shape"] = img.shape[:2]
 
-        # -------------------------
-        # Keep these for target building
-        # -------------------------
+        # Keep for target building
         results["radar"] = sample["radar"]
         results["rad2cam"] = sample["rad2cam"]
         results["real_hw"] = sample["real_hw"]
