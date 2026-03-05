@@ -129,7 +129,6 @@ train_pipeline = [
         type='LoadSys100Sample',
         sys100_root=DATA_PATH,
         source_is_summary_csv=True,
-        max_files=1,
         out_img_size=out_img_size,
         undistort=True,
         fovs=fovs_wo_fisheyeart,
@@ -192,10 +191,10 @@ train_dataloader = dict(
     num_workers=1, # we parallelize with Jonas' aumovio/prefetcheddataset.py
     dataset=dict(
         type=dataset_type,
-        sys100_root=DATA_PATH,
-        source_is_summary_csv=True,
+        # sys100_root=DATA_PATH,
+        # source_is_summary_csv=True,
         target_dataset_size=1000000,
-        fovs=fovs_wo_fisheyeart,
+        # fovs=fovs_wo_fisheyeart,
         pipeline=train_pipeline,
     )
 )
@@ -205,10 +204,10 @@ val_dataloader = dict(
     num_workers=1, # we parallelize with Jonas' aumovio/prefetcheddataset.py
     dataset=dict(
         type=dataset_type,
-        sys100_root=DATA_PATH,
-        source_is_summary_csv=True,
+        # sys100_root=DATA_PATH,
+        # source_is_summary_csv=True,
         target_dataset_size=batch_size,
-        fovs=fovs_wo_fisheyeart,
+        # fovs=fovs_wo_fisheyeart,
         pipeline=test_pipeline,
     )
 )
@@ -267,7 +266,7 @@ default_hooks = dict(
 )
 
 custom_hooks = [
-    dict(type='PPPMarkVisualizationHook', interval=200, img_mean=data_rbg_mean, img_std=data_rbg_std),
+    dict(type='PPPMarkVisHookLight', interval=200, img_mean=data_rbg_mean, img_std=data_rbg_std),
     # dict(type='VRAMHook', interval=5, reset_peak=True, log_all_ranks=True),
     dict(type='LossPlotHook', out_file='loss.png', smooth_alpha=0.05),
 ]

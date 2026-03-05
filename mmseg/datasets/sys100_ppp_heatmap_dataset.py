@@ -85,33 +85,35 @@ from aumovio.sys100dataset import Sys100Dataset
 class Sys100PPPHeatmapDataset(Dataset):
     def __init__(
         self,
-        sys100_root: str,
+        # sys100_root: str,
         pipeline=None,
-        out_img_size=(544, 1792),
-        undistort=True,
-        fovs=(110, 48.4),
-        strict=False,
-        source_is_summary_csv: bool = False,
-        max_files=None,
+        # out_img_size=(544, 1792),
+        # undistort=True,
+        # fovs=(110, 48.4),
+        # strict=False,
+        # source_is_summary_csv: bool = False,
+        # max_files=None,
         target_dataset_size=None,
         **kwargs,  # ignore mmengine-specific dataset kwargs
     ):
-        self.sys100 = Sys100Dataset(
-            source=str(sys100_root),
-            source_is_summary_csv=bool(source_is_summary_csv),
-            max_files=max_files,
-            target_dataset_size=target_dataset_size,
-            extract_video=True,
-            out_img_size=out_img_size,
-            undistort=undistort,
-            project_radar=False,
-            plot_radar=False,
-            display_stats=False,
-            fovs=fovs,
-            strict=strict,
-        )
+        # self.sys100 = Sys100Dataset(
+        #     source=str(sys100_root),
+        #     source_is_summary_csv=bool(source_is_summary_csv),
+        #     max_files=max_files,
+        #     target_dataset_size=target_dataset_size,
+        #     extract_video=True,
+        #     out_img_size=out_img_size,
+        #     undistort=undistort,
+        #     project_radar=False,
+        #     plot_radar=False,
+        #     display_stats=False,
+        #     return_metadata=True,
+        #     fovs=fovs,
+        #     strict=strict,
+        # )
         self.pipeline = Compose(pipeline) if pipeline is not None else None
-        self.n = len(self.sys100)
+        # self.n = len(self.sys100)
+        self.n = target_dataset_size
 
     def __len__(self) -> int:
         return self.n
