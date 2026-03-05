@@ -265,90 +265,107 @@ class PPPMarkVisHookLight(Hook):
             with open(os.path.join(out_dir, f"{prefix}.json"), "w") as f:
                 json.dump(json_dump, f, indent=2)
 
-            # --- Plot: 2x3 grid, but with horizontal colorbars UNDER the corresponding axes ---
-            fig, axs = plt.subplots(2, 3, figsize=self.figsize, constrained_layout=True)
+        # --- Plot: 5 rows x 1 col, FULL screen, no whitespace ---
 
-            fig.suptitle(
-                f"{phase} | {video_str} | frame {vframe_str} | idx {gidx_str}",
-                fontsize=11,
+        fig, axs = plt.subplots(
+            5,
+            1,
+            figsize=(14, 20),   # large panels
+        )
+
+        # remove ALL padding
+        plt.subplots_adjust(
+            left=0.01,
+            right=0.99,
+            top=0.97,
+            bottom=0.01,
+            hspace=0.08,
+        )
+
+        fig.suptitle(
+            f"{phase} | {video_str} | frame {vframe_str} | idx {gidx_str}",
+            fontsize=14,
+        )
+
+        def _cbar_under(fig, ax, im, height=0.04, pad=0.02):
+            cax = ax.inset_axes([0.0, -(height + pad), 1.0, height])
+            cb = fig.colorbar(im, cax=cax, orientation="horizontal")
+            cb.ax.tick_params(labelsize=10)
+            return cb
+
+        row = 0
+
+        # 1) Image
+        axs[row].imshow(img, aspect="auto")
+        axs[row].set_title("Image", fontsize=13)
+        axs[row].axis("off")
+        row += 1
+
+        # 2) Pred λ mass
+        im0 = axs[row].imshow(pred_lambda_mass, cmap="hot", aspect="auto")
+        axs[row].set_title("Pred λ mass", fontsize=13)
+        axs[row].axis("off")
+
+        axs[row].text(
+            0.02,
+            0.98,
+            f"E[N]={expected_count:.2f}\nGT={gt_count:.0f}\nΔ={expected_count-gt_count:+.2f}",
+            transform=axs[row].transAxes,
+            fontsize=11,
+            color="white",
+            va="top",
+            ha="left",
+            bbox=dict(facecolor="black", alpha=0.55, pad=3),
+        )
+
+        _cbar_under(fig, axs[row], im0)
+        row += 1
+
+        # 3) GT support
+        axs[row].imshow(gt_support.detach().cpu().numpy(), cmap="gray", aspect="auto")
+        axs[row].set_title("GT support", fontsize=13)
+        axs[row].axis("off")
+        row += 1
+
+        # 4) Depth
+        if pred_depth is not None:
+            depth_np = pred_depth.detach().cpu().numpy()
+            im1 = axs[row].imshow(
+                depth_np,
+                cmap="viridis",
+                vmin=self.depth_vmin,
+                vmax=self.depth_vmax,
+                aspect="auto",
             )
+            axs[row].set_title("Pred depth", fontsize=13)
+            axs[row].axis("off")
+            _cbar_under(fig, axs[row], im1)
+        else:
+            axs[row].axis("off")
+        row += 1
 
-            # helper: add a horizontal colorbar under one axis
-            def _cbar_under(fig, ax, im, *, height_frac=0.10, pad_frac=0.06, ticksize=8):
-                """
-                Create a colorbar axis directly UNDER `ax` with the same width.
-                Uses an inset axis so constrained_layout keeps behaving.
-                """
-                cax = ax.inset_axes([0.0, -(height_frac + pad_frac), 1.0, height_frac])
-                cb = fig.colorbar(im, cax=cax, orientation="horizontal")
-                cb.ax.tick_params(labelsize=ticksize)
-                return cb
-
-            # 1) Image
-            axs[0, 0].imshow(img)
-            axs[0, 0].set_title("Image", fontsize=10)
-            axs[0, 0].axis("off")
-
-            # 2) Pred intensity (mass)
-            im0 = axs[0, 1].imshow(pred_lambda_mass, cmap="hot")
-            axs[0, 1].set_title("Pred λ mass", fontsize=10)
-            axs[0, 1].axis("off")
-            axs[0, 1].text(
-                0.02,
-                0.98,
-                f"E[N]={expected_count:.2f}\nGT={gt_count:.0f}\nΔ={expected_count-gt_count:+.2f}",
-                transform=axs[0, 1].transAxes,
-                fontsize=9,
-                color="white",
-                va="top",
-                ha="left",
-                bbox=dict(facecolor="black", alpha=0.45, pad=2),
+        # 5) Velocity
+        if pred_vel is not None:
+            vel_np = pred_vel.detach().cpu().numpy()
+            im2 = axs[row].imshow(
+                vel_np,
+                cmap="coolwarm",
+                vmin=self.vel_vmin,
+                vmax=self.vel_vmax,
+                aspect="auto",
             )
-            _cbar_under(fig, axs[0, 1], im0)
+            axs[row].set_title("Pred vel", fontsize=13)
+            axs[row].axis("off")
+            _cbar_under(fig, axs[row], im2)
+        else:
+            axs[row].axis("off")
 
-            # 3) GT support
-            axs[0, 2].imshow(gt_support.detach().cpu().numpy(), cmap="gray")
-            axs[0, 2].set_title("GT support", fontsize=10)
-            axs[0, 2].axis("off")
+        png_path = os.path.join(out_dir, f"{prefix}.png")
 
-            # 4) Depth
-            if pred_depth is not None:
-                depth_np = pred_depth.detach().cpu().numpy()
-                im1 = axs[1, 0].imshow(
-                    depth_np,
-                    cmap="viridis",
-                    vmin=self.depth_vmin,
-                    vmax=self.depth_vmax,
-                )
-                axs[1, 0].set_title("Pred depth", fontsize=10)
-                axs[1, 0].axis("off")
-                _cbar_under(fig, axs[1, 0], im1)
-            else:
-                axs[1, 0].axis("off")
+        fig.savefig(
+            png_path,
+            dpi=90,           # keeps file size reasonable
+            bbox_inches="tight",
+        )
 
-            # 5) Velocity
-            if pred_vel is not None:
-                vel_np = pred_vel.detach().cpu().numpy()
-                im2 = axs[1, 1].imshow(
-                    vel_np,
-                    cmap="coolwarm",
-                    vmin=self.vel_vmin,
-                    vmax=self.vel_vmax,
-                )
-                axs[1, 1].set_title("Pred vel", fontsize=10)
-                axs[1, 1].axis("off")
-                _cbar_under(fig, axs[1, 1], im2)
-            else:
-                axs[1, 1].axis("off")
-
-            axs[1, 2].axis("off")
-
-            # Save tightly
-            png_path = os.path.join(out_dir, f"{prefix}.png")
-            fig.savefig(
-                png_path,
-                dpi=self.dpi,
-                bbox_inches="tight",
-                pad_inches=self.pad_inches,
-            )
-            plt.close(fig)
+        plt.close(fig)
