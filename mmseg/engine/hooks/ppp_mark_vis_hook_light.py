@@ -33,8 +33,10 @@ class PPPMarkVisHookLight(Hook):
     def __init__(
         self,
         interval: int = 500,
-        max_samples: int = 1,
-        out_subdir: str = "vis_light",
+        max_samples_train=1,
+        max_samples_val=10,
+        max_samples_test=10,
+        out_subdir: str = "vis_data",
         img_mean=None,
         img_std=None,
         # Plot controls
@@ -96,6 +98,17 @@ class PPPMarkVisHookLight(Hook):
     # -------------------------
     # Internal helpers
     # -------------------------
+    def _get_max_samples_for_phase(self, phase: str, batch_size: int) -> int:
+        if phase == "train" and self.max_samples_train is not None:
+            return min(self.max_samples_train, batch_size)
+        if phase == "val" and self.max_samples_val is not None:
+            return min(self.max_samples_val, batch_size)
+        if phase == "test" and self.max_samples_test is not None:
+            return min(self.max_samples_test, batch_size)
+        if self.max_samples is not None:
+            return min(self.max_samples, batch_size)
+        return batch_size
+    
     def _should_run(self, runner, batch_idx, data_batch, phase: str) -> bool:
         if not is_main_process():
             return False
@@ -173,7 +186,7 @@ class PPPMarkVisHookLight(Hook):
         phase: str,
         batch_idx: int | None,
     ):
-        num_vis = min(self.max_samples, preds.size(0))
+        num_vis = self._get_max_samples_for_phase(phase, preds.size(0))
         device = inputs.device
         out_dir = self._get_vis_dir(runner, phase)
 
@@ -218,19 +231,12 @@ class PPPMarkVisHookLight(Hook):
             gt_count = float(gt_support.detach().cpu().numpy().sum())
 
             # --- filenames / prefix ---
-            if phase == "train":
-                prefix = (
-                    f"iter_{runner.iter:07d}_{phase}_"
-                    f"{video_str}_f{vframe_str}_idx{gidx_str}_s{i}"
-                )
-            else:
-                bidx = int(batch_idx) if batch_idx is not None else -1
-                prefix = (
-                    f"epoch_{runner.epoch:04d}_{phase}_b{bidx:05d}_"
-                    f"{video_str}_f{vframe_str}_idx{gidx_str}_s{i}"
-                )
+            prefix = (
+                f"iter_{runner.iter:07d}_{phase}_"
+                f"{video_str}_f{vframe_str}_idx{gidx_str}_s{i}"
+            )
 
-            # --- JSON (small + useful) ---
+            # --- JSON ---
             json_dump = {
                 "phase": phase,
                 "iter": int(runner.iter),

@@ -9,7 +9,7 @@ custom_imports = dict(
         'mmseg.datasets.sys100_ppp_heatmap_dataset',
         'mmseg.datasets.transforms.sys100_ppp_transforms',
         'mmseg.evaluation.metrics.ppp_metrics',
-        'mmseg.engine.hooks.ppp_mark_visualization_hook' # 'mmseg.engine.hooks.ppp_visualization_hook'
+        'mmseg.engine.hooks.ppp_mark_vis_hook_light' # 'mmseg.engine.hooks.ppp_visualization_hook'
     ],
     allow_failed_imports=False
 )
@@ -23,9 +23,14 @@ import os
 #    "SYS100_DATA_PATH",
 #    "/p/data1/nxtaim/proprietary/continental/"
 #)
-DATA_PATH = os.environ.get(
+
+DATA_PATH_TRAIN = os.environ.get(
    "SYS100_DATA_PATH",
    "/p/data1/nxtaim/proprietary/continental/sys100/SYS100_Dataset.csv"
+)
+DATA_PATH_VAL = os.environ.get(
+   "SYS100_DATA_PATH",
+   "/p/data1/nxtaim/proprietary/continental/sys100_validation/SYS100_Validation_Dataset.csv"
 )
 
 # wird normalerweise vom runner automatisch auf work_dirs im repo gesetzt, hier überschreiben
@@ -53,22 +58,9 @@ model = dict(
     type='EncoderDecoder',
     data_preprocessor=data_preprocessor,
     pretrained=None,
-    # backbone=dict(
-    #     type='ResNet',
-    #     depth=34,
-    #     num_stages=4,
-    #     out_indices=(0, 1, 2, 3),
-    #     strides=(1, 2, 1, 1),
-    #     dilations=(1, 1, 2, 4),
-    #     norm_cfg=dict(type='BN', requires_grad=True),
-    #     norm_eval=False,
-    #     style='pytorch',
-    # ),
     backbone=dict(
-        type='ResNeXt',
-        depth=101,
-        groups=32,
-        base_width=4,
+        type='ResNet',
+        depth=34,
         num_stages=4,
         out_indices=(0, 1, 2, 3),
         strides=(1, 2, 1, 1),
@@ -77,9 +69,23 @@ model = dict(
         norm_eval=False,
         style='pytorch',
     ),
+    # backbone=dict(
+    #     type='ResNeXt',
+    #     depth=101,
+    #     groups=32,
+    #     base_width=4,
+    #     num_stages=4,
+    #     out_indices=(0, 1, 2, 3),
+    #     strides=(1, 2, 1, 1),
+    #     dilations=(1, 1, 2, 4),
+    #     norm_cfg=dict(type='BN', requires_grad=True),
+    #     norm_eval=False,
+    #     style='pytorch',
+    # ),
     decode_head=dict(
         type='PPPMarkHead',
-        in_channels=2048, # This works with a depth of 50. For the ResNet 34 architecture the last layer has 512 channels. 
+        # in_channels=2048, # This works with a depth of 50. For the ResNet 34 architecture the last layer has 512 channels. 
+        in_channels=512, # This works with a depth of 50. For the ResNet 34 architecture the last layer has 512 channels. 
         channels=32,
         num_convs=2,
 
@@ -87,22 +93,13 @@ model = dict(
         num_classes=3,
 
         ppp_weight=1,
-        depth_weight=1,
-        velocity_weight=1,
+        depth_weight=0,
+        velocity_weight=0,
 
         loss_ppp=dict(
             type='PPPLoss',
             out_img_size=out_img_size,
-            loss_weight=1,
         ),
-        # loss_depth=dict(
-        #     type='SmoothL1Loss',
-        #     loss_weight=1.0,
-        # ),
-        # loss_velocity=dict(
-        #     type='SmoothL1Loss',
-        #     loss_weight=1.0,
-        # ),
 
         in_index=-1,
         align_corners=False,
@@ -127,7 +124,7 @@ train_pipeline = [
     #),
     dict(
         type='LoadSys100Sample',
-        sys100_root=DATA_PATH,
+        sys100_root=DATA_PATH_TRAIN,
         source_is_summary_csv=True,
         out_img_size=out_img_size,
         undistort=True,
@@ -161,7 +158,7 @@ test_pipeline = [
     #),
     dict(
         type='LoadSys100Sample',
-        sys100_root=DATA_PATH,
+        sys100_root=DATA_PATH_VAL,
         source_is_summary_csv=True,
         target_dataset_size=1000000,
         out_img_size=out_img_size,
@@ -184,17 +181,17 @@ test_pipeline = [
 ]
 
 dataset_type = 'Sys100PPPHeatmapDataset'
-batch_size = 10
+batch_size = 100
 
 train_dataloader = dict(
     batch_size=batch_size,
     num_workers=1, # we parallelize with Jonas' aumovio/prefetcheddataset.py
     dataset=dict(
         type=dataset_type,
-        # sys100_root=DATA_PATH,
-        # source_is_summary_csv=True,
-        target_dataset_size=1000000,
-        # fovs=fovs_wo_fisheyeart,
+        sys100_root=DATA_PATH_TRAIN,
+        source_is_summary_csv=True,
+        # target_dataset_size=1000000,
+        fovs=fovs_wo_fisheyeart,
         pipeline=train_pipeline,
     )
 )
@@ -204,10 +201,10 @@ val_dataloader = dict(
     num_workers=1, # we parallelize with Jonas' aumovio/prefetcheddataset.py
     dataset=dict(
         type=dataset_type,
-        # sys100_root=DATA_PATH,
-        # source_is_summary_csv=True,
+        sys100_root=DATA_PATH_VAL,
+        source_is_summary_csv=True,
         target_dataset_size=batch_size,
-        # fovs=fovs_wo_fisheyeart,
+        fovs=fovs_wo_fisheyeart,
         pipeline=test_pipeline,
     )
 )
@@ -231,8 +228,7 @@ optim_wrapper = dict(
     paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.5)})
 )
 
-# train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=1000)
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=500, ) # for develbooster run # TODO 
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=5000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -266,7 +262,15 @@ default_hooks = dict(
 )
 
 custom_hooks = [
-    dict(type='PPPMarkVisHookLight', interval=200, img_mean=data_rbg_mean, img_std=data_rbg_std),
+    dict(
+        type='PPPMarkVisHookLight', 
+        interval=1000, 
+        img_mean=data_rbg_mean, 
+        img_std=data_rbg_std,
+        max_samples_train=1,
+        max_samples_val=10,
+        max_samples_test=10,
+        ),
     # dict(type='VRAMHook', interval=5, reset_peak=True, log_all_ranks=True),
     dict(type='LossPlotHook', out_file='loss.png', smooth_alpha=0.05),
 ]

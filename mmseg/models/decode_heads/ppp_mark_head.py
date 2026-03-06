@@ -51,7 +51,7 @@ class PPPMarkHead(BaseDecodeHead):
         velocity_weight: float = 1,
 
         # ---- losses ----
-        loss_ppp: dict = dict(type="PPPLoss", loss_weight=1.0),
+        loss_ppp: dict = dict(type="PPPLoss"),
         # loss_depth: dict = dict(type="SmoothL1Loss", loss_weight=1.0),
         # loss_velocity: dict = dict(type="SmoothL1Loss", loss_weight=1.0),
 
@@ -206,7 +206,7 @@ class PPPMarkHead(BaseDecodeHead):
         gt_vel = gt[:, 2]           # (N,H,W)
 
         # intensity must be binary {0,1}
-        unique_vals = torch.unique(gt_int)
+        unique_vals = torch.unique(gt_int) 
         assert torch.all((unique_vals == 0) | (unique_vals == 1)), (
             f"Intensity channel not binary, values={unique_vals}"
         )
@@ -229,12 +229,13 @@ class PPPMarkHead(BaseDecodeHead):
         assert (pred_depth > 0).all(), "pred_depth must be strictly positive"
 
         # PPP loss only on intensity channel
-        # avg_factor = max(float(gt_int.sum().item()), 1.0)
-        avg_factor = 1 # Could this be the saling bug??? Normalization by gt_count??)
-        loss_ppp = self.ppp_weight * self.loss_ppp(pred_int, gt_int, avg_factor=avg_factor)
+        #avg_factor = max(float(gt_int.sum().item()), 1.0)
+        # avg_factor = 1 # Could this be the saling bug??? Normalization by gt_count??)
+        loss_ppp = self.loss_ppp(pred_int, gt_int)#, avg_factor=avg_factor)
 
         # masked mark regression at point locations only
         mask = gt_int.squeeze(1)  # (N,H,W)
+        nbr_points = mask.sum(dim=(1,2)) # (N,)
         # # We normalize the loss to make the gradient scale independent of how 
         # # many points happen to be in an image.
         # normalizer = mask.sum().clamp(min=1.0)
@@ -255,21 +256,19 @@ class PPPMarkHead(BaseDecodeHead):
         # Note: While the intensity is trained everywhere, the marks are only trained
         # on the masked points. The prediction is to be understood as E[m|point], i.e.
         # if PPP has an event here, that is what the mark would be (conditional preds).
-        loss_depth = self.depth_weight * (
+        loss_depth = ((
             F.l1_loss(pred_depth, gt_depth, reduction="none") * mask
-        ).sum()
+        ).sum(dim=(1,2)) / nbr_points).mean()
 
-        loss_velocity = self.velocity_weight * (
+        loss_velocity = ((
             F.l1_loss(pred_vel, gt_vel, reduction="none") * mask
-        ).sum()
+        ).sum(dim=(1,2)) / nbr_points).mean()
 
         logger.debug(
-            "PPPMarkHead | batch=%d | PPP_points=%d | loss_ppp=%.4f | loss_d=%.4f | loss_v=%.4f",
-            preds.shape[0],
-            int(gt_int.sum().item()),
-            loss_ppp.item(),
-            loss_depth.item(),
-            loss_velocity.item(),
+            f"PPPMarkHead | batch={preds.shape[0]} | PPP_points={int(gt_int.sum().item())} | "+
+            f"loss_ppp={self.ppp_weight:.1e} * {loss_ppp.item():.4f} | "+
+            f"loss_d={self.depth_weight:.1e} * {loss_depth.item():.4f} | "+
+            f"loss_v={self.velocity_weight:.1e} * {loss_velocity.item():.4f}"
         )
 
-        return dict(loss_ppp=loss_ppp, loss_depth=loss_depth, loss_velocity=loss_velocity)
+        return dict(loss_ppp=self.ppp_weight * loss_ppp, loss_depth=self.depth_weight * loss_depth, loss_velocity=self.velocity_weight * loss_velocity)
