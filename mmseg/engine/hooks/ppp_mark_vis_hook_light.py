@@ -50,7 +50,9 @@ class PPPMarkVisHookLight(Hook):
         vel_vmax: float | None = None,
     ):
         self.interval = int(interval)
-        self.max_samples = int(max_samples)
+        self.max_samples_train = int(max_samples_train)
+        self.max_samples_val = int(max_samples_val)
+        self.max_samples_test = int(max_samples_test)
         self.out_subdir = str(out_subdir)
 
         self.dpi = int(dpi)
@@ -105,8 +107,6 @@ class PPPMarkVisHookLight(Hook):
             return min(self.max_samples_val, batch_size)
         if phase == "test" and self.max_samples_test is not None:
             return min(self.max_samples_test, batch_size)
-        if self.max_samples is not None:
-            return min(self.max_samples, batch_size)
         return batch_size
     
     def _should_run(self, runner, batch_idx, data_batch, phase: str) -> bool:

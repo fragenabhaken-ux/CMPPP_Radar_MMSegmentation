@@ -133,7 +133,7 @@ class LoadSys100Sample(BaseTransform):
                 frame_in_video = int(md["VideoFrameCounter"])
 
         results.setdefault("metainfo", {})
-        # Keep legacy key for old code: do NOT change meaning silently.
+        # Keep legacy key for old code.
         results["metainfo"].update(
             dict(
                 sample_id=f"sys100_{idx:06d}",

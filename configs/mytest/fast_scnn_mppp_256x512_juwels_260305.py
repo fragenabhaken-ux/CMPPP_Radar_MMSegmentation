@@ -39,11 +39,14 @@ work_dir = os.environ.get(
     "/p/scratch/nxtaim-1/huber7/work_dirs/ppp_mark"
 )
 
-crop_size = (384, 768) # (256, 512)
+crop_size = (256, 512) # (384, 768)
 out_img_size = (544, 1792)
 data_rbg_mean = [80.182, 87.428, 79.65] # -> marked_ppp_gt_exploration.ipynb
 data_rbg_std = [25.751, 25.934, 27.112]
 fovs_wo_fisheyeart=(105, 48.4) # (110, 48.4) still had the fisheye artefact on the right
+
+dataset_type = 'Sys100PPPHeatmapDataset'
+batch_size = 80
 
 data_preprocessor = dict(
     type='SegDataPreProcessor',
@@ -160,7 +163,7 @@ test_pipeline = [
         type='LoadSys100Sample',
         sys100_root=DATA_PATH_VAL,
         source_is_summary_csv=True,
-        target_dataset_size=1000000,
+        target_dataset_size=batch_size,
         out_img_size=out_img_size,
         undistort=True,
         fovs=fovs_wo_fisheyeart,
@@ -180,9 +183,6 @@ test_pipeline = [
     dict(type='PPPPackSegInputs'),
 ]
 
-dataset_type = 'Sys100PPPHeatmapDataset'
-batch_size = 100
-
 train_dataloader = dict(
     batch_size=batch_size,
     num_workers=1, # we parallelize with Jonas' aumovio/prefetcheddataset.py
@@ -190,7 +190,7 @@ train_dataloader = dict(
         type=dataset_type,
         sys100_root=DATA_PATH_TRAIN,
         source_is_summary_csv=True,
-        # target_dataset_size=1000000,
+        target_dataset_size=1000000,
         fovs=fovs_wo_fisheyeart,
         pipeline=train_pipeline,
     )

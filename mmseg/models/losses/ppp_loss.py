@@ -50,17 +50,83 @@ class PPPLoss(nn.Module):
         lam = torch.exp(inputs) / pixel_scale      # λ = exp(f)/pixel_area
 
         # ∫ λ dx (approximated as sum over grid)
-        integral_term = lam.sum(dim=(1,2))
+        integral_term = lam.sum(dim=(1, 2, 3))  # (N,)
 
         # sum_i log λ(x_i)
         # but log λ = f(x) - log(pixel_scale)
         log_lambda_at_points = targets * (inputs - torch.log(pixel_scale))
 
-        observation_term = log_lambda_at_points.sum(dim=(1,2))
+        observation_term = log_lambda_at_points.sum(dim=(1, 2, 3))  # (N,)
 
-        return ((integral_term - observation_term) / targets.sum(dim=(1,2))).mean()
+        # number of points per sample, normalized
+        num_points = targets.sum(dim=(1, 2, 3)).clamp_min(1.0)  # (N,)
+
+        return ((integral_term - observation_term) / num_points).mean()
     
 
+# import torch #
+# import torch.nn as nn
+# from mmseg.registry import MODELS
+
+# @MODELS.register_module()
+# class PPPLoss(nn.Module):
+
+#     def __init__(self, out_img_size, loss_weight=1.0): # , test_resolution=(512,1024), Bug Tobi
+#         super().__init__()
+#         self.loss_weight = loss_weight
+#         # self.test_resolution = test_resolution # Bug
+#         # full reference domain (H_full, W_full)
+#         H_full, W_full = out_img_size
+#         self.register_buffer(
+#             "pixel_scale",
+#             torch.tensor(H_full * W_full, dtype=torch.float32)
+#         )
+
+#     def forward(self, inputs, targets, avg_factor=1.0):
+#         """
+#         inputs:  (N,1,H,W) logits f(x)
+#         targets: (N,1,H,W) binary mask of observed points
+#         """
+
+#         N, C, H, W = inputs.shape
+#         assert C == 1
+#         assert inputs.shape == targets.shape
+
+#         assert torch.isfinite(inputs).all(), "PPPLoss | inputs contain NaN/Inf"
+#         assert torch.isfinite(targets).all(), "PPPLoss | targets contain NaN/Inf"
+
+#         if not torch.all((targets == 0) | (targets == 1)):
+#             raise ValueError(
+#                 f"PPPLoss | targets not binary, "
+#                 f"unique values: {torch.unique(targets)}"
+#             )
+
+#         # pixel area of original resolution
+#         # pixel_scale = torch.tensor(self.test_resolution, device=inputs.device).prod() Bug Tobi
+#         # pixel_scale = torch.tensor(H * W, device=inputs.device, dtype=inputs.dtype)
+#         # If we normalized by the local crop area instead, the model would learn a
+#         # conditional intensity given the crop. When evaluated on the full frame,
+#         # this would systematically undercount, because lambda would implicitly be scaled
+#         # to a smaller reference domain.
+#         pixel_scale = self.pixel_scale.to(
+#             device=inputs.device,
+#             dtype=inputs.dtype
+#         )
+
+#         # intensity
+#         lam = torch.exp(inputs) / pixel_scale      # λ = exp(f)/pixel_area
+
+#         # ∫ λ dx (approximated as sum over grid)
+#         integral_term = lam.sum()
+
+#         # sum_i log λ(x_i)
+#         # but log λ = f(x) - log(pixel_scale)
+#         log_lambda_at_points = targets * (inputs - torch.log(pixel_scale))
+
+#         observation_term = log_lambda_at_points.sum()
+
+#         loss = (integral_term - observation_term) / avg_factor
+#         return loss * self.loss_weight
 
 
 '''
