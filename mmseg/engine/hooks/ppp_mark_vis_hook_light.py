@@ -168,6 +168,8 @@ class PPPMarkVisHookLight(Hook):
         img = img_chw.astype(np.float32)
         if self.img_mean is not None and self.img_std is not None:
             img = img * self.img_std + self.img_mean
+        # If image is in [-1, 1], map it back to [0, 255] for visualization
+        img = (img + 1.0) * 127.5
         img = np.clip(img, 0, 255).astype(np.uint8)
         return np.transpose(img, (1, 2, 0))
 
@@ -271,107 +273,107 @@ class PPPMarkVisHookLight(Hook):
             with open(os.path.join(out_dir, f"{prefix}.json"), "w") as f:
                 json.dump(json_dump, f, indent=2)
 
-        # --- Plot: 5 rows x 1 col, FULL screen, no whitespace ---
+            # --- Plot: 5 rows x 1 col, FULL screen, no whitespace ---
 
-        fig, axs = plt.subplots(
-            5,
-            1,
-            figsize=(14, 20),   # large panels
-        )
-
-        # remove ALL padding
-        plt.subplots_adjust(
-            left=0.01,
-            right=0.99,
-            top=0.97,
-            bottom=0.01,
-            hspace=0.08,
-        )
-
-        fig.suptitle(
-            f"{phase} | {video_str} | frame {vframe_str} | idx {gidx_str}",
-            fontsize=14,
-        )
-
-        def _cbar_under(fig, ax, im, height=0.04, pad=0.02):
-            cax = ax.inset_axes([0.0, -(height + pad), 1.0, height])
-            cb = fig.colorbar(im, cax=cax, orientation="horizontal")
-            cb.ax.tick_params(labelsize=10)
-            return cb
-
-        row = 0
-
-        # 1) Image
-        axs[row].imshow(img, aspect="auto")
-        axs[row].set_title("Image", fontsize=13)
-        axs[row].axis("off")
-        row += 1
-
-        # 2) Pred λ mass
-        im0 = axs[row].imshow(pred_lambda_mass, cmap="hot", aspect="auto")
-        axs[row].set_title("Pred λ mass", fontsize=13)
-        axs[row].axis("off")
-
-        axs[row].text(
-            0.02,
-            0.98,
-            f"E[N]={expected_count:.2f}\nGT={gt_count:.0f}\nΔ={expected_count-gt_count:+.2f}",
-            transform=axs[row].transAxes,
-            fontsize=11,
-            color="white",
-            va="top",
-            ha="left",
-            bbox=dict(facecolor="black", alpha=0.55, pad=3),
-        )
-
-        _cbar_under(fig, axs[row], im0)
-        row += 1
-
-        # 3) GT support
-        axs[row].imshow(gt_support.detach().cpu().numpy(), cmap="gray", aspect="auto")
-        axs[row].set_title("GT support", fontsize=13)
-        axs[row].axis("off")
-        row += 1
-
-        # 4) Depth
-        if pred_depth is not None:
-            depth_np = pred_depth.detach().cpu().numpy()
-            im1 = axs[row].imshow(
-                depth_np,
-                cmap="viridis",
-                vmin=self.depth_vmin,
-                vmax=self.depth_vmax,
-                aspect="auto",
+            fig, axs = plt.subplots(
+                5,
+                1,
+                figsize=(14, 20),   # large panels
             )
-            axs[row].set_title("Pred depth", fontsize=13)
-            axs[row].axis("off")
-            _cbar_under(fig, axs[row], im1)
-        else:
-            axs[row].axis("off")
-        row += 1
 
-        # 5) Velocity
-        if pred_vel is not None:
-            vel_np = pred_vel.detach().cpu().numpy()
-            im2 = axs[row].imshow(
-                vel_np,
-                cmap="coolwarm",
-                vmin=self.vel_vmin,
-                vmax=self.vel_vmax,
-                aspect="auto",
+            # remove ALL padding
+            plt.subplots_adjust(
+                left=0.01,
+                right=0.99,
+                top=0.97,
+                bottom=0.01,
+                hspace=0.08,
             )
-            axs[row].set_title("Pred vel", fontsize=13)
+
+            fig.suptitle(
+                f"{phase} | {video_str} | frame {vframe_str} | idx {gidx_str}",
+                fontsize=14,
+            )
+
+            def _cbar_under(fig, ax, im, height=0.04, pad=0.02):
+                cax = ax.inset_axes([0.0, -(height + pad), 1.0, height])
+                cb = fig.colorbar(im, cax=cax, orientation="horizontal")
+                cb.ax.tick_params(labelsize=10)
+                return cb
+
+            row = 0
+
+            # 1) Image
+            axs[row].imshow(img, aspect="auto")
+            axs[row].set_title("Image", fontsize=13)
             axs[row].axis("off")
-            _cbar_under(fig, axs[row], im2)
-        else:
+            row += 1
+
+            # 2) Pred λ mass
+            im0 = axs[row].imshow(pred_lambda_mass, cmap="hot", aspect="auto")
+            axs[row].set_title("Pred λ mass", fontsize=13)
             axs[row].axis("off")
 
-        png_path = os.path.join(out_dir, f"{prefix}.png")
+            axs[row].text(
+                0.02,
+                0.98,
+                f"E[N]={expected_count:.2f}\nGT={gt_count:.0f}\nΔ={expected_count-gt_count:+.2f}",
+                transform=axs[row].transAxes,
+                fontsize=11,
+                color="white",
+                va="top",
+                ha="left",
+                bbox=dict(facecolor="black", alpha=0.55, pad=3),
+            )
 
-        fig.savefig(
-            png_path,
-            dpi=90,           # keeps file size reasonable
-            bbox_inches="tight",
-        )
+            _cbar_under(fig, axs[row], im0)
+            row += 1
 
-        plt.close(fig)
+            # 3) GT support
+            axs[row].imshow(gt_support.detach().cpu().numpy(), cmap="gray", aspect="auto")
+            axs[row].set_title("GT support", fontsize=13)
+            axs[row].axis("off")
+            row += 1
+
+            # 4) Depth
+            if pred_depth is not None:
+                depth_np = pred_depth.detach().cpu().numpy()
+                im1 = axs[row].imshow(
+                    depth_np,
+                    cmap="viridis",
+                    vmin=self.depth_vmin,
+                    vmax=self.depth_vmax,
+                    aspect="auto",
+                )
+                axs[row].set_title("Pred depth", fontsize=13)
+                axs[row].axis("off")
+                _cbar_under(fig, axs[row], im1)
+            else:
+                axs[row].axis("off")
+            row += 1
+
+            # 5) Velocity
+            if pred_vel is not None:
+                vel_np = pred_vel.detach().cpu().numpy()
+                im2 = axs[row].imshow(
+                    vel_np,
+                    cmap="coolwarm",
+                    vmin=self.vel_vmin,
+                    vmax=self.vel_vmax,
+                    aspect="auto",
+                )
+                axs[row].set_title("Pred vel", fontsize=13)
+                axs[row].axis("off")
+                _cbar_under(fig, axs[row], im2)
+            else:
+                axs[row].axis("off")
+
+            png_path = os.path.join(out_dir, f"{prefix}.png")
+
+            fig.savefig(
+                png_path,
+                dpi=90,           # keeps file size reasonable
+                bbox_inches="tight",
+            )
+
+            plt.close(fig)

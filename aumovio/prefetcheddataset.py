@@ -327,6 +327,16 @@ class AsyncPrefetchedDatasetWrapper(Dataset):
                             sample["prefetch_skipped"] = float(self.skipped_idx_count.value)
                             sample["prefetch_idle_time"] = float(self.worker_idle_time.value)
 
+                    # idle = self.worker_idle_time.value
+
+                    # if idle > 0:
+                    #     print(
+                    #         f"[IDLE] unseen={unseen}, "
+                    #         f"unseen_count={self.unseen_count.value}, "
+                    #         f"queue={self.request_queue.qsize()}, "
+                    #         f"skipped={self.skipped_idx_count.value}, "
+                    #         f"idle_time={idle:.2f}"
+                    #     )
                     return sample # Exit while loop
                 # Else: i==0 and not a single sample has been gathered yet, will sleep below
             # Buffer empty as still warming up, wait for data event or timeout

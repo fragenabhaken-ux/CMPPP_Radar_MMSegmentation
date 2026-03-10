@@ -41,12 +41,22 @@ work_dir = os.environ.get(
 
 crop_size = (256, 512) # (384, 768)
 out_img_size = (544, 1792)
-data_rbg_mean = [80.182, 87.428, 79.65] # -> marked_ppp_gt_exploration.ipynb
-data_rbg_std = [25.751, 25.934, 27.112]
+data_rbg_mean = [0.0, 0.0, 0.0] # [80.182, 87.428, 79.65] # -> marked_ppp_gt_exploration.ipynb
+data_rbg_std = [1.0, 1.0, 1.0] # [25.751, 25.934, 27.112]
 fovs_wo_fisheyeart=(105, 48.4) # (110, 48.4) still had the fisheye artefact on the right
 
 dataset_type = 'Sys100PPPHeatmapDataset'
 batch_size = 80
+
+prefetch_dict = {
+    "buffer_size": 420, # 4096,
+    "queue_size": 120,
+    "priority": 10,
+    "num_prefetch_workers": 4,   # dann gegen 8 vergleichen
+    "wait_till_buffer_has": batch_size,
+    "buffer_fill_pause_threshold": 0.9,
+    "default_sleep_time": 0.5,
+}
 
 data_preprocessor = dict(
     type='SegDataPreProcessor',
@@ -134,10 +144,7 @@ train_pipeline = [
         fovs=fovs_wo_fisheyeart,
         strict=False,
         prefetch=True,
-        prefetch_dict={
-            "num_prefetch_workers": 8,
-            "priority": 15
-        }
+        prefetch_dict=prefetch_dict
     ),
     dict(
         type='BuildPPPHeatmap',
@@ -169,10 +176,7 @@ test_pipeline = [
         fovs=fovs_wo_fisheyeart,
         strict=False,
         prefetch=True,
-        prefetch_dict={
-            "num_prefetch_workers": 8,
-            "priority": 10
-        }
+        prefetch_dict=prefetch_dict
     ),
     dict(
         type='BuildPPPHeatmap',
@@ -186,11 +190,15 @@ test_pipeline = [
 train_dataloader = dict(
     batch_size=batch_size,
     num_workers=1, # we parallelize with Jonas' aumovio/prefetcheddataset.py
+    persistent_workers=True, # for torch Dataloader
+    pin_memory=True, # for torch Dataloader
+    prefetch_factor=2, # for torch Dataloader
+    sampler=dict(type='InfiniteSampler', shuffle=True), # for torch Dataloader
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH_TRAIN,
         source_is_summary_csv=True,
-        target_dataset_size=1000000,
+        # target_dataset_size=1000000,
         fovs=fovs_wo_fisheyeart,
         pipeline=train_pipeline,
     )
@@ -254,7 +262,7 @@ default_hooks = dict(
     checkpoint=dict(
         type='CheckpointHook',
         by_epoch=False,
-        interval=1000,
+        interval=200,
         max_keep_ckpts=5,
         save_best='ppp/count_abs_error', # after distance/velocity normalization save_best='ppp/selection_score', -> ppp_metrics
         rule='less'
@@ -264,7 +272,7 @@ default_hooks = dict(
 custom_hooks = [
     dict(
         type='PPPMarkVisHookLight', 
-        interval=1000, 
+        interval=200, 
         img_mean=data_rbg_mean, 
         img_std=data_rbg_std,
         max_samples_train=1,
