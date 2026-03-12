@@ -184,6 +184,11 @@ class AsyncPrefetchedDatasetWrapper(Dataset):
             p = mp.Process(target=self._prefetch_worker, daemon=True)
             p.start()
             self.prefetch_workers.append(p)
+        
+        # timer parameters
+        self.print_counter = mp.Value('i', 0)
+        self.print_every = 100   # z.B. nur alle 100 __getitem__-Aufrufe
+        self.debug = os.environ.get("RANK", os.environ.get("PROCID", "0")) == "0"
 
     def _prefetch_worker(self):
         """
@@ -320,12 +325,18 @@ class AsyncPrefetchedDatasetWrapper(Dataset):
                             self.unseen_flags[i] = 0
                             self.unseen_count.value -= 1
                             self.buffer_element_seen.set()
+
+                        unseen_count_now = self.unseen_count.value
+                        unseen_pct = 100.0 * unseen_count_now / self._buffer_size
+
                         if isinstance(sample, MutableMapping):
                             sample["prefetch_unseen"]  = float(unseen)
                             sample["prefetch_unseen_count"] = float(self.unseen_count.value)
                             sample["prefetch_queue"]   = float(self.request_queue.qsize())
                             sample["prefetch_skipped"] = float(self.skipped_idx_count.value)
                             sample["prefetch_idle_time"] = float(self.worker_idle_time.value)
+                        elif self.debug:
+                            print("WARNING: Coud not add PREFETCHWRAPPER info to the data as it is a ", type(sample))
 
                     # idle = self.worker_idle_time.value
 
@@ -337,6 +348,13 @@ class AsyncPrefetchedDatasetWrapper(Dataset):
                     #         f"skipped={self.skipped_idx_count.value}, "
                     #         f"idle_time={idle:.2f}"
                     #     )
+
+                    # with self.print_counter.get_lock():
+                    #     self.print_counter.value += 1
+                    #     if self.print_counter.value % self.print_every == 0:
+                    #         print(f"[Prefetch] unseen buffer: {unseen_pct:.1f}% "
+                    #             f"({unseen_count_now}/{self._buffer_size})")
+    
                     return sample # Exit while loop
                 # Else: i==0 and not a single sample has been gathered yet, will sleep below
             # Buffer empty as still warming up, wait for data event or timeout

@@ -6,6 +6,7 @@ from .ppp_mark_visualization_hook import PPPMarkVisualizationHook
 from .loss_plot_hook import LossPlotHook
 from .gpu_vram_hook import VRAMHook
 from .ppp_mark_vis_hook_light import PPPMarkVisHookLight
+from .prefetch_stats_hook import PrefetchStatsHook
 
 __all__ = ['SegVisualizationHook',
-    'PPPVisualizationHook', 'PPPDebugHook', 'PPPMarkVisualizationHook', 'LossPlotHook', 'VRAMHook', 'PPPMarkVisHookLight']
+    'PPPVisualizationHook', 'PPPDebugHook', 'PPPMarkVisualizationHook', 'LossPlotHook', 'VRAMHook', 'PPPMarkVisHookLight', 'PrefetchStatsHook']

@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 import os
 from typing import Any, Dict, Optional, Tuple
+import time
 
 import cv2
 import numpy as np
@@ -64,6 +65,8 @@ def _to_float_scalar(x: Any) -> float:
         return float(x.item())
     return float(x)
 
+def get_rank():
+   return int(os.environ.get("RANK", os.environ.get("SLURM_PROCID", 0)))
 
 @TRANSFORMS.register_module()
 class LoadSys100Sample(BaseTransform):
@@ -136,10 +139,23 @@ class LoadSys100Sample(BaseTransform):
             )
         else:
             self.ds = base_ds
+        
+        # self.time_nbr = 0
+        # self.time_avg = 0
 
     def transform(self, results: Dict[str, Any]) -> Dict[str, Any]:
         idx = int(results["idx"])
+        
+        # t0 = time.perf_counter()
         sample = self.ds[idx]
+        # t1 = time.perf_counter()
+
+        # self.time_nbr += 1
+        # self.time_avg += ((t1-t0) - self.time_avg)/self.time_nbr
+        # if self.time_nbr % 60 == 0:
+        #     print(f"[rank {get_rank()}] SYS100 querry time = {self.time_avg:.4f}s [avg over {self.time_nbr} steps]", flush=True)
+        #     self.time_nbr = 0
+        #     self.time_avg = 0
 
         # -------------------------
         # Meta info
@@ -187,6 +203,10 @@ class LoadSys100Sample(BaseTransform):
         results["dopplerRange"] = sample.get("dopplerRange", self.default_doppler)
         results["radar_normalisation"] = self.radar_normalisation
         results["fovs"] = self.fovs
+        if "prefetch_unseen" in sample:
+            results["prefetch_unseen"] = sample["prefetch_unseen"]
+            results["prefetch_unseen_count"] = sample["prefetch_unseen_count"]
+            results["prefetch_idle_time"] = sample["prefetch_idle_time"]
 
         return results
 
@@ -455,6 +475,11 @@ class PPPPackSegInputs(BaseTransform):
             metainfo.setdefault("global_idx", int(results["idx"]))
             metainfo.setdefault("frame_idx", int(results["idx"]))
 
+        if "prefetch_unseen" in results:
+            metainfo.setdefault("prefetch_unseen", int(results["prefetch_unseen"]))
+            metainfo.setdefault("prefetch_unseen_count", int(results["prefetch_unseen_count"]))
+            metainfo.setdefault("prefetch_idle_time", int(results["prefetch_idle_time"]))
+        
         data_sample = SegDataSample()
         data_sample.set_metainfo(metainfo)
         data_sample.gt_sem_seg = PixelData(data=gt)

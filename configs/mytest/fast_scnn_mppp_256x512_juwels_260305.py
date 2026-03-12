@@ -9,7 +9,8 @@ custom_imports = dict(
         'mmseg.datasets.sys100_ppp_heatmap_dataset',
         'mmseg.datasets.transforms.sys100_ppp_transforms',
         'mmseg.evaluation.metrics.ppp_metrics',
-        'mmseg.engine.hooks.ppp_mark_vis_hook_light' # 'mmseg.engine.hooks.ppp_visualization_hook'
+        'mmseg.engine.hooks.ppp_mark_vis_hook_light', # 'mmseg.engine.hooks.ppp_visualization_hook'
+        'mmseg.engine.hooks.prefetch_stats_hook',
     ],
     allow_failed_imports=False
 )
@@ -47,16 +48,6 @@ fovs_wo_fisheyeart=(105, 48.4) # (110, 48.4) still had the fisheye artefact on t
 
 dataset_type = 'Sys100PPPHeatmapDataset'
 batch_size = 80
-
-prefetch_dict = {
-    "buffer_size": 420, # 4096,
-    "queue_size": 120,
-    "priority": 10,
-    "num_prefetch_workers": 4,   # dann gegen 8 vergleichen
-    "wait_till_buffer_has": batch_size,
-    "buffer_fill_pause_threshold": 0.9,
-    "default_sleep_time": 0.5,
-}
 
 data_preprocessor = dict(
     type='SegDataPreProcessor',
@@ -144,7 +135,15 @@ train_pipeline = [
         fovs=fovs_wo_fisheyeart,
         strict=False,
         prefetch=True,
-        prefetch_dict=prefetch_dict
+        prefetch_dict={
+            "buffer_size": 1024, # 4096,
+            "queue_size": 120,
+            "priority": 10,
+            "num_prefetch_workers": 4,   # dann gegen 8 vergleichen
+            "wait_till_buffer_has": batch_size,
+            "buffer_fill_pause_threshold": 0.9,
+            "default_sleep_time": 60,
+        }
     ),
     dict(
         type='BuildPPPHeatmap',
@@ -176,7 +175,15 @@ test_pipeline = [
         fovs=fovs_wo_fisheyeart,
         strict=False,
         prefetch=True,
-        prefetch_dict=prefetch_dict
+        prefetch_dict={
+            "buffer_size": batch_size, # 4096,
+            "queue_size": 120,
+            "priority": 19,
+            "num_prefetch_workers": 4,   # dann gegen 8 vergleichen
+            "wait_till_buffer_has": batch_size,
+            "buffer_fill_pause_threshold": 0.9,
+            "default_sleep_time": 60,
+        }
     ),
     dict(
         type='BuildPPPHeatmap',
@@ -189,10 +196,10 @@ test_pipeline = [
 
 train_dataloader = dict(
     batch_size=batch_size,
-    num_workers=1, # we parallelize with Jonas' aumovio/prefetcheddataset.py
-    persistent_workers=True, # for torch Dataloader
+    num_workers=4, # we parallelize with Jonas' aumovio/prefetcheddataset.py
+    # persistent_workers=True, # for torch Dataloader
     pin_memory=True, # for torch Dataloader
-    prefetch_factor=2, # for torch Dataloader
+    prefetch_factor=4, # for torch Dataloader
     sampler=dict(type='InfiniteSampler', shuffle=True), # for torch Dataloader
     dataset=dict(
         type=dataset_type,
@@ -205,13 +212,13 @@ train_dataloader = dict(
 )
 
 val_dataloader = dict(
-    batch_size=batch_size,
-    num_workers=1, # we parallelize with Jonas' aumovio/prefetcheddataset.py
+    batch_size=10,
+    num_workers=0, # we parallelize with Jonas' aumovio/prefetcheddataset.py
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH_VAL,
         source_is_summary_csv=True,
-        target_dataset_size=batch_size,
+        target_dataset_size=10,
         fovs=fovs_wo_fisheyeart,
         pipeline=test_pipeline,
     )
@@ -236,7 +243,7 @@ optim_wrapper = dict(
     paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.5)})
 )
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=5000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=1000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -258,11 +265,11 @@ test_evaluator = dict(type='PPPMetric', out_img_size=out_img_size,)
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
-    # logger=dict(type='LoggerHook', interval=5),  # match VRAMHook interval
+    logger=dict(type='LoggerHook', interval=5),  # match VRAMHook interval
     checkpoint=dict(
         type='CheckpointHook',
         by_epoch=False,
-        interval=200,
+        interval=1000,
         max_keep_ckpts=5,
         save_best='ppp/count_abs_error', # after distance/velocity normalization save_best='ppp/selection_score', -> ppp_metrics
         rule='less'
@@ -272,7 +279,7 @@ default_hooks = dict(
 custom_hooks = [
     dict(
         type='PPPMarkVisHookLight', 
-        interval=200, 
+        interval=1000, 
         img_mean=data_rbg_mean, 
         img_std=data_rbg_std,
         max_samples_train=1,
@@ -280,7 +287,10 @@ custom_hooks = [
         max_samples_test=10,
         ),
     # dict(type='VRAMHook', interval=5, reset_peak=True, log_all_ranks=True),
-    dict(type='LossPlotHook', out_file='loss.png', smooth_alpha=0.05),
+    #dict(type='LossPlotHook', out_file='loss.png', smooth_alpha=0.05),
+    dict(
+        type='PrefetchStatsHook',
+    )
 ]
 
 visualizer = dict(

@@ -74,12 +74,16 @@ because the required `PackSegInputs` transform would never be executed.
 """
 from __future__ import annotations
 from typing import Any, Dict
+import os
+import time
 from torch.utils.data import Dataset
 from mmseg.registry import DATASETS
 from mmengine.dataset import Compose
 
 from aumovio.sys100dataset import Sys100Dataset
 
+def get_rank():
+   return int(os.environ.get("RANK", os.environ.get("SLURM_PROCID", 0)))
 
 @DATASETS.register_module()
 class Sys100PPPHeatmapDataset(Dataset):
@@ -101,7 +105,7 @@ class Sys100PPPHeatmapDataset(Dataset):
         if target_dataset_size:
           self.n = target_dataset_size
         else:
-          self.sys100 = Sys100Dataset(
+          sys100 = Sys100Dataset(
               source=str(sys100_root),
               source_is_summary_csv=bool(source_is_summary_csv),
               max_files=max_files,
@@ -116,7 +120,12 @@ class Sys100PPPHeatmapDataset(Dataset):
               fovs=fovs,
               strict=strict,
           )
-          self.n = len(self.sys100)
+          self.n = len(sys100)
+
+          # self.time_nbr = 0
+          # self.time_avg = 0
+          #del sys100
+        # print(f"[rank {get_rank()}] Sys100PPPHeatmapDataset init", flush=True)
 
     def __len__(self) -> int:
         return self.n
@@ -129,5 +138,13 @@ class Sys100PPPHeatmapDataset(Dataset):
 
         results = {"idx": int(i)}
         if self.pipeline is not None:
+
+            # t0 = time.perf_counter()
             results = self.pipeline(results)  # must end with PPPPackSegInputs
+            # t1 = time.perf_counter()
+
+            # self.time_nbr += 1
+            # self.time_avg += ((t1-t0) - self.time_avg)/self.time_nbr
+            # if self.time_nbr % 60 == 0:
+            #   print(f"[rank {get_rank()}] pipeline_time = {self.time_avg:.4f}s [avg over {self.time_nbr} steps]", flush=True)
         return results
