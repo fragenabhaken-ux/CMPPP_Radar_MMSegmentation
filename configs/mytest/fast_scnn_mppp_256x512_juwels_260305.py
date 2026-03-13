@@ -237,7 +237,7 @@ optim_wrapper = dict(
     ),
     clip_grad=dict(
         _delete_=True, 
-        max_norm=1.0,
+        max_norm=1.0, # t 2
         norm_type=2
     ),
     paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.5)})
