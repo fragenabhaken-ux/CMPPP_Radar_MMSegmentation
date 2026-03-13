@@ -37,7 +37,7 @@ DATA_PATH_VAL = os.environ.get(
 # wird normalerweise vom runner automatisch auf work_dirs im repo gesetzt, hier überschreiben
 work_dir = os.environ.get(
     "MMSEG_WORK_DIR",
-    "/p/scratch/nxtaim-1/huber7/work_dirs/ppp_mark"
+    "/p/scratch/nxtaim-1/huber7/work_dirs/ppp_mark_test"
 )
 
 crop_size = (256, 512) # (384, 768)
