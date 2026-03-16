@@ -19,8 +19,8 @@ DATA_PATH = '/home/uik04723/data/continental_sys100'
 
 crop_size = (256, 512)
 out_img_size = (544, 1792)
-data_rbg_mean = [80.182, 87.428, 79.65] # -> marked_ppp_gt_exploration.ipynb
-data_rbg_std = [25.751, 25.934, 27.112]
+data_rbg_mean = [0.0, 0.0, 0.0] # [80.182, 87.428, 79.65] # -> marked_ppp_gt_exploration.ipynb
+data_rbg_std = [1.0, 1.0, 1.0] # [25.751, 25.934, 27.112]
 fovs_wo_fisheyeart=(105, 48.4) # (110, 48.4) still had the fisheye artefact on the right
 
 
@@ -176,13 +176,13 @@ train_dataloader = dict(
 )
 
 val_dataloader = dict(
-    batch_size=batch_size,
-    num_workers=1, # we parallelize with Jonas' aumovio/prefetcheddataset.py
+    batch_size=10,
+    num_workers=0, # we parallelize with Jonas' aumovio/prefetcheddataset.py
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH,
         source_is_summary_csv=True,
-        target_dataset_size=batch_size,
+        target_dataset_size=10,
         fovs=fovs_wo_fisheyeart,
         pipeline=test_pipeline,
     )
@@ -208,7 +208,7 @@ optim_wrapper = dict(
 )
 
 # train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=1000)
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=500, ) # for develbooster run # TODO 
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=200, val_interval=100, ) # for develbooster run # TODO 
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -252,8 +252,6 @@ custom_hooks = [
         max_samples_val=10,
         max_samples_test=10,
         ),
-    # dict(type='VRAMHook', interval=5, reset_peak=True, log_all_ranks=True),
-    dict(type='LossPlotHook', out_file='loss.png', smooth_alpha=0.05),
 ]
 
 visualizer = dict(

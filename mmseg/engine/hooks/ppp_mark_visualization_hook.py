@@ -9,12 +9,543 @@ from mmengine.model import is_model_wrapper
 import matplotlib
 matplotlib.use('Agg')
 
+import torch
+import time
+
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 
 from mmengine.hooks import Hook
 from mmseg.registry import HOOKS
 
+
+def extract_gt_points_from_mask(mask: np.ndarray) -> np.ndarray:
+    """Convert binary/support mask to point centers in image coordinates."""
+    ys, xs = np.where(mask > 0)
+    if len(xs) == 0:
+        return np.zeros((0, 2), dtype=np.float64)
+    return np.stack([xs + 0.5, ys + 0.5], axis=1).astype(np.float64)
+
+
+# def sample_ppp_by_thinning(
+#     lambda_grid: np.ndarray,
+#     *,
+#     rng: np.random.Generator | None = None,
+#     new: bool = True
+# ):
+#     """
+#     Sample an inhomogeneous PPP using thinning from a homogeneous PPP.
+ 
+#     lambda_grid is assumed to already be PPP intensity MASS per pixel.
+#     """
+#     if rng is None:
+#         rng = np.random.default_rng()
+ 
+#     lam = np.asarray(lambda_grid, dtype=np.float64)
+#     assert np.all(lam >= 0)
+   
+#     H, W = lam.shape
+ 
+#     if new:
+           
+#         # Pad to the next multiple of 8 with zeros so no points land in the padded area
+#         Hp = int(np.ceil(H / 8)) * 8
+#         Wp = int(np.ceil(W / 8)) * 8
+#         if Hp != H or Wp != W:
+#             lam_pad = np.zeros((Hp, Wp), dtype=np.float64)
+#             lam_pad[:H, :W] = lam
+#             lam = lam_pad
+#         # reshape to (H8, W8, 64): transpose puts block indices first, then flatten local H/W
+#         lamb = lam.reshape(Hp // 8, 8, Wp // 8, 8).transpose(0, 2, 1, 3).reshape(Hp // 8, Wp // 8, 64)
+#         lambda_max = lamb.max(axis=2)  # maximal intensity over each 8x8 block
+#         points = []
+#         tot_sampled = 0
+#         for i in range(Hp // 8):
+#             for j in range(Wp // 8):
+#                 if lambda_max[i, j] > 0:
+#                     nbr = rng.poisson(lambda_max[i, j] * 64)
+#                     tot_sampled += nbr
+#                     if nbr == 0:
+#                         continue
+#                     xs = rng.random(nbr) * 8 + j * 8
+#                     ys = rng.random(nbr) * 8 + i * 8
+#                     xi = np.clip(xs.astype(int), j * 8, (j + 1) * 8 - 1)
+#                     yi = np.clip(ys.astype(int), i * 8, (i + 1) * 8 - 1)
+#                     lam_x = lam[yi, xi]
+#                     accept_prob = lam_x / lambda_max[i, j]
+#                     keep = rng.random(nbr) < accept_prob
+#                     points.append(np.stack([xs[keep], ys[keep]], axis=1))
+#         lam_max_global = float(lambda_max.max())
+#         if points:
+#             points_xy = np.concatenate(points, axis=0).astype(np.float64)
+#             return points_xy, int(points_xy.shape[0]), lam_max_global, int(tot_sampled)
+#         return np.zeros((0, 2), dtype=np.float64), 0, lam_max_global, int(tot_sampled)
+#     else:
+ 
+#         lambda_max = lam.max()
+#         if lambda_max == 0:
+#             return np.zeros((0, 2), dtype=np.float64), 0, 0.0, 0
+   
+#         area_total = H * W
+#         Lambda_hom = lambda_max * area_total
+   
+#         N_prop = rng.poisson(Lambda_hom)
+#         if N_prop == 0:
+#             return np.zeros((0, 2), dtype=np.float64), 0, float(lambda_max), 0
+   
+#         xs = rng.random(N_prop) * W
+#         ys = rng.random(N_prop) * H
+   
+#         xi = np.clip(xs.astype(int), 0, W - 1)
+#         yi = np.clip(ys.astype(int), 0, H - 1)
+   
+#         lam_x = lam[yi, xi]
+#         accept_prob = lam_x / lambda_max
+#         keep = rng.random(N_prop) < accept_prob
+   
+#         points_xy = np.stack([xs[keep], ys[keep]], axis=1).astype(np.float64)
+#         return points_xy, int(points_xy.shape[0]), float(lambda_max), int(N_prop)
+ 
+ 
+def sample_ppp_by_thinning(
+    lambda_grid: np.ndarray,
+    *,
+    pixel_area: float | None = None,
+    rng: np.random.Generator | None = None,
+):
+    """
+    Sample an inhomogeneous PPP using thinning from a homogeneous PPP.
+
+    Parameters
+    ----------
+    lambda_grid : (H, W) array
+        Intensity lambda(x) evaluated on a pixel grid (nonnegative).
+        NOTE: lambda_grid is assumed to already represent PPP intensity MASS per pixel.
+    pixel_area : float
+        Area represented by one pixel (kept for API compatibility, not used).
+    rng : np.random.Generator
+        Random generator.
+
+    Returns
+    -------
+    points_xy : (N, 2) array
+        Accepted points in image coordinates (x, y).
+    N : int
+        Number of accepted points.
+    lambda_max : float
+        Max intensity used for thinning.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    lam = np.asarray(lambda_grid, dtype=np.float64)
+    assert np.all(lam >= 0)
+
+    H, W = lam.shape
+
+    lambda_max = lam.max()
+    if lambda_max == 0:
+        return np.zeros((0, 2)), 0, 0.0, 0
+
+    # Total intensity of homogeneous PPP
+    # lambda_grid already represents intensity mass per pixel,
+    # so the domain area is H * W (NOT multiplied by pixel_area).
+    area_total = H * W
+    Lambda_hom = lambda_max * area_total
+
+    # 1) sample homogeneous PPP
+    # N_prop is the number of proposal points in the homogeneous Poisson point process 
+    # with intensity lambda_max over the whole image domain.
+    N_prop = rng.poisson(Lambda_hom)
+
+    if N_prop == 0:
+        return np.zeros((0, 2)), 0, lambda_max, 0
+
+    # uniform proposal locations over image
+    xs = rng.random(N_prop) * W
+    ys = rng.random(N_prop) * H
+
+    # Converts continuous x-coordinates to integers, Equivalent to floor(xs) for 
+    # nonnegative values, Maps point → pixel index
+    xi = np.clip(xs.astype(int), 0, W - 1)
+    yi = np.clip(ys.astype(int), 0, H - 1)
+
+    # 2) thinning step
+    # For each proposed point (xi,yi), we evaluate the predicted intensity at its location 
+    # by looking up the corresponding pixel in lambda_grid.
+    lam_x = lam[yi, xi]
+    accept_prob = lam_x / lambda_max
+
+    # this performs independent Bernoulli trials for all proposal points:
+    # Each proposal point is kept if its random number is smaller than its acceptance probability
+    keep = rng.random(N_prop) < accept_prob
+
+    # Finally, we collect the coordinates of all accepted points.
+    points_xy = np.stack([xs[keep], ys[keep]], axis=1)
+
+    return points_xy, points_xy.shape[0], float(lambda_max), N_prop
+ 
+def sample_ppp_by_thinning_torch(
+    lambda_grid: "torch.Tensor",
+    *,
+    generator: "torch.Generator | None" = None,
+) -> "tuple[torch.Tensor, int, float, int]":
+    """
+    Fully-vectorised PyTorch implementation of tiled inhomogeneous PPP sampling
+    via thinning.  All proposals across all 8×8 blocks are batched into a single
+    flat tensor of length tot_proposed, so memory is O(tot_proposed) rather than
+    O(n_blocks × max_proposals_per_block).
+ 
+    lambda_grid: (H, W) torch.Tensor of PPP intensity mass per pixel.
+    Returns (points_xy, n_kept, lambda_max_global, tot_proposed) where points_xy
+    is a (n_kept, 2) tensor on the same device as lambda_grid.
+    """
+ 
+    lam = lambda_grid.double()
+    assert (lam >= 0).all(), "lambda_grid must be non-negative"
+    H, W = lam.shape
+    device = lam.device
+ 
+    # Pad to the next multiple of 8 so no points land in the padded area
+    Hp = (H + 7) // 8 * 8
+    Wp = (W + 7) // 8 * 8
+    if Hp != H or Wp != W:
+        lam_pad = lam.new_zeros(Hp, Wp)
+        lam_pad[:H, :W] = lam
+        lam = lam_pad
+ 
+    H8, W8 = Hp // 8, Wp // 8
+ 
+    # Per-block max intensity: (H8, W8)
+    lamb = lam.reshape(H8, 8, W8, 8).permute(0, 2, 1, 3).reshape(H8, W8, 64)
+    lambda_max = lamb.max(dim=2).values  # (H8, W8)
+    lam_max_global = float(lambda_max.max())
+ 
+    # Per-block proposal counts ~ Poisson(lambda_max * 64); flatten to (H8*W8,)
+    N_flat = torch.poisson(lambda_max.flatten() * 64, generator=generator).long()
+    tot_sampled = int(N_flat.sum())
+ 
+    if tot_sampled == 0:
+        return lam.new_zeros(0, 2), 0, lam_max_global, 0
+ 
+    # For each proposal, record its block index and derive block row/col
+    block_ids = torch.repeat_interleave(
+        torch.arange(H8 * W8, device=device), N_flat
+    )  # (tot_sampled,)
+    block_i = block_ids // W8  # (tot_sampled,)
+    block_j = block_ids % W8
+ 
+    # Sample uniform offsets within each 8×8 block
+    offs_x = torch.rand(tot_sampled, dtype=torch.float64, device=device, generator=generator)
+    offs_y = torch.rand(tot_sampled, dtype=torch.float64, device=device, generator=generator)
+    xs = offs_x * 8 + block_j.double() * 8  # absolute x  (tot_sampled,)
+    ys = offs_y * 8 + block_i.double() * 8  # absolute y
+ 
+    xi = xs.long()
+    yi = ys.long()
+ 
+    # Thinning: accept with probability lam[pixel] / lambda_max[block]
+    lam_x    = lam[yi, xi]
+    lam_block = lambda_max.flatten()[block_ids]
+    u = torch.rand(tot_sampled, dtype=torch.float64, device=device, generator=generator)
+    keep = u < (lam_x / lam_block)
+ 
+    points_xy = torch.stack([xs[keep], ys[keep]], dim=1)
+    return points_xy, int(keep.sum()), lam_max_global, tot_sampled
+
+# def sample_ppp_by_thinning_torch( #timed
+#     lambda_grid: "torch.Tensor",
+#     *,
+#     generator: "torch.Generator | None" = None,
+# ) -> "tuple[torch.Tensor, int, float, int]":
+#     import time
+#     import torch
+
+#     def _sync(x):
+#         if x.is_cuda:
+#             torch.cuda.synchronize(x.device)
+
+#     _sync(lambda_grid)
+#     t0 = time.perf_counter()
+
+#     lam = lambda_grid.double()
+#     H, W = lam.shape
+#     device = lam.device
+
+#     Hp = (H + 7) // 8 * 8
+#     Wp = (W + 7) // 8 * 8
+#     if Hp != H or Wp != W:
+#         lam_pad = lam.new_zeros(Hp, Wp)
+#         lam_pad[:H, :W] = lam
+#         lam = lam_pad
+
+#     H8, W8 = Hp // 8, Wp // 8
+#     _sync(lam)
+#     t1 = time.perf_counter()
+
+#     lamb = lam.reshape(H8, 8, W8, 8).permute(0, 2, 1, 3).reshape(H8, W8, 64)
+#     lambda_max = lamb.max(dim=2).values
+#     lam_max_global = float(lambda_max.max())
+#     _sync(lam)
+#     t2 = time.perf_counter()
+
+#     N_flat = torch.poisson(lambda_max.flatten() * 64, generator=generator).long()
+#     tot_sampled = int(N_flat.sum())
+#     _sync(lam)
+#     t3 = time.perf_counter()
+
+#     if tot_sampled == 0:
+#         print(f"[torch sampler] prep={(t1-t0)*1000:.3f} max={(t2-t1)*1000:.3f} poisson={(t3-t2)*1000:.3f} total={(t3-t0)*1000:.3f}")
+#         return lam.new_zeros(0, 2), 0, lam_max_global, 0
+
+#     block_ids = torch.repeat_interleave(
+#         torch.arange(H8 * W8, device=device), N_flat
+#     )
+#     block_i = block_ids // W8
+#     block_j = block_ids % W8
+#     _sync(lam)
+#     t4 = time.perf_counter()
+
+#     offs_x = torch.rand(tot_sampled, dtype=torch.float64, device=device, generator=generator)
+#     offs_y = torch.rand(tot_sampled, dtype=torch.float64, device=device, generator=generator)
+#     xs = offs_x * 8 + block_j.double() * 8
+#     ys = offs_y * 8 + block_i.double() * 8
+#     xi = xs.long()
+#     yi = ys.long()
+#     _sync(lam)
+#     t5 = time.perf_counter()
+
+#     lam_x = lam[yi, xi]
+#     lam_block = lambda_max.flatten()[block_ids]
+#     u = torch.rand(tot_sampled, dtype=torch.float64, device=device, generator=generator)
+#     keep = u < (lam_x / lam_block)
+#     points_xy = torch.stack([xs[keep], ys[keep]], dim=1)
+#     _sync(lam)
+#     t6 = time.perf_counter()
+
+#     print(
+#         f"[torch sampler] "
+#         f"prep={(t1-t0)*1000:.3f} ms | "
+#         f"max={(t2-t1)*1000:.3f} ms | "
+#         f"poisson={(t3-t2)*1000:.3f} ms | "
+#         f"repeat={(t4-t3)*1000:.3f} ms | "
+#         f"rand={(t5-t4)*1000:.3f} ms | "
+#         f"thin={(t6-t5)*1000:.3f} ms | "
+#         f"total={(t6-t0)*1000:.3f} ms | "
+#         f"tot_sampled={tot_sampled}"
+#     )
+
+#     return points_xy, int(keep.sum()), lam_max_global, tot_sampled
+
+# def sample_points_block_bernoulli(
+#     lambda_grid: np.ndarray,
+#     *,
+#     block_size: int = 8,
+#     pixel_area: float = 1.0,
+#     placement: str = "weighted",
+#     rng: np.random.Generator | None = None,
+# ):
+#     """
+#     Block/Bernoulli approximation of a PPP:
+#       For each block A:
+#         Λ_A = sum_A λ
+#         Activate with p_A = 1 - exp(-Λ_A)
+#       If active, place exactly one point in A.
+#     """
+#     if rng is None:
+#         rng = np.random.default_rng()
+
+#     lam = np.asarray(lambda_grid, dtype=np.float64)
+#     assert np.all(np.isfinite(lam)), "lambda_grid contains NaN/Inf."
+#     assert np.all(lam >= 0), "lambda_grid contains negative values."
+
+#     H, W = lam.shape
+#     bs = int(block_size)
+#     assert bs > 0
+
+#     points = []
+#     num_blocks = 0
+#     num_active = 0
+#     expected_blocks_active = 0.0
+
+#     for y0 in range(0, H, bs):
+#         for x0 in range(0, W, bs):
+#             y1 = min(y0 + bs, H)
+#             x1 = min(x0 + bs, W)
+#             num_blocks += 1
+
+#             block = lam[y0:y1, x0:x1]
+#             Lambda_A = block.sum()
+
+#             if Lambda_A <= 0:
+#                 continue
+
+#             pA = 1.0 - np.exp(-Lambda_A)
+#             expected_blocks_active += pA
+
+#             if rng.random() >= pA:
+#                 continue
+
+#             num_active += 1
+#             hB, wB = block.shape
+
+#             if placement == "uniform" or block.sum() == 0:
+#                 x = x0 + rng.random() * wB
+#                 y = y0 + rng.random() * hB
+
+#             elif placement == "weighted":
+#                 probs = (block / block.sum()).ravel()
+#                 idx = rng.choice(probs.size, p=probs)
+#                 by, bx = divmod(idx, wB)
+#                 x = x0 + bx + rng.random()
+#                 y = y0 + by + rng.random()
+
+#             else:
+#                 raise ValueError("placement must be 'weighted' or 'uniform'")
+
+#             points.append([x, y])
+
+#     points_xy = (
+#         np.asarray(points, dtype=np.float64)
+#         if points
+#         else np.zeros((0, 2), dtype=np.float64)
+#     )
+
+#     stats = dict(
+#         block_size=bs,
+#         placement=placement,
+#         num_blocks=num_blocks,
+#         num_active_blocks=num_active,
+#         expected_active_blocks=float(expected_blocks_active),
+#         num_points=int(points_xy.shape[0]),
+#     )
+#     return points_xy, stats
+
+
+def sample_points_block_bernoulli(
+    lambda_grid: np.ndarray,
+    *,
+    block_size: int = 8,
+    pixel_area: float = 1.0,
+    placement: str = "weighted",
+    rng: np.random.Generator | None = None,
+):
+    """
+    Block/Bernoulli approximation of a PPP:
+      For each block A:
+        Λ_A = sum_A λ
+        Activate with p_A = 1 - exp(-Λ_A)
+      If active, place exactly one point in A.
+
+    Notes
+    -----
+    - This implementation is vectorized over blocks.
+    - Only the final point placement for active blocks is done in Python.
+    - `pixel_area` is included in Λ_A here. If your lambda_grid already stores
+      per-pixel mass instead of intensity density, set pixel_area=1.0.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    lam = np.asarray(lambda_grid, dtype=np.float64)
+    if lam.ndim != 2:
+        raise ValueError("lambda_grid must be a 2D array.")
+    if not np.all(np.isfinite(lam)):
+        raise ValueError("lambda_grid contains NaN/Inf.")
+    if np.any(lam < 0):
+        raise ValueError("lambda_grid contains negative values.")
+
+    bs = int(block_size)
+    if bs <= 0:
+        raise ValueError("block_size must be > 0.")
+    if placement not in {"weighted", "uniform"}:
+        raise ValueError("placement must be 'weighted' or 'uniform'")
+
+    H, W = lam.shape
+
+    # Number of blocks along each axis
+    nby = (H + bs - 1) // bs
+    nbx = (W + bs - 1) // bs
+    num_blocks = nby * nbx
+
+    # Pad once so every block is bs x bs
+    Hp = nby * bs
+    Wp = nbx * bs
+    if Hp != H or Wp != W:
+        lam_pad = np.zeros((Hp, Wp), dtype=np.float64)
+        lam_pad[:H, :W] = lam
+    else:
+        lam_pad = lam
+
+    # Reshape into blocks: (nby, bs, nbx, bs) -> sum over inner block dims
+    lam_blocks = lam_pad.reshape(nby, bs, nbx, bs).transpose(0, 2, 1, 3)
+    block_sums = lam_blocks.sum(axis=(2, 3)) * pixel_area  # shape: (nby, nbx)
+
+    # Activation probabilities
+    p_active = 1.0 - np.exp(-block_sums)
+    expected_blocks_active = float(p_active.sum())
+
+    # Sample active blocks in one shot
+    active_mask = rng.random(size=(nby, nbx)) < p_active
+    active_by, active_bx = np.nonzero(active_mask)
+    num_active = active_by.size
+
+    if num_active == 0:
+        stats = dict(
+            block_size=bs,
+            placement=placement,
+            num_blocks=num_blocks,
+            num_active_blocks=0,
+            expected_active_blocks=expected_blocks_active,
+            num_points=0,
+        )
+        return np.zeros((0, 2), dtype=np.float64), stats
+
+    # Prepare output
+    points_xy = np.empty((num_active, 2), dtype=np.float64)
+
+    # Top-left pixel coordinates of active blocks
+    x0s = active_bx * bs
+    y0s = active_by * bs
+
+    # Actual block sizes (important at image borders)
+    wBs = np.minimum(bs, W - x0s)
+    hBs = np.minimum(bs, H - y0s)
+
+    if placement == "uniform":
+        points_xy[:, 0] = x0s + rng.random(num_active) * wBs
+        points_xy[:, 1] = y0s + rng.random(num_active) * hBs
+
+    else:  # placement == "weighted"
+        # Loop only over active blocks
+        for i, (by, bx, x0, y0, wB, hB) in enumerate(
+            zip(active_by, active_bx, x0s, y0s, wBs, hBs)
+        ):
+            block = lam[y0:y0 + hB, x0:x0 + wB]
+            s = block.sum()
+
+            # Fallback for degenerate border/padded cases
+            if s <= 0:
+                points_xy[i, 0] = x0 + rng.random() * wB
+                points_xy[i, 1] = y0 + rng.random() * hB
+                continue
+
+            probs = (block.ravel() / s)
+            idx = rng.choice(probs.size, p=probs)
+            py, px = divmod(idx, wB)
+
+            points_xy[i, 0] = x0 + px + rng.random()
+            points_xy[i, 1] = y0 + py + rng.random()
+
+    stats = dict(
+        block_size=bs,
+        placement=placement,
+        num_blocks=num_blocks,
+        num_active_blocks=int(num_active),
+        expected_active_blocks=expected_blocks_active,
+        num_points=int(num_active),
+    )
+    return points_xy, stats
 
 @HOOKS.register_module()
 class PPPMarkVisualizationHook(Hook):
@@ -40,6 +571,18 @@ class PPPMarkVisualizationHook(Hook):
         max_samples=1,
         img_mean=None,
         img_std=None,
+        # Plot controls
+        dpi: int = 90,
+        figsize=(14, 34),
+        # Optional fixed scales for better comparability across frames
+        depth_vmin: float | None = None,
+        depth_vmax: float | None = None,
+        vel_vmin: float | None = None,
+        vel_vmax: float | None = None,
+        gamma=0.9,
+        sim_block_size=8,
+        sim_block_placement="weighted",
+        point_size=28,
     ):
         self.interval = interval # this is for train. For test/val we display all (but filter using dataset stride)
         self.max_samples = max_samples
@@ -52,6 +595,20 @@ class PPPMarkVisualizationHook(Hook):
             np.array(img_std, dtype=np.float32)[:, None, None]
             if img_std is not None else None
         )
+
+        self.gamma=gamma
+        self.sim_block_size = sim_block_size
+        self.sim_block_placement = sim_block_placement
+        self.point_size = point_size
+        self.point_size = point_size
+
+        self.dpi = int(dpi)
+        self.figsize = tuple(figsize)
+
+        self.depth_vmin = depth_vmin
+        self.depth_vmax = depth_vmax
+        self.vel_vmin = vel_vmin
+        self.vel_vmax = vel_vmax
 
     def after_train_iter(self, runner, batch_idx, data_batch=None, outputs=None):
         if not is_main_process():
@@ -165,7 +722,50 @@ class PPPMarkVisualizationHook(Hook):
         )
         os.makedirs(vis_dir, exist_ok=True)
         return vis_dir
+    
+    def _draw_points_overlay(
+        self,
+        ax,
+        img: np.ndarray,
+        points_xy: np.ndarray,
+        *,
+        ylabel: str | None = None,
+        n_text: str,
+        color: str,
+        point_size: float = 30,
+        alpha: float = 0.95,
+    ):
+        ax.imshow(img, aspect="auto")
+        if points_xy is not None and len(points_xy) > 0:
+            ax.scatter(
+                points_xy[:, 0],
+                points_xy[:, 1],
+                s=point_size,
+                c=color,
+                alpha=alpha,
+                edgecolors="none",
+            )
 
+        if ylabel:
+            ax.set_ylabel(ylabel, fontsize=13)
+        ax.axis("off")
+
+        ax.text(
+            0.02,
+            0.98,
+            n_text,
+            transform=ax.transAxes,
+            fontsize=11,
+            color="white",
+            va="top",
+            ha="left",
+            bbox=dict(facecolor="black", alpha=0.55, pad=3),
+        )
+
+    def _sanitize_for_filename(self, s: str) -> str:
+        # Keep filenames safe on cluster FS.
+        return "".join(c if c.isalnum() or c in "._-" else "_" for c in s)
+        
     def visualize_ppp_batch(
         self,
         *,
@@ -208,7 +808,7 @@ class PPPMarkVisualizationHook(Hook):
             pred_depth = pred[1] if pred.size(0) > 1 else None
             pred_velocity = pred[2] if pred.size(0) > 2 else None
 
-            gt_point_support = gt[0]
+            gt_support = gt[0]
             gt_depth = gt[1] if gt.size(0) > 1 else None
             gt_velocity = gt[2] if gt.size(0) > 2 else None
 
@@ -219,6 +819,8 @@ class PPPMarkVisualizationHook(Hook):
 
             if self.img_mean is not None and self.img_std is not None:
                 img = img * self.img_std + self.img_mean
+                # If image is in [-1, 1], map it back to [0, 255] for visualization
+                img = (img + 1.0) * 127.5
 
             img = img.clip(0, 255).astype(np.uint8)
             img = np.transpose(img, (1, 2, 0))
@@ -227,7 +829,7 @@ class PPPMarkVisualizationHook(Hook):
             # Convert to numpy
             # ---------------------------------------------
             pred_lambda_theta_np = pred_lambda_theta.cpu().numpy()
-            gt_point_support_np = gt_point_support.cpu().numpy()
+            gt_support_np = gt_support.cpu().numpy()
 
             depth_np = pred_depth.cpu().numpy() if pred_depth is not None else None
             vel_np = pred_velocity.cpu().numpy() if pred_velocity is not None else None
@@ -245,8 +847,10 @@ class PPPMarkVisualizationHook(Hook):
             pred_lambda_mass = pred_lambda_theta_np / pixel_area      # match PPPLoss normalization
             expected_count = pred_lambda_mass.sum()
 
-            gt_count = float(gt_point_support_np.sum())
+            gt_count = float(gt_support_np.sum())
 
+            # Torch version
+            pred_lambda_mass_torch = pred_lambda_theta.detach() / pixel_area
 
             # ---------------------------------------------
             # Meta information
@@ -261,13 +865,82 @@ class PPPMarkVisualizationHook(Hook):
                 f"s{i}"
             )
 
+            video_name = meta.get("video_name", None)
+            video_frame_idx = meta.get("video_frame_idx", None)
+            global_idx = meta.get("global_idx", meta.get("frame_idx", None))
+            sample_id = meta.get("sample_id", None)
+
+            video_str = self._sanitize_for_filename(str(video_name)) if video_name else "unknown_video"
+            vframe_str = f"{int(video_frame_idx):06d}" if video_frame_idx is not None else "unknown_frame"
+            gidx_str = f"{int(global_idx):08d}" if global_idx is not None else "unknown_idx"
+
+            # ---------------------------------------------
+            # GT points + simulated point clouds
+            # ---------------------------------------------
+            gt_points_xy = extract_gt_points_from_mask(gt_support_np)
+
+            # deterministic per sample if desired
+            seed_base = int(meta.get("frame_idx", 0)) + 1000 * int(runner.iter)
+            rng_thin = np.random.default_rng(seed_base + 11)
+            rng_block = np.random.default_rng(seed_base + 29)
+
+            # --- NumPy thinning timing ---
+            t0 = time.perf_counter()
+            sim1_points_xy, sim1_N, sim1_lambda_max, sim1_N_prop = sample_ppp_by_thinning(
+                pred_lambda_mass,
+                # pixel_area=1.0,
+                rng=rng_thin,
+            )
+            t1 = time.perf_counter()
+            sim1_time_ms = 1000.0 * (t1 - t0)
+
+            print(sim1_N_prop)
+
+            t2 = time.perf_counter()
+            sim2_points_xy, sim2_stats = sample_points_block_bernoulli(
+                pred_lambda_mass,
+                block_size=self.sim_block_size,
+                pixel_area=1.0,
+                placement=self.sim_block_placement,
+                rng=rng_block,
+            )
+            sim2_N = int(sim2_stats["num_points"])
+
+            t3 = time.perf_counter()
+            sim2_time_ms = 1000.0 * (t3 - t2)
+
+            # # --- Torch thinning timing ---
+            # if pred_lambda_mass_torch.is_cuda:
+            #     torch.cuda.synchronize(pred_lambda_mass_torch.device)
+
+            # t2 = time.perf_counter()
+            # sim2_points_xy_torch, sim2_N, sim2_lambda_max, sim2_N_prop = sample_ppp_by_thinning_torch(
+            #     pred_lambda_mass_torch,
+            # )
+            # if pred_lambda_mass_torch.is_cuda:
+            #     torch.cuda.synchronize(pred_lambda_mass_torch.device)
+            
+            # t3 = time.perf_counter()
+            # sim2_time_ms = 1000.0 * (t3 - t2)
+
+            # sim2_points_xy = sim2_points_xy_torch.detach().cpu().numpy()
+
+            # print(sim2_N_prop)
+
+            print(
+                f"[PPP timing] frame={meta.get('frame_idx')} | "
+                f"numpy={sim1_time_ms:.3f} ms | "
+                f"block_bernoulli={sim2_time_ms:.3f} ms | "
+                f"N_numpy={sim1_N} | N_block_bernoulli={sim2_N}"
+            )
+
             # ---------------------------------------------
             # Save raw arrays
             # ---------------------------------------------
             np.save(os.path.join(out_dir, f"{prefix}_img.npy"), img)
             np.save(os.path.join(out_dir, f"{prefix}_pred_log_intensity.npy"), pred_log_intensity.detach().cpu().numpy())
             np.save(os.path.join(out_dir, f"{prefix}_pred_lambda_mass.npy"), pred_lambda_mass)
-            np.save(os.path.join(out_dir, f"{prefix}_gt_point_support.npy"), gt_point_support_np)
+            np.save(os.path.join(out_dir, f"{prefix}_gt_support.npy"), gt_support_np)
 
             if depth_np is not None:
                 np.save(os.path.join(out_dir, f"{prefix}_pred_depth.npy"), depth_np)
@@ -276,6 +949,10 @@ class PPPMarkVisualizationHook(Hook):
             if vel_np is not None:
                 np.save(os.path.join(out_dir, f"{prefix}_pred_velocity.npy"), vel_np)
                 np.save(os.path.join(out_dir, f"{prefix}_gt_velocity.npy"), gt_vel_np)
+            
+            np.save(os.path.join(out_dir, f"{prefix}_gt_points_xy.npy"), gt_points_xy)
+            np.save(os.path.join(out_dir, f"{prefix}_sim1_points_xy.npy"), sim1_points_xy)
+            np.save(os.path.join(out_dir, f"{prefix}_sim2_points_xy.npy"), sim2_points_xy)
 
             # ---------------------------------------------
             # Save meta + losses
@@ -297,6 +974,18 @@ class PPPMarkVisualizationHook(Hook):
                     "expected_count": float(expected_count),
                     "gt_count": float(gt_count),
                     "count_error": float(expected_count - gt_count),
+                },
+                "sampling_diagnostics": {
+                    "gt_num_points": int(len(gt_points_xy)),
+                    "sim1_thinning": {
+                        "num_points": int(sim1_N),
+                        "lambda_max": float(sim1_lambda_max),
+                        "num_proposals": int(sim1_N_prop),
+                        "acceptance_rate": float(sim1_N / max(sim1_N_prop, 1)),
+                    },
+                    "sim2_block_bernoulli": {
+                        **sim2_stats
+                    }
                 }
             }
 
@@ -306,68 +995,191 @@ class PPPMarkVisualizationHook(Hook):
             # ---------------------------------------------
             # Visualization
             # ---------------------------------------------
-            fig, axs = plt.subplots(2, 3, figsize=(18, 10))
-
-            axs[0, 0].imshow(img)
-            axs[0, 0].set_title("Image")
-
-            axs[0, 1].imshow(pred_lambda_mass, cmap='hot')
-            axs[0, 1].set_title("Predicted intensity lambda")
-
-            axs[0, 1].text(
-                0.02, 0.95,
-                f"E[N] = {expected_count:.2f}\n"
-                f"GTN  = {gt_count}\n"
-                f"Diff. = {expected_count - gt_count:+.2f}",
-                transform=axs[0, 1].transAxes,
-                fontsize=11,
-                color="white",
-                verticalalignment="top",
-                bbox=dict(facecolor="black", alpha=0.5, pad=4)
+            fig, axs = plt.subplots(
+                9,
+                1,
+                figsize=self.figsize,   # large panels
             )
 
-            axs[0, 2].imshow(gt_point_support_np, cmap='gray')
-            axs[0, 2].set_title("GT point support")
+            # remove ALL padding
+            plt.subplots_adjust(
+                left=0.01,
+                right=0.99,
+                top=0.97,
+                bottom=0.01,
+                hspace=0.08,
+            )
 
-            if depth_np is not None:
-                im_depth = axs[1, 0].imshow(depth_np, cmap='viridis')
-                # # uncomment to fix the scale image to image
-                # im_depth = axs[1, 0].imshow(
-                #     depth_np,
-                #     cmap='viridis',
-                #     vmin=0.0,
-                #     vmax=80.0   # or max sensor range
-                # )
-                axs[1, 0].set_title("Predicted depth")
-                cbar = fig.colorbar(im_depth, ax=axs[1, 0], fraction=0.046, pad=0.04)
-                cbar.set_label("Depth (meters)")
+            fig.suptitle(
+                f"{phase} | iter {int(runner.iter)} | {video_str} | frame {vframe_str} | idx {gidx_str}",
+                fontsize=14,
+            )
+
+            def _cbar_under(fig, ax, im, height=0.04, pad=0.02):
+                cax = ax.inset_axes([0.0, -(height + pad), 1.0, height])
+                cb = fig.colorbar(im, cax=cax, orientation="horizontal")
+                cb.ax.tick_params(labelsize=10)
+                return cb
+            
+            def _ylabel(ax, text):
+                ax.text(
+                    -0.015, 0.5, text,
+                    transform=ax.transAxes,
+                    rotation=90,
+                    fontsize=13,
+                    va="center",
+                    ha="center",
+                )
+
+            row = 0
+
+            # 1) Image
+            axs[row].imshow(img, aspect="auto")
+            axs[row].axis("off")
+            _ylabel(axs[row], "Image")
+            # axs[row].text(
+            #     -0.015, 0.5, "Image",
+            #     transform=axs[row].transAxes,
+            #     rotation=90,
+            #     fontsize=13,
+            #     va="center",
+            #     ha="center",
+            # )
+            row += 1
+
+            # 2) GT support
+            axs[row].imshow(gt_support_np, cmap="gray", aspect="auto")
+            # axs[row].set_ylabel("GT support", fontsize=13)
+            _ylabel(axs[row], "GT support")
+            axs[row].axis("off")
+            row += 1
+
+            # 3) GT points overlay (thick green dots)
+            self._draw_points_overlay(
+                axs[row],
+                img,
+                gt_points_xy,
+                # ylabel="GT points",
+                n_text=f"N={len(gt_points_xy)}",
+                color="lime",
+                point_size=self.point_size,
+                alpha=0.95,
+            )
+            _ylabel(axs[row], "GT points")
+            row += 1
+
+            # 4) Sim1: thinning PPP
+            self._draw_points_overlay(
+                axs[row],
+                img,
+                sim1_points_xy,
+                # ylabel="Sim1 thinning",
+                n_text=f"N={sim1_N}",
+                color="red",
+                point_size=self.point_size,
+                alpha=0.90,
+            )
+            _ylabel(axs[row], "Sim1 thinning")
+            row += 1
+
+            # 5) Sim2: block/Bernoulli PPP
+            self._draw_points_overlay(
+                axs[row],
+                img,
+                sim2_points_xy,
+                # ylabel="Sim2 block",
+                n_text=f"N={sim2_N}",
+                color="orange",
+                point_size=self.point_size,
+                alpha=0.90,
+            )
+            _ylabel(axs[row], "Sim2 block")
+            row += 1
+
+            # 6) Pred λ mass
+            im0 = axs[row].imshow(pred_lambda_mass, cmap="hot", aspect="auto")
+            # axs[row].set_ylabel("Pred λ mass", fontsize=13)
+            axs[row].axis("off")
+
+            axs[row].text(
+                0.02,
+                0.98,
+                f"E[N]={expected_count:.2f}\nGT={gt_count:.0f}\nΔ={expected_count-gt_count:+.2f}",
+                transform=axs[row].transAxes,
+                fontsize=11,
+                color="white",
+                va="top",
+                ha="left",
+                bbox=dict(facecolor="black", alpha=0.55, pad=3),
+            )
+            _ylabel(axs[row], "Pred λ mass")
+            _cbar_under(fig, axs[row], im0)
+            row += 1
+
+            # 7) Pred λ^gamma visualization
+            gamma = self.gamma
+            lam_vis = pred_lambda_mass ** gamma
+
+            im1 = axs[row].imshow(lam_vis, cmap="hot", aspect="auto")
+            # axs[row].set_ylabel("λ^γ", fontsize=13)
+            axs[row].axis("off")
+
+            axs[row].text(
+                0.02,
+                0.98,
+                f"γ={gamma}",
+                transform=axs[row].transAxes,
+                fontsize=11,
+                color="white",
+                va="top",
+                ha="left",
+                bbox=dict(facecolor="black", alpha=0.55, pad=3),
+            )
+            _ylabel(axs[row], "Pred λ^γ")
+            _cbar_under(fig, axs[row], im1)
+            row += 1
+
+            # 8) Depth
+            if pred_depth is not None:
+                depth_np = pred_depth.detach().cpu().numpy()
+                im2 = axs[row].imshow(
+                    depth_np,
+                    cmap="viridis",
+                    vmin=self.depth_vmin,
+                    vmax=self.depth_vmax,
+                    aspect="auto",
+                )
+                # axs[row].set_ylabel("Pred depth", fontsize=13)
+                axs[row].axis("off")
+                _cbar_under(fig, axs[row], im2)
+                _ylabel(axs[row], "Pred depth")
             else:
-                axs[1, 0].axis("off")
+                axs[row].axis("off")
+            row += 1
 
-            if vel_np is not None:
-                # coolwarm :Blue - negative values, White / light - values near 0, Red - positive values
-                # Note: matplotlip autoscales the scale (so color != a certail vel value)
-                im_vel = axs[1, 1].imshow(vel_np, cmap='coolwarm')
-                # # uncomment to fix the scale image to image
-                # im_vel = axs[1, 1].imshow(
-                #     vel_np,
-                #     cmap='coolwarm',
-                #     vmin=-20.0,
-                #     vmax=20.0   # doppler range
-                # )
-                axs[1, 1].set_title("Predicted velocity")
-                cbar = fig.colorbar(im_vel, ax=axs[1, 1], fraction=0.046, pad=0.04)
-                cbar.set_label("Velocity (m/s)")
+            # 9) Velocity
+            if pred_velocity is not None:
+                vel_np = pred_velocity.detach().cpu().numpy()
+                im3 = axs[row].imshow(
+                    vel_np,
+                    cmap="coolwarm",
+                    vmin=self.vel_vmin,
+                    vmax=self.vel_vmax,
+                    aspect="auto",
+                )
+                # axs[row].set_ylabel("Pred vel", fontsize=13)
+                axs[row].axis("off")
+                _cbar_under(fig, axs[row], im3)
+                _ylabel(axs[row], "Pred vel")
             else:
-                axs[1, 1].axis("off")
+                axs[row].axis("off")
 
-            axs[1, 2].axis("off")
+            png_path = os.path.join(out_dir, f"{prefix}.png")
 
-            for ax in axs.flat:
-                ax.axis("off")
+            fig.savefig(
+                png_path,
+                dpi=self.dpi,           # keeps file size reasonable
+                bbox_inches="tight",
+            )
 
-            plt.tight_layout()
-            plt.savefig(os.path.join(out_dir, f"{prefix}_vis.png"))
-            # plt.close()
-            plt.close("all") # entered "all" to remedy "Tcl_AsyncDelete: async handler deleted by the wrong thread"
-
+            plt.close(fig)
