@@ -5,10 +5,22 @@ from mmseg.registry import MODELS
 @MODELS.register_module()
 class PPPLoss(nn.Module):
 
+    """
+    ## PPP integral discretization (global measure, crop-invariant) ##
+
+    We approximate the integral over [0,1]^2 via a Riemann sum where each pixel has
+    fixed area 1/(H_full * W_full), independent of cropping, so the underlying
+    (Lebesgue) measure remains global. (Set by out_img_size durinig initialization)
+
+    Motivation: Cropping only restricts the support of the sum, but does not change the
+    integration measure, since the pixel area is fixed by the full-image discretization.
+    """
+
     def __init__(self, out_img_size): # , test_resolution=(512,1024), Bug Tobi
         super().__init__()
         # self.test_resolution = test_resolution # Bug
         # full reference domain (H_full, W_full)
+        # pixel_scale is a constant stored inside the model
         H_full, W_full = out_img_size
         self.register_buffer(
             "pixel_scale",
