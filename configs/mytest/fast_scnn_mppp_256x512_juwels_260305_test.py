@@ -9,7 +9,7 @@ custom_imports = dict(
         'mmseg.datasets.sys100_ppp_heatmap_dataset',
         'mmseg.datasets.transforms.sys100_ppp_transforms',
         'mmseg.evaluation.metrics.ppp_metrics',
-        'mmseg.engine.hooks.ppp_visualization_hook',
+        'mmseg.engine.hooks.ppp_mark_vis_hook_light',
         'mmseg.engine.hooks.prefetch_stats_hook',
     ],
     allow_failed_imports=False
@@ -35,10 +35,10 @@ DATA_PATH_VAL = os.environ.get(
 )
 
 # wird normalerweise vom runner automatisch auf work_dirs im repo gesetzt, hier überschreiben
-work_dir = os.environ.get(
-    "MMSEG_WORK_DIR",
-    "/p/scratch/nxtaim-1/huber7/work_dirs/ppp_mark_test"
-)
+# work_dir = os.environ.get(
+#     "MMSEG_WORK_DIR",
+#     "/p/scratch/nxtaim-1/huber7/work_dirs/ppp_mark_test"
+# )
 
 crop_size = (256, 512) # (384, 768)
 out_img_size = (544, 1792)
@@ -174,13 +174,13 @@ test_pipeline = [
         undistort=True,
         fovs=fovs_wo_fisheyeart,
         strict=False,
-        prefetch=True,
+        prefetch=False,
         prefetch_dict={
-            "buffer_size": batch_size, # 4096,
+            "buffer_size": 10, # 4096,
             "queue_size": 120,
             "priority": 19,
             "num_prefetch_workers": 4,   # dann gegen 8 vergleichen
-            "wait_till_buffer_has": batch_size,
+            "wait_till_buffer_has": 10,
             "buffer_fill_pause_threshold": 0.9,
             "default_sleep_time": 60,
         }
@@ -278,11 +278,17 @@ default_hooks = dict(
 
 custom_hooks = [
     dict(
-        type='PPPMarkVisualizationHook',
+        type='PPPMarkVisHookLight',
         interval=1,
-        max_samples=10,
+        max_samples_train=10,
+        max_samples_val=10,
+        max_samples_test=10,
         img_mean=data_rbg_mean,
         img_std=data_rbg_std,
+        gamma=0.2,
+        sim_block_size=8,
+        sim_block_placement='weighted',
+        point_size=28,
     ),
 ]
 

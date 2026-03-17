@@ -25,29 +25,19 @@ import os
 #    "/p/data1/nxtaim/proprietary/continental/"
 #)
 
-DATA_PATH_TRAIN = os.environ.get(
-   "SYS100_DATA_PATH",
-   "/p/data1/nxtaim/proprietary/continental/sys100/SYS100_Dataset.csv"
-)
-DATA_PATH_VAL = os.environ.get(
-   "SYS100_DATA_PATH",
-   "/p/data1/nxtaim/proprietary/continental/sys100_validation/SYS100_Validation_Dataset.csv"
-)
+# # wird normalerweise vom runner automatisch auf work_dirs im repo gesetzt, hier überschreiben
+# work_dir = os.environ.get(
+#     "MMSEG_WORK_DIR",
+#     "/p/scratch/nxtaim-1/huber7/work_dirs/ppp_mark"
+# )
 
-# wird normalerweise vom runner automatisch auf work_dirs im repo gesetzt, hier überschreiben
-work_dir = os.environ.get(
-    "MMSEG_WORK_DIR",
-    "/p/scratch/nxtaim-1/huber7/work_dirs/ppp_mark"
-)
+######################################################################
 
 crop_size = (256, 512) # (384, 768)
 out_img_size = (544, 1792)
 data_rbg_mean = [0.0, 0.0, 0.0] # [80.182, 87.428, 79.65] # -> marked_ppp_gt_exploration.ipynb
 data_rbg_std = [1.0, 1.0, 1.0] # [25.751, 25.934, 27.112]
 fovs_wo_fisheyeart=(105, 48.4) # (110, 48.4) still had the fisheye artefact on the right
-
-dataset_type = 'Sys100PPPHeatmapDataset'
-batch_size = 80
 
 data_preprocessor = dict(
     type='SegDataPreProcessor',
@@ -57,6 +47,8 @@ data_preprocessor = dict(
     seg_pad_val=0, # for seg label data, 255 is the "ignore" label (nonissue, since no padding necessary)
     size=crop_size # Note: No resizing is applied during validation.
 )
+
+######################################################################
 
 model = dict(
     type='EncoderDecoder',
@@ -113,86 +105,25 @@ model = dict(
 )
 
 # ----------------------------
-# SYS100 pipeline
+# Data pipeline
 # ----------------------------
 
-# Note: This is my sys100_ppp_transforms
-train_pipeline = [
-    #dict(
-    #    type='LoadSys100Sample',
-    #    sys100_root=DATA_PATH,
-    #    out_img_size=out_img_size,
-    #    undistort=True,
-    #    fovs=fovs_wo_fisheyeart,
-    #    strict=False
-    #),
-    dict(
-        type='LoadSys100Sample',
-        sys100_root=DATA_PATH_TRAIN,
-        source_is_summary_csv=True,
-        out_img_size=out_img_size,
-        undistort=True,
-        fovs=fovs_wo_fisheyeart,
-        strict=False,
-        prefetch=True,
-        prefetch_dict={
-            "buffer_size": 1024, # 4096,
-            "queue_size": 120,
-            "priority": 10,
-            "num_prefetch_workers": 4,   # dann gegen 8 vergleichen
-            "wait_till_buffer_has": batch_size,
-            "buffer_fill_pause_threshold": 0.9,
-            "default_sleep_time": 60,
-        }
-    ),
-    dict(
-        type='BuildPPPHeatmap',
-        thres=0.05,
-        rel_x_centre=0.491,
-        rel_y_centre=0.4370,
-    ),
-    dict(type='PPPRandomCrop', crop_size=crop_size),
-    dict(type='PPPRandomFlip', prob=0.5, direction='horizontal'),
-    dict(type='PPPPackSegInputs'),
-]
+DATA_PATH_TRAIN = os.environ.get(
+   "SYS100_DATA_PATH",
+   "/p/data1/nxtaim/proprietary/continental/sys100/SYS100_Dataset.csv"
+)
+DATA_PATH_VAL = os.environ.get(
+   "SYS100_DATA_PATH",
+   "/p/data1/nxtaim/proprietary/continental/sys100_validation/SYS100_Validation_Dataset.csv"
+)
 
-test_pipeline = [
-    #dict(
-    #    type='LoadSys100Sample',
-    #    sys100_root=DATA_PATH,
-    #    out_img_size=out_img_size,
-    #    undistort=True,
-    #    fovs=fovs_wo_fisheyeart,
-    #    strict=False
-    #),
-    dict(
-        type='LoadSys100Sample',
-        sys100_root=DATA_PATH_VAL,
-        source_is_summary_csv=True,
-        target_dataset_size=batch_size,
-        out_img_size=out_img_size,
-        undistort=True,
-        fovs=fovs_wo_fisheyeart,
-        strict=False,
-        prefetch=True,
-        prefetch_dict={
-            "buffer_size": batch_size, # 4096,
-            "queue_size": 120,
-            "priority": 19,
-            "num_prefetch_workers": 4,   # dann gegen 8 vergleichen
-            "wait_till_buffer_has": batch_size,
-            "buffer_fill_pause_threshold": 0.9,
-            "default_sleep_time": 60,
-        }
-    ),
-    dict(
-        type='BuildPPPHeatmap',
-        thres=0.05,
-        rel_x_centre=0.491,
-        rel_y_centre=0.4370,
-    ),
-    dict(type='PPPPackSegInputs'),
-]
+dataset_type = 'Sys100PPPHeatmapDataset'
+batch_size = 80
+
+batch_size_test = 10
+batch_size_val = 10
+
+#### Train dataloader #####
 
 train_dataloader = dict(
     batch_size=batch_size,
@@ -207,12 +138,43 @@ train_dataloader = dict(
         source_is_summary_csv=True,
         # target_dataset_size=1000000,
         fovs=fovs_wo_fisheyeart,
-        pipeline=train_pipeline,
+        pipeline=[
+            dict(
+                type='LoadSys100Sample',
+                sys100_root=DATA_PATH_TRAIN,
+                source_is_summary_csv=True,
+                out_img_size=out_img_size,
+                undistort=True,
+                fovs=fovs_wo_fisheyeart,
+                strict=False,
+                prefetch=True,
+                prefetch_dict={
+                    "buffer_size": 1024, # 4096,
+                    "queue_size": 120,
+                    "priority": 10,
+                    "num_prefetch_workers": 4,   # dann gegen 8 vergleichen
+                    "wait_till_buffer_has": batch_size,
+                    "buffer_fill_pause_threshold": 0.9,
+                    "default_sleep_time": 60,
+                }
+            ),
+            dict(
+                type='BuildPPPHeatmap',
+                thres=0.05,
+                rel_x_centre=0.491,
+                rel_y_centre=0.4370,
+            ),
+            dict(type='PPPRandomCrop', crop_size=crop_size),
+            dict(type='PPPRandomFlip', prob=0.5, direction='horizontal'),
+            dict(type='PPPPackSegInputs'),
+        ]
     )
 )
 
-val_dataloader = dict(
-    batch_size=10,
+#### Test data loader ####
+
+test_dataloader = dict(
+    batch_size=batch_size_test,
     num_workers=0, # we parallelize with Jonas' aumovio/prefetcheddataset.py
     dataset=dict(
         type=dataset_type,
@@ -220,11 +182,82 @@ val_dataloader = dict(
         source_is_summary_csv=True,
         target_dataset_size=10,
         fovs=fovs_wo_fisheyeart,
-        pipeline=test_pipeline,
+        pipeline=[
+            dict(
+                type='LoadSys100Sample',
+                sys100_root=DATA_PATH_VAL,
+                source_is_summary_csv=True,
+                target_dataset_size=batch_size_test,
+                out_img_size=out_img_size,
+                undistort=True,
+                fovs=fovs_wo_fisheyeart,
+                strict=False,
+                prefetch=True,
+                prefetch_dict={
+                    "buffer_size": batch_size_test, # 4096,
+                    "queue_size": 120,
+                    "priority": 19,
+                    "num_prefetch_workers": 4,   # dann gegen 8 vergleichen
+                    "wait_till_buffer_has": batch_size_test,
+                    "buffer_fill_pause_threshold": 0.9,
+                    "default_sleep_time": 60,
+                }
+            ),
+            dict(
+                type='BuildPPPHeatmap',
+                thres=0.05,
+                rel_x_centre=0.491,
+                rel_y_centre=0.4370,
+            ),
+            dict(type='PPPPackSegInputs'),
+        ]
     )
 )
 
-test_dataloader = val_dataloader
+#### val dataloader ####
+
+val_dataloader = dict(
+    batch_size=batch_size_val,
+    num_workers=0, # we parallelize with Jonas' aumovio/prefetcheddataset.py
+    dataset=dict(
+        type=dataset_type,
+        sys100_root=DATA_PATH_VAL, # Frage: Existiert ein Test-Datensatz? Ist VAL hier ok?
+        source_is_summary_csv=True,
+        target_dataset_size=10,
+        fovs=fovs_wo_fisheyeart,
+        pipeline=[
+            dict(
+                type='LoadSys100Sample',
+                sys100_root=DATA_PATH_VAL,
+                source_is_summary_csv=True,
+                target_dataset_size=batch_size_val,
+                out_img_size=out_img_size,
+                undistort=True,
+                fovs=fovs_wo_fisheyeart,
+                strict=False,
+                prefetch=True,
+                prefetch_dict={
+                    "buffer_size": batch_size_val, # 4096,
+                    "queue_size": 120,
+                    "priority": 19,
+                    "num_prefetch_workers": 4,   # dann gegen 8 vergleichen
+                    "wait_till_buffer_has": batch_size_val,
+                    "buffer_fill_pause_threshold": 0.9,
+                    "default_sleep_time": 60,
+                }
+            ),
+            dict(
+                type='BuildPPPHeatmap',
+                thres=0.05,
+                rel_x_centre=0.491,
+                rel_y_centre=0.4370,
+            ),
+            dict(type='PPPPackSegInputs'),
+        ]
+    )
+)
+
+#########################################################
 
 optim_wrapper = dict(
     type='OptimWrapper',
@@ -278,20 +311,26 @@ default_hooks = dict(
 
 custom_hooks = [
     dict(
-        type='PPPMarkVisHookLight', 
-        interval=1000, 
-        img_mean=data_rbg_mean, 
-        img_std=data_rbg_std,
-        max_samples_train=1,
+        type='PPPMarkVisHookLight',
+        interval=1,
+        max_samples_train=10,
         max_samples_val=10,
         max_samples_test=10,
-        ),
+        img_mean=data_rbg_mean,
+        img_std=data_rbg_std,
+        gamma=0.2,
+        sim_block_size=8,
+        sim_block_placement='weighted',
+        point_size=28,
+    ),
     # dict(type='VRAMHook', interval=5, reset_peak=True, log_all_ranks=True),
     #dict(type='LossPlotHook', out_file='loss.png', smooth_alpha=0.05),
     dict(
         type='PrefetchStatsHook',
     )
 ]
+
+
 
 visualizer = dict(
     type='Visualizer',
