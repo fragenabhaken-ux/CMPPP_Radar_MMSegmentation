@@ -59,13 +59,13 @@ class PPPMetric(BaseMetric):
                 # "gt_count": gt_count.item(),
             }
 
-            diff = expected_count - gt_count
-            print(
-                "[PPPMetric]",
-                f"E[N]={expected_count.item():.2f}",
-                f"N_gt={gt_count.item():.2f}",
-                f"|diff|={diff.abs().item():.2f}",
-            )
+            # diff = expected_count - gt_count
+            # print(
+            #     "[PPPMetric]",
+            #     f"E[N]={expected_count.item():.2f}",
+            #     f"N_gt={gt_count.item():.2f}",
+            #     f"|diff|={diff.abs().item():.2f}",
+            # )
 
             self.results.append(entry)
 

@@ -123,7 +123,7 @@ def fig_to_rgb(fig: Figure) -> np.ndarray:
 class PPPMarkVisHookLight(Hook):
     def __init__(
         self,
-        interval=500,
+        train_interval=500,
         max_samples_train=1,
         max_samples_val=10,
         max_samples_test=10,
@@ -140,7 +140,7 @@ class PPPMarkVisHookLight(Hook):
         sim_block_placement="weighted",
         point_size=28,
     ):
-        self.interval = int(interval)
+        self.train_interval = int(train_interval)
         self.max_samples = {
             "train": int(max_samples_train),
             "val": int(max_samples_val),
@@ -163,17 +163,57 @@ class PPPMarkVisHookLight(Hook):
         self.img_mean = None if img_mean is None else np.asarray(img_mean, dtype=np.float32)[:, None, None]
         self.img_std = None if img_std is None else np.asarray(img_std, dtype=np.float32)[:, None, None]
 
+        self._written_in_run = {
+            "val": 0,
+            "test": 0,
+        }
+
+    # Reset img output counter for val and test before next iteration
+    def before_val_epoch(self, runner):
+        self._written_in_run["val"] = 0
+    def before_test_epoch(self, runner):
+        self._written_in_run["test"] = 0
+
     def after_train_iter(self, runner, batch_idx, data_batch=None, outputs=None):
-        if is_main_process() and isinstance(data_batch, dict) and runner.iter % self.interval == 0:
-            self._run(runner, data_batch, "train", runner.iter)
+        # Only run on rank 0 in distributed training. Without this Each GPU would execute the hook
+        # → duplicate images × #GPUs
+        if not is_main_process():
+            return
+        # Safety check if data_batch has right format
+        if not isinstance(data_batch, dict):
+            return
+        if self.max_samples["train"] <= 0:
+            return
+        if self.train_interval <= 0:
+            return
+        if runner.iter % self.train_interval != 0:
+            return
+
+        self._run(runner, data_batch, "train", runner.iter)
 
     def after_val_iter(self, runner, batch_idx, data_batch=None, outputs=None):
-        if is_main_process() and isinstance(data_batch, dict) and batch_idx % self.interval == 0:
-            self._run(runner, data_batch, "val", batch_idx)
+        if not is_main_process():
+            return
+        if not isinstance(data_batch, dict):
+            return
+        if self.max_samples["val"] <= 0:
+            return
+        if self._written_in_run["val"] >= self.max_samples["val"]:
+            return
+
+        self._run(runner, data_batch, "val", runner.iter)
 
     def after_test_iter(self, runner, batch_idx, data_batch=None, outputs=None):
-        if is_main_process() and isinstance(data_batch, dict) and batch_idx % self.interval == 0:
-            self._run(runner, data_batch, "test", batch_idx)
+        if not is_main_process():
+            return
+        if not isinstance(data_batch, dict):
+            return
+        if self.max_samples["test"] <= 0:
+            return
+        if self._written_in_run["test"] >= self.max_samples["test"]:
+            return
+
+        self._run(runner, data_batch, "test", runner.iter)
 
     def _run(self, runner, data_batch, phase, step):
         model = runner.model.module if is_model_wrapper(runner.model) else runner.model
@@ -187,7 +227,18 @@ class PPPMarkVisHookLight(Hook):
         with torch.no_grad():
             preds = model.decode_head(model.extract_feat(inputs))
 
-        n_vis = min(self.max_samples[phase], preds.size(0))
+        if phase == "train":
+            n_vis = min(self.max_samples["train"], preds.size(0))
+            start_idx = 0
+        else:
+            remaining = self.max_samples[phase] - self._written_in_run[phase]
+            if remaining <= 0:
+                if was_training:
+                    model.train()
+                return
+            n_vis = min(remaining, preds.size(0))
+            start_idx = self._written_in_run[phase]
+
         for i in range(n_vis):
             self._visualize_sample(
                 runner=runner,
@@ -197,8 +248,11 @@ class PPPMarkVisHookLight(Hook):
                 pred=preds[i],
                 sample=data_samples[i],
                 iter_seed=runner.iter,
-                sample_idx=i,
+                sample_idx=start_idx + i,
             )
+
+        if phase in self._written_in_run:
+            self._written_in_run[phase] += n_vis
 
         if was_training:
             model.train()

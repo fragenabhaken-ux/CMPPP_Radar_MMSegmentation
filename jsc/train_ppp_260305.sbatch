@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=ppp_train
 #SBATCH --account=nxtaim-1
-#SBATCH --partition=booster
+#SBATCH --partition=develbooster
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
-#SBATCH --time=12:00:00
+#SBATCH --time=00:10:00
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
 #SBATCH --export=ALL
@@ -33,6 +33,11 @@ echo "MASTER_ADDR=$MASTER_ADDR"
 echo "MASTER_PORT=$MASTER_PORT"
 echo "SLURM_NTASKS=${SLURM_NTASKS:-unset} SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-unset}"
 
+CONFIG=configs/mytest/fast_scnn_mppp_256x512_juwels_260305.py
+
+WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_NAME}_${SLURM_JOB_ID}"
+mkdir -p "$WORK_DIR"
+
 srun --ntasks=4 --gpus-per-task=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
      --gpu-bind=none \
-  python tools/train.py configs/mytest/fast_scnn_mppp_256x512_juwels_260305.py --launcher slurm --work-dir %x_%j
+  python tools/train.py $CONFIG --launcher slurm --work-dir "$WORK_DIR"

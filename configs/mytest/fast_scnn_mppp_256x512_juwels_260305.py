@@ -118,15 +118,16 @@ DATA_PATH_VAL = os.environ.get(
 )
 
 dataset_type = 'Sys100PPPHeatmapDataset'
-batch_size = 80
 
+batch_size_train = 80
+# decrease batch size in val/test, because the GPU memory constraints on full sized images
 batch_size_test = 10
 batch_size_val = 10
 
 #### Train dataloader #####
 
 train_dataloader = dict(
-    batch_size=batch_size,
+    batch_size=batch_size_train,
     num_workers=4, # we parallelize with Jonas' aumovio/prefetcheddataset.py
     # persistent_workers=True, # for torch Dataloader
     pin_memory=True, # for torch Dataloader
@@ -153,7 +154,7 @@ train_dataloader = dict(
                     "queue_size": 120,
                     "priority": 10,
                     "num_prefetch_workers": 4,   # dann gegen 8 vergleichen
-                    "wait_till_buffer_has": batch_size,
+                    "wait_till_buffer_has": batch_size_train,
                     "buffer_fill_pause_threshold": 0.9,
                     "default_sleep_time": 60,
                 }
@@ -171,34 +172,36 @@ train_dataloader = dict(
     )
 )
 
-#### Test data loader ####
+#### val dataloader ####
 
-test_dataloader = dict(
-    batch_size=batch_size_test,
-    num_workers=0, # we parallelize with Jonas' aumovio/prefetcheddataset.py
+num_samples_val = 1000
+
+val_dataloader = dict(
+    batch_size=batch_size_val,
+    num_workers=4, # we parallelize with Jonas' aumovio/prefetcheddataset.py
     dataset=dict(
         type=dataset_type,
-        sys100_root=DATA_PATH_VAL,
+        sys100_root=DATA_PATH_VAL, # Frage: Existiert ein Test-Datensatz? Ist VAL hier ok?
         source_is_summary_csv=True,
-        target_dataset_size=10,
+        target_dataset_size=num_samples_val,
         fovs=fovs_wo_fisheyeart,
         pipeline=[
             dict(
                 type='LoadSys100Sample',
                 sys100_root=DATA_PATH_VAL,
                 source_is_summary_csv=True,
-                target_dataset_size=batch_size_test,
+                target_dataset_size=num_samples_val,
                 out_img_size=out_img_size,
                 undistort=True,
                 fovs=fovs_wo_fisheyeart,
                 strict=False,
                 prefetch=True,
                 prefetch_dict={
-                    "buffer_size": batch_size_test, # 4096,
+                    "buffer_size": 500, # 4096,
                     "queue_size": 120,
                     "priority": 19,
                     "num_prefetch_workers": 4,   # dann gegen 8 vergleichen
-                    "wait_till_buffer_has": batch_size_test,
+                    "wait_till_buffer_has": 100,
                     "buffer_fill_pause_threshold": 0.9,
                     "default_sleep_time": 60,
                 }
@@ -214,34 +217,36 @@ test_dataloader = dict(
     )
 )
 
-#### val dataloader ####
+#### Test data loader ####
 
-val_dataloader = dict(
-    batch_size=batch_size_val,
-    num_workers=0, # we parallelize with Jonas' aumovio/prefetcheddataset.py
+num_samples_test = 1000
+
+test_dataloader = dict(
+    batch_size=batch_size_test,
+    num_workers=4, # we parallelize with Jonas' aumovio/prefetcheddataset.py
     dataset=dict(
         type=dataset_type,
-        sys100_root=DATA_PATH_VAL, # Frage: Existiert ein Test-Datensatz? Ist VAL hier ok?
+        sys100_root=DATA_PATH_VAL,
         source_is_summary_csv=True,
-        target_dataset_size=10,
+        target_dataset_size=num_samples_test,
         fovs=fovs_wo_fisheyeart,
         pipeline=[
             dict(
                 type='LoadSys100Sample',
                 sys100_root=DATA_PATH_VAL,
                 source_is_summary_csv=True,
-                target_dataset_size=batch_size_val,
+                target_dataset_size=num_samples_test,
                 out_img_size=out_img_size,
                 undistort=True,
                 fovs=fovs_wo_fisheyeart,
                 strict=False,
                 prefetch=True,
                 prefetch_dict={
-                    "buffer_size": batch_size_val, # 4096,
+                    "buffer_size": 500, # 4096,
                     "queue_size": 120,
                     "priority": 19,
                     "num_prefetch_workers": 4,   # dann gegen 8 vergleichen
-                    "wait_till_buffer_has": batch_size_val,
+                    "wait_till_buffer_has": 100,
                     "buffer_fill_pause_threshold": 0.9,
                     "default_sleep_time": 60,
                 }
@@ -276,7 +281,7 @@ optim_wrapper = dict(
     paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.5)})
 )
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=1000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=40000, val_interval=200)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -312,9 +317,9 @@ default_hooks = dict(
 custom_hooks = [
     dict(
         type='PPPMarkVisHookLight',
-        interval=1,
-        max_samples_train=10,
-        max_samples_val=10,
+        train_interval=100,
+        max_samples_train=1,
+        max_samples_val=5,
         max_samples_test=10,
         img_mean=data_rbg_mean,
         img_std=data_rbg_std,
