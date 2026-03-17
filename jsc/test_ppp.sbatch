@@ -33,9 +33,12 @@ echo "MASTER_ADDR=$MASTER_ADDR"
 echo "MASTER_PORT=$MASTER_PORT"
 echo "SLURM_NTASKS=${SLURM_NTASKS:-unset} SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-unset}"
 
-CONFIG=configs/mytest/fast_scnn_mppp_256x512_juwels_260305_test.py
+CONFIG=configs/ppp/ppp_resnet34_256x512_baseline.py
 CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/mmsegmentation_ppp/best_ppp_count_abs_error_iter_35000.pth
+
+WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_NAME}_${SLURM_JOB_ID}"
+mkdir -p "$WORK_DIR"
 
 srun --ntasks=4 --gpus-per-task=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
      --gpu-bind=none \
-  python tools/test.py $CONFIG $CHECKPOINT --launcher slurm
+  python tools/test.py $CONFIG $CHECKPOINT --launcher slurm --work-dir "$WORK_DIR"
