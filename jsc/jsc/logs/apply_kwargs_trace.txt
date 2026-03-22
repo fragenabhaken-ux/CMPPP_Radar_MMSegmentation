@@ -1,4 +1,0 @@
-
-🔥 FOUND kwargs passed into Function.apply 🔥
-kwargs = {'output_size': 7, 'spatial_scale': 1.0}
-Top relevant stack frames:
