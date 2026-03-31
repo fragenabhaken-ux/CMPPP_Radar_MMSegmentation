@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=LRRangeTest
+#SBATCH --job-name=30k_loss_norm_OFF
 #SBATCH --account=nxtaim-1
-#SBATCH --partition=develbooster
+#SBATCH --partition=booster
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
-#SBATCH --time=02:00:00
+#SBATCH --time=08:00:00
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
 #SBATCH --export=ALL
@@ -33,24 +33,12 @@ echo "MASTER_ADDR=$MASTER_ADDR"
 echo "MASTER_PORT=$MASTER_PORT"
 echo "SLURM_NTASKS=${SLURM_NTASKS:-unset} SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-unset}"
 
-# CONFIG=configs/ppp/ppp_resnet34_256x512_baseline.py
-# CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_GrClOff.py
-# CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_GrCl1.py
-# CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_GrCl10.py
-# CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_GrCl1_LR0001.py
-# CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_GrCl1_LR0005.py
-# CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_GrCl1_LR0010.py
-# CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_GrCl1_LR0050.py
-# CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_GrCl1_LR0100.py
-# CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_SGD_GrClOff_LR0010.py
-# CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_GrCl1_LRRangeTest.py
-# CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_SGD_GrClOff_LRRangeTest.py
-CONFIG=configs/ppp/ppp_resnet34_256x512_test5000Iter_GrCl1_LRRangeTest.py
+# CONFIG=configs/ppp/ppp_resnet34_256x512_30k_loss_norm_ON.py
+CONFIG=configs/ppp/ppp_resnet34_256x512_30k_loss_norm_OFF.py
 
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 mkdir -p "$WORK_DIR"
 
 srun --ntasks=4 --gpus-per-task=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
      --gpu-bind=none \
-  python tools/train.py $CONFIG --launcher slurm --work-dir "$WORK_DIR" \
-  --cfg-options load_from=/p/scratch/nxtaim-1/huber7/work_dirs/mmsegmentation_ppp/iter_40000.pth
+  python tools/train.py $CONFIG --launcher slurm --work-dir "$WORK_DIR"

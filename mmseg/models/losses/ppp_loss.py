@@ -8,6 +8,18 @@ class PPPLoss(nn.Module):
     """
     ## PPP integral discretization (global measure, crop-invariant) ##
 
+    Computes the negative log-likelihood of a Poisson Point Process (PPP)
+    for a batch of samples.
+
+    The loss is evaluated per sample by approximating the integral term via
+    a Riemann sum over the discretized image grid and summing log-intensities
+    at observed point locations. Each sample yields one scalar PPP loss.
+
+    The final loss is obtained by averaging over the batch (mean reduction),
+    ensuring stable gradients independent of batch size. This formulation
+    makes the per-sample contributions explicit and allows for consistent
+    handling of varying point counts across samples (num_points).
+
     We approximate the integral over [0,1]^2 via a Riemann sum where each pixel has
     fixed area 1/(H_full * W_full), independent of cropping, so the underlying
     (Lebesgue) measure remains global. (Set by out_img_size durinig initialization)
@@ -16,8 +28,9 @@ class PPPLoss(nn.Module):
     integration measure, since the pixel area is fixed by the full-image discretization.
     """
 
-    def __init__(self, out_img_size): # , test_resolution=(512,1024), Bug Tobi
+    def __init__(self, out_img_size, normalize_by_gt_count=True): # , test_resolution=(512,1024), Bug Tobi
         super().__init__()
+        self.normalize_by_gt_count = normalize_by_gt_count
         # self.test_resolution = test_resolution # Bug
         # full reference domain (H_full, W_full)
         # pixel_scale is a constant stored inside the model
@@ -70,10 +83,12 @@ class PPPLoss(nn.Module):
 
         observation_term = log_lambda_at_points.sum(dim=(1, 2, 3))  # (N,)
 
-        # number of points per sample, normalized
-        num_points = targets.sum(dim=(1, 2, 3)).clamp_min(1.0)  # (N,)
-
-        return ((integral_term - observation_term) / num_points).mean()
+        if self.normalize_by_gt_count:
+            # number of points per sample, normalized
+            num_points = targets.sum(dim=(1, 2, 3)).clamp_min(1.0)  # (N,)
+            return ((integral_term - observation_term) / num_points).mean()
+        else:
+            return (integral_term - observation_term).mean()
     
 
 # import torch #

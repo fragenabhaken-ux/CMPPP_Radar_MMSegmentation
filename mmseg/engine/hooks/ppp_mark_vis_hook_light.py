@@ -1,3 +1,24 @@
+"""
+Visualization hook for PPP-based segmentation models.
+
+The visualizations include:
+- Input image
+- Ground-truth support and extracted point locations
+- Simulated point clouds sampled from the predicted PPP intensity
+  (via thinning and block-based approximation)
+- Predicted intensity heatmap (λ) and gamma-adjusted version (λ^γ)
+- Optional depth and velocity predictions
+
+The goal is to assess:
+- Spatial alignment between prediction and GT
+- Count calibration (E[N] vs. GT count)
+- Generative plausibility of sampled point clouds
+
+Outputs are written to the configured visualization backends
+(e.g. local files and TensorBoard).
+"""
+
+
 import numpy as np
 import torch
 
