@@ -298,7 +298,7 @@ param_scheduler = [
         type='LinearLR',
         start_factor=5e-4,
         end_factor=8e-6,
-        begin=3000,
+        begin=3001,
         end=30000,
         by_epoch=False
     )
