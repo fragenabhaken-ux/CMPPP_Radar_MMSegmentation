@@ -1,4 +1,33 @@
-# Copyright (c) OpenMMLab.
+"""
+# Head configuration:
+# - num_convs: number of convolutional layers in the feature refinement block before upsampling
+# - kernel_size: kernel size of the convolutions in the refinement and fusion blocks
+# - concat_input: whether to concatenate the original backbone feature map with the refined features before fusion
+# - dilation: dilation factor used in the refinement convolutions
+#
+# Loss weighting:
+# - ppp_weight: weight of the PPP intensity loss
+# - depth_weight: weight of the depth regression loss
+# - velocity_weight: weight of the velocity regression loss
+#
+# Loss definition:
+# - loss_ppp: configuration of the PPP loss used for the intensity channel
+#
+# BaseDecodeHead / interface parameters:
+# - in_channels: number of channels in the selected backbone input feature map
+# - channels: internal channel width used by the decode head
+# - num_classes: number of output channels produced by the head
+# - in_index: index of the backbone feature map used as input
+# - input_transform: optional transformation of backbone inputs before decoding
+# - align_corners: interpolation alignment option inherited from the base decode head
+# - dropout_ratio: dropout ratio inherited from the base decode head
+# - conv_cfg: optional convolution layer configuration
+# - norm_cfg: optional normalization layer configuration
+# - act_cfg: optional activation layer configuration
+# - init_cfg: optional initialization configuration
+# - **kwargs: additional keyword arguments passed to the base decode head
+"""
+
 from __future__ import annotations
 
 import torch
