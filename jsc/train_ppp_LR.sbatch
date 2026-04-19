@@ -45,12 +45,14 @@ echo "SLURM_NTASKS=${SLURM_NTASKS:-unset} SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_T
 # CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_SGD_GrClOff_LR0010.py
 # CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_GrCl1_LRRangeTest.py
 # CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_SGD_GrClOff_LRRangeTest.py
-CONFIG=configs/ppp/ppp_resnet34_256x512_test5000Iter_GrCl1_LRRangeTest.py
+# CONFIG=configs/ppp/ppp_resnet34_256x512_test5000Iter_GrCl1_LRRangeTest.py
+CONFIG=configs/ppp/ppp_resnet34_256x512_test1500Iter_GrCl100.py
 
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 mkdir -p "$WORK_DIR"
 
 srun --ntasks=4 --gpus-per-task=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
      --gpu-bind=none \
-  python tools/train.py $CONFIG --launcher slurm --work-dir "$WORK_DIR" \
-  --cfg-options load_from=/p/scratch/nxtaim-1/huber7/work_dirs/mmsegmentation_ppp/iter_40000.pth
+  python tools/train.py $CONFIG --launcher slurm --work-dir "$WORK_DIR"
+#   python tools/train.py $CONFIG --launcher slurm --work-dir "$WORK_DIR" \
+#   --cfg-options load_from=/p/scratch/nxtaim-1/huber7/work_dirs/mmsegmentation_ppp/iter_40000.pth

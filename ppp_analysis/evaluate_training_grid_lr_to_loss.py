@@ -1,3 +1,10 @@
+"""
+Hier habe ich die Lernraten-Range-Tests für verschiedene Trainingsläufe geplottet. 
+Ich habe sowohl die rohen Verluste als auch eine geglättete Version (Rolling Mean) geplottet. 
+Die x-Achse ist logarithmisch skaliert.
+Beim Training habe ich dafür die Lernrate exponentiell erhöht.
+"""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np

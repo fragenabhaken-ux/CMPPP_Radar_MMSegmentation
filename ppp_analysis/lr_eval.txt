@@ -1,8 +1,0 @@
-LR GRID EVALUATION
-Using last 100 loss entries
-
-RESULTS (sorted by mean loss):
-
-lr=0.0005     | mean_loss=8.653546 | n=100 | /p/scratch/nxtaim-1/huber7/work_dirs/ppp_train_13494258/20260318_212637/vis_data/20260318_212637.json
-lr=0.0001     | mean_loss=8.712200 | n=100 | /p/scratch/nxtaim-1/huber7/work_dirs/ppp_train_13494254/20260318_212633/vis_data/20260318_212633.json
-lr=0.001      | mean_loss=8.714261 | n=100 | /p/scratch/nxtaim-1/huber7/work_dirs/ppp_train_13494259/20260318_212636/vis_data/20260318_212636.json
