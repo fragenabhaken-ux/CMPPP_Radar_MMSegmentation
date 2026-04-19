@@ -1,9 +1,9 @@
-
-
 from mmengine.evaluator import BaseMetric
 from mmengine.registry import METRICS
 import numpy as np
 import torch
+
+from mmengine.logging import MMLogger
 
 from .ppp_metrics_loss_mmd_tools import compute_optimal_sigma_metric
 
@@ -56,6 +56,7 @@ class PPPLossMMD(BaseMetric):
         gt_channel=0,
         use_logits=True,
         prefix="ppp",
+        verbose_logging=True,
         **kwargs,
     ):
         super().__init__(prefix=prefix, **kwargs)
@@ -72,6 +73,7 @@ class PPPLossMMD(BaseMetric):
         self.pred_channel = int(pred_channel)
         self.gt_channel = int(gt_channel)
         self.use_logits = bool(use_logits)
+        self.verbose_logging = bool(verbose_logging)
 
     def _get_tensor(self, sample, key):
         obj = sample.get(key, None) if isinstance(sample, dict) else getattr(sample, key, None)
@@ -142,7 +144,12 @@ class PPPLossMMD(BaseMetric):
                 }
             )
 
-            print(f"optimal_score={result['best_score']:.6f}, optimal_sigma={result['best_sigma']:.3f}")
+            if self.verbose_logging:
+                logger = MMLogger.get_current_instance()
+                logger.info(
+                    f"optimal_score={result['best_score']:.6f}, "
+                    f"optimal_sigma={result['best_sigma']:.3f}"
+                )
 
     def compute_metrics(self, results):
         metrics = {}
