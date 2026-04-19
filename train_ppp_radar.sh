@@ -26,4 +26,4 @@ set -e
 export PYTHONPATH="$HOME/uik04723/repos/mmsegmentation_ppp:$PYTHONPATH"
 
 micromamba run -n mmseg python tools/train.py \
-  configs/mytest/fast_scnn_mppp_256x512_juwels_260305_local_debug.py
+  configs/ppp/local_ppp_resnet34_debug_metric.py
