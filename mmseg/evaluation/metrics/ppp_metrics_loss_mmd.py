@@ -91,14 +91,11 @@ class PPPLossMMD(BaseMetric):
 
     def process(self, data_batch, data_samples):
         expected_h, expected_w = self.out_img_size
+        pixel_scale = expected_h * expected_w
 
         for sample in data_samples:
-            print(f"Processing sample with id={getattr(sample, 'id', None)}")
             pred = self._get_tensor(sample, "seg_logits")
             gt = self._get_tensor(sample, "gt_sem_seg")
-
-            assert pred is not None, "seg_logits missing"
-            assert gt is not None, "gt_sem_seg missing"
 
             pred = pred.detach()
             gt = gt.detach()
@@ -107,22 +104,14 @@ class PPPLossMMD(BaseMetric):
             if self.use_logits:
                 pred_grid = torch.exp(pred_grid)
 
+            # Divide by measure for future integrals to be properly normalized; 
+            # this doesn't change the optimal sigma since it's a constant scaling factor
+            pred_grid = pred_grid / pixel_scale
+
             gt_support = gt[self.gt_channel]
 
             pred_grid_np = self._to_numpy(pred_grid).astype(np.float64, copy=False)
             gt_support_np = self._to_numpy(gt_support)
-
-            if pred_grid_np.shape != (expected_h, expected_w):
-                raise ValueError(
-                    f"Prediction grid has shape {pred_grid_np.shape}, "
-                    f"expected {(expected_h, expected_w)}"
-                )
-
-            if gt_support_np.shape != (expected_h, expected_w):
-                raise ValueError(
-                    f"GT support has shape {gt_support_np.shape}, "
-                    f"expected {(expected_h, expected_w)}"
-                )
 
             result = compute_optimal_sigma_metric(
                 pred_grid=pred_grid_np,

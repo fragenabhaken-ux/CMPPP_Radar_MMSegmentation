@@ -175,7 +175,7 @@ train_dataloader = dict(
 
 #### val dataloader ####
 
-num_samples_val = 1000
+num_samples_val = 10
 
 val_dataloader = dict(
     batch_size=batch_size_val,
@@ -220,7 +220,7 @@ val_dataloader = dict(
 
 #### Test data loader ####
 
-num_samples_test = 1000
+num_samples_test = 10
 
 test_dataloader = dict(
     batch_size=batch_size_test,
@@ -326,7 +326,7 @@ custom_hooks = [
         type='PPPMarkVisHookLight',
         train_interval=1000,
         max_samples_train=1,
-        max_samples_val=5,
+        max_samples_val=10,
         max_samples_test=10,
         img_mean=data_rbg_mean,
         img_std=data_rbg_std,

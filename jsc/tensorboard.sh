@@ -7,7 +7,7 @@ choice=${1:-0}
 case "$choice" in
   0)
     tensorboard --logdir_spec="\
-50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13699766_LRRangeTest_clipNorm_100/20260414_154437/vis_data/" \
+50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13726479_160k_testrun/20260419_212640/vis_data/" \
     --port=12345 serve
     ;;
   1)
