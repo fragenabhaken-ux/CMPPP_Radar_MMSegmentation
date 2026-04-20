@@ -153,6 +153,7 @@ The goal is not to expose a large optimization interface, but to provide a
 compact and readable implementation of the metric used in evaluation.
 """
 
+import math
 from typing import Any
 
 import numpy as np
@@ -182,7 +183,7 @@ def gaussianize_grid(grid: np.ndarray, sigma: float) -> np.ndarray:
     if sigma == 0.0:
         return x.copy()
 
-    y = gaussian_filter(x / mass, sigma=sigma, mode="constant", cval=0.0)
+    y = gaussian_filter(x / mass, sigma=sigma, mode="constant")
     y_sum = float(y.sum())
 
     if y_sum > 0.0:
@@ -384,52 +385,58 @@ def optimize_sigma_golden(
             "status": "ok",
         }
 
-    phi = (1.0 + np.sqrt(5.0)) / 2.0
+    phi = (1.0 + math.sqrt(5.0)) / 2.0
     inv_phi = 1.0 / phi
 
-    left = float(positive_left)
-    right = float(positive_right)
+    # Search in log-space for finer relative resolution at small sigma values.
+    log_left = math.log(max(positive_left, 0.1))
+    log_right = math.log(max(positive_right, 0.1))
 
-    c = right - (right - left) * inv_phi
-    d = left + (right - left) * inv_phi
+    c = log_right - (log_right - log_left) * inv_phi
+    d = log_left + (log_right - log_left) * inv_phi
 
-    score_c = eval_sigma(c)
-    score_d = eval_sigma(d)
+    c_sigma = math.exp(c)
+    d_sigma = math.exp(d)
+
+    score_c = eval_sigma(c_sigma)
+    score_d = eval_sigma(d_sigma)
 
     if score_c > best_score:
         best_score = score_c
-        best_sigma = c
+        best_sigma = c_sigma
 
     if score_d > best_score:
         best_score = score_d
-        best_sigma = d
+        best_sigma = d_sigma
 
     for _ in range(max_iter):
-        if (right - left) < tol_sigma:
+        if (math.exp(log_right) - math.exp(log_left)) < tol_sigma:
             break
 
         if score_c < score_d:
-            left = c
+            log_left = c
             c = d
             score_c = score_d
-            d = left + (right - left) * inv_phi
-            score_d = eval_sigma(d)
+            d = log_left + (log_right - log_left) * inv_phi
+            d_sigma = math.exp(d)
+            score_d = eval_sigma(d_sigma)
 
             if score_d > best_score:
                 best_score = score_d
-                best_sigma = d
+                best_sigma = d_sigma
         else:
-            right = d
+            log_right = d
             d = c
             score_d = score_c
-            c = right - (right - left) * inv_phi
-            score_c = eval_sigma(c)
+            c = log_right - (log_right - log_left) * inv_phi
+            c_sigma = math.exp(c)
+            score_c = eval_sigma(c_sigma)
 
             if score_c > best_score:
                 best_score = score_c
-                best_sigma = c
+                best_sigma = c_sigma
 
-    sigma_mid = 0.5 * (left + right)
+    sigma_mid = math.exp(0.5 * (log_left + log_right))
     score_mid = eval_sigma(sigma_mid)
 
     if score_mid > best_score:
