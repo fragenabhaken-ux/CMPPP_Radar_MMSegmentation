@@ -252,8 +252,16 @@ param_scheduler = [
     dict(
         type='LinearLR',
         start_factor=1.0,
-        end_factor=1e-4,
+        end_factor=1e-1,
         begin=8001,
+        end=80000,
+        by_epoch=False
+    ),
+    dict(
+        type='LinearLR',
+        start_factor=1.0,
+        end_factor=1e-1,
+        begin=80001,
         end=160000,
         by_epoch=False
     )

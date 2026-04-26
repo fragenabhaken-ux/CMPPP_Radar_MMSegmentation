@@ -7,7 +7,10 @@ choice=${1:-0}
 case "$choice" in
   0)
     tensorboard --logdir_spec="\
-50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13763261_unet_160k/20260425_004229/vis_data/" \
+unet:/p/scratch/nxtaim-1/huber7/work_dirs/13763261_unet_160k/20260425_004229/vis_data/,\
+upernet_r50:/p/scratch/nxtaim-1/huber7/work_dirs/13763638_upernet_r50_160k/20260425_093832/vis_data/,\
+upernet_r50pretrained:/p/scratch/nxtaim-1/huber7/work_dirs/13763640_upernet_r50pretrained_160k/20260425_093833/vis_data/,\
+resnet34_fcn:/p/scratch/nxtaim-1/huber7/work_dirs/13765446_resnet34_fcn_160k/20260426_003026/vis_data/" \
     --port=12355 serve
     ;;
   1)
@@ -22,7 +25,7 @@ case "$choice" in
     ;;
   3)
     tensorboard --logdir_spec="\
-50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13761661_LR_test/20260424_144703/vis_data/" \
+50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13765446_resnet34_fcn_160k/20260426_003026/vis_data/" \
     --port=12355 serve
     ;;
 

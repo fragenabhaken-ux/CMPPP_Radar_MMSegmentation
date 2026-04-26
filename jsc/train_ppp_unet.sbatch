@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=unet_160k
+#SBATCH --job-name=unet_160k_8nodes
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=booster
-#SBATCH --nodes=1
+#SBATCH --nodes=8
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12

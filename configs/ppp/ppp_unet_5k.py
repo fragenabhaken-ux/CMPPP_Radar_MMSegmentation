@@ -232,7 +232,7 @@ optim_wrapper = dict(
     optimizer=dict(
         _delete_=True,
         type='AdamW',
-        lr=1,
+        lr=1e-2,
         weight_decay=0.01,
         betas=(0.9, 0.999)
     ),
@@ -246,17 +246,25 @@ optim_wrapper = dict(
 param_scheduler = [
     dict(
         type='LinearLR',
-        start_factor=1e-5,
-        end_factor=5e-4,
+        start_factor=1e-4,
+        end_factor=1,
         begin=0,
         end=1000,
         by_epoch=False
     ),
     dict(
         type='LinearLR',
-        start_factor=5e-4,
-        end_factor=1e-6,
+        start_factor=1,
+        end_factor=1e-1,
         begin=1001,
+        end=2000,
+        by_epoch=False
+    ),
+    dict(
+        type='LinearLR',
+        start_factor=1,
+        end_factor=1e-1,
+        begin=2001,
         end=5000,
         by_epoch=False
     )
