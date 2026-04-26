@@ -7,23 +7,23 @@ choice=${1:-0}
 case "$choice" in
   0)
     tensorboard --logdir_spec="\
-50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13727150_160k_testrun/20260419_235704/vis_data/" \
-    --port=12346 serve
+50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13763261_unet_160k/20260425_004229/vis_data/" \
+    --port=12355 serve
     ;;
   1)
     tensorboard --logdir_spec="\
-50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/ppp_train_13493442_clipNorm_1/20260318_202515/vis_data/" \
-    --port=12345 serve
+50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13763638_upernet_r50_160k/20260425_093832/vis_data/" \
+    --port=12356 serve
     ;;
   2)
     tensorboard --logdir_spec="\
-50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/ppp_train_13493459_clipNorm_10/20260318_203220/vis_data/" \
-    --port=12345 serve
+50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13763640_upernet_r50pretrained_160k/20260425_093833/vis_data/" \
+    --port=12357 serve
     ;;
   3)
     tensorboard --logdir_spec="\
-50GBVRAM?:/p/data1/nxtaim/users/huber7/models/20260312/mmsegmentation_ppp/20260312_052718/vis_data/" \
-    --port=12345 serve
+50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13761661_LR_test/20260424_144703/vis_data/" \
+    --port=12355 serve
     ;;
 
   *)

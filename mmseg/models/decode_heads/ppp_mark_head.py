@@ -26,6 +26,8 @@
 # - act_cfg: optional activation layer configuration
 # - init_cfg: optional initialization configuration
 # - **kwargs: additional keyword arguments passed to the base decode head
+
+bottleneck: 512 -> 32 -> 128 -> 64 -> 32 -> 3
 """
 
 from __future__ import annotations

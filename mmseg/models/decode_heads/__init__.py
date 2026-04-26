@@ -38,6 +38,9 @@ from .stdc_head import STDCHead
 from .uper_head import UPerHead
 from .vpd_depth_head import VPDDepthHead
 from .ppp_mark_head import PPPMarkHead
+from .ppp_mark_uper_head import PPPMarkUperHead
+from .ppp_mark_head_wo_bottlenck import PPPMarkHeadWoBottleneck
+from .ppp_mark_unet_head import PPPMarkUNetHead
 
 __all__ = [
     'FCNHead', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',
@@ -48,5 +51,6 @@ __all__ = [
     'SegformerHead', 'ISAHead', 'STDCHead', 'IterativeDecodeHead',
     'KernelUpdateHead', 'KernelUpdator', 'MaskFormerHead', 'Mask2FormerHead',
     'LightHamHead', 'PIDHead', 'DDRHead', 'VPDDepthHead', 'SideAdapterCLIPHead',
-    'PPPHead', 'PPPHead_V2', 'PPPMarkHead'
+    'PPPHead', 'PPPHead_V2', 'PPPMarkHead', 'PPPMarkUperHead', 'PPPMarkHeadWoBottleneck',
+    'PPPMarkUNetHead',
 ]

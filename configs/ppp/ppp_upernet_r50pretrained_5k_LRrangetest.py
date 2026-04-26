@@ -5,16 +5,15 @@ _base_ = [
 
 custom_imports = dict(
     imports=[
-        'mmseg.models.decode_heads.ppp_mark_head',
+        'mmseg.models.decode_heads.ppp_mark_uper_head',
         'mmseg.datasets.sys100_ppp_heatmap_dataset',
         'mmseg.datasets.transforms.sys100_ppp_transforms',
-        'mmseg.evaluation.metrics.ppp_metrics_loss_mmd', # 'mmseg.evaluation.metrics.ppp_metrics', 
-        'mmseg.engine.hooks.ppp_mark_vis_hook_light', # 'mmseg.engine.hooks.ppp_visualization_hook'
+        'mmseg.evaluation.metrics.ppp_metrics_loss_mmd',
+        'mmseg.engine.hooks.ppp_mark_vis_hook_light',
         'mmseg.engine.hooks.prefetch_stats_hook',
     ],
     allow_failed_imports=False
 )
-
 import os
 # DATA_PATH = os.environ.get(
 #     "SYS100_DATA_PATH",
@@ -53,55 +52,41 @@ data_preprocessor = dict(
 model = dict(
     type='EncoderDecoder',
     data_preprocessor=data_preprocessor,
-    pretrained=None,
+    pretrained='open-mmlab://resnet50_v1c',
     backbone=dict(
-        type='ResNet',
-        depth=34,
+        type='ResNetV1c',
+        depth=50,
         num_stages=4,
         out_indices=(0, 1, 2, 3),
-        strides=(1, 2, 1, 1),
-        dilations=(1, 1, 2, 4),
+        strides=(1, 2, 2, 2),
+        dilations=(1, 1, 1, 1),
         norm_cfg=dict(type='BN', requires_grad=True),
         norm_eval=False,
         style='pytorch',
+        contract_dilation=True,
     ),
-    # backbone=dict(
-    #     type='ResNeXt',
-    #     depth=101,
-    #     groups=32,
-    #     base_width=4,
-    #     num_stages=4,
-    #     out_indices=(0, 1, 2, 3),
-    #     strides=(1, 2, 1, 1),
-    #     dilations=(1, 1, 2, 4),
-    #     norm_cfg=dict(type='BN', requires_grad=True),
-    #     norm_eval=False,
-    #     style='pytorch',
-    # ),
     decode_head=dict(
-        type='PPPMarkHead',
-        # in_channels=2048, # This works with a depth of 50. For the ResNet 34 architecture the last layer has 512 channels. 
-        in_channels=512, # This works with a depth of 50. For the ResNet 34 architecture the last layer has 512 channels. 
-        channels=32,
-        num_convs=2,
-
-        # for marked PPP targets:
+        type='PPPMarkUperHead',
+        in_channels=(256, 512, 1024, 2048),
+        in_index=(0, 1, 2, 3),
+        input_transform='multiple_select',
+        channels=512,
+        dropout_ratio=0.1,
+        pool_scales=(1, 2, 3, 6),
         num_classes=3,
-
         ppp_weight=1,
         depth_weight=0,
         velocity_weight=0,
-
         loss_ppp=dict(
             type='PPPLoss',
             out_img_size=out_img_size,
             normalize_by_gt_count=True,
         ),
-
-        in_index=-1,
+        norm_cfg=dict(type='BN', requires_grad=True),
         align_corners=False,
     ),
     auxiliary_head=None,
+    train_cfg=dict(),
     test_cfg=dict(mode='whole'),
 )
 
@@ -120,10 +105,10 @@ DATA_PATH_VAL = os.environ.get(
 
 dataset_type = 'Sys100PPPHeatmapDataset'
 
-batch_size_train = 80
+batch_size_train = 45
 # decrease batch size in val/test, because the GPU memory constraints on full sized images
-batch_size_test = 10
-batch_size_val = 10
+batch_size_test = 20
+batch_size_val = 20
 
 #### Train dataloader #####
 
@@ -270,7 +255,7 @@ optim_wrapper = dict(
     optimizer=dict(
         _delete_=True,
         type='AdamW',
-        lr=1,
+        lr=1e-10,              # maximale LR
         weight_decay=0.01,
         betas=(0.9, 0.999)
     ),
@@ -283,24 +268,15 @@ optim_wrapper = dict(
 
 param_scheduler = [
     dict(
-        type='LinearLR',
-        start_factor=5e-6,
-        end_factor=5e-4,
+        type='ExponentialLR',
+        gamma=(1 / 1e-10) ** (1 / 5000),  # (lr_max / lr_min)^(1/T)
         begin=0,
-        end=8000,
-        by_epoch=False
-    ),
-    dict(
-        type='LinearLR',
-        start_factor=5e-4,
-        end_factor=1e-7,
-        begin=8001,
-        end=160000,
+        end=5000,
         by_epoch=False
     )
 ]
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=160000, val_interval=10000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=5000, val_interval=6000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -309,11 +285,11 @@ test_evaluator = dict(type='PPPLossMMD', out_img_size=out_img_size,)
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
-    logger=dict(type='LoggerHook', interval=5),  # match VRAMHook interval
+    logger=dict(type='LoggerHook', interval=1),  # match VRAMHook interval
     checkpoint=dict(
         type='CheckpointHook',
         by_epoch=False,
-        interval=2000,
+        interval=6000,
         max_keep_ckpts=5,
         save_best='ppp/optimal_score', # after distance/velocity normalization save_best='ppp/selection_score', -> ppp_metrics
         rule='greater'
@@ -321,19 +297,19 @@ default_hooks = dict(
 )
 
 custom_hooks = [
-    dict(
-        type='PPPMarkVisHookLight',
-        train_interval=1000,
-        max_samples_train=1,
-        max_samples_val=10,
-        max_samples_test=10,
-        img_mean=data_rbg_mean,
-        img_std=data_rbg_std,
-        gamma=0.2,
-        sim_block_size=8,
-        sim_block_placement='weighted',
-        point_size=28,
-    ),
+    # dict(
+    #     type='PPPMarkVisHookLight',
+    #     train_interval=100,
+    #     max_samples_train=1,
+    #     max_samples_val=5,
+    #     max_samples_test=10,
+    #     img_mean=data_rbg_mean,
+    #     img_std=data_rbg_std,
+    #     gamma=0.2,
+    #     sim_block_size=8,
+    #     sim_block_placement='weighted',
+    #     point_size=28,
+    # ),
     # dict(type='VRAMHook', interval=5, reset_peak=True, log_all_ranks=True),
     #dict(type='LossPlotHook', out_file='loss.png', smooth_alpha=0.05),
     dict(

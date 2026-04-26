@@ -183,7 +183,7 @@ class VisionTransformer(BaseModule):
     """
 
     def __init__(self,
-                 img_size=224,
+                 img_size=224, #
                  patch_size=16,
                  patch_pad='corner',
                  in_channels=3,
