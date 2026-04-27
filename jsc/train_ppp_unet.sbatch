@@ -39,6 +39,6 @@ CONFIG=configs/ppp/ppp_unet_160k.py
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 mkdir -p "$WORK_DIR"
 
-srun --ntasks=4 --gpus-per-task=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
+srun --ntasks="$SLURM_NTASKS" --gpus-per-task=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
      --gpu-bind=none \
   python tools/train.py $CONFIG --launcher slurm --work-dir "$WORK_DIR"

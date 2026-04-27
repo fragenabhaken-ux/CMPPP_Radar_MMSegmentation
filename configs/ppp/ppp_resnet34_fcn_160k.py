@@ -121,8 +121,8 @@ DATA_PATH_VAL = os.environ.get(
 dataset_type = 'Sys100PPPHeatmapDataset'
 
 batch_size_train = 100
-batch_size_test = 50
-batch_size_val = 50
+batch_size_test = 10
+batch_size_val = 10
 
 #### Train dataloader #####
 
@@ -174,7 +174,7 @@ train_dataloader = dict(
 
 #### val dataloader ####
 
-num_samples_val = 100
+num_samples_val = 80
 
 val_dataloader = dict(
     batch_size=batch_size_val,
@@ -221,7 +221,7 @@ val_dataloader = dict(
 
 #### Test data loader ####
 
-num_samples_test = 100
+num_samples_test = 80
 
 test_dataloader = dict(
     batch_size=batch_size_test,
@@ -309,7 +309,7 @@ param_scheduler = [
     )
 ]
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=160000, val_interval=2000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=60000, val_interval=2000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 

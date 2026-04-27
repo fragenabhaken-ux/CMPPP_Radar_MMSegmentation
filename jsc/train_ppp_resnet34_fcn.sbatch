@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=resnet34_fcn_160k
+#SBATCH --job-name=resnet34_fcn_160k_8nodes
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=booster
-#SBATCH --nodes=1
+#SBATCH --nodes=8
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
@@ -39,6 +39,6 @@ CONFIG=configs/ppp/ppp_resnet34_fcn_160k.py
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 mkdir -p "$WORK_DIR"
 
-srun --ntasks=4 --gpus-per-task=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
+srun --ntasks="$SLURM_NTASKS" --gpus-per-task=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
      --gpu-bind=none \
   python tools/train.py $CONFIG --launcher slurm --work-dir "$WORK_DIR"

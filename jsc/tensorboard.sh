@@ -15,18 +15,19 @@ resnet34_fcn:/p/scratch/nxtaim-1/huber7/work_dirs/13765446_resnet34_fcn_160k/202
     ;;
   1)
     tensorboard --logdir_spec="\
-50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13763638_upernet_r50_160k/20260425_093832/vis_data/" \
-    --port=12356 serve
+unet:/p/scratch/nxtaim-1/huber7/work_dirs/13763261_unet_160k/20260425_004229/vis_data/,\
+unet_8nodes:/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/20260427_013913/vis_data/" \
+    --port=12301 serve
     ;;
   2)
     tensorboard --logdir_spec="\
-50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13763640_upernet_r50pretrained_160k/20260425_093833/vis_data/" \
+50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13767582_resnet34_fcn_160k_8nodes/20260427_011232/vis_data/" \
     --port=12357 serve
     ;;
   3)
     tensorboard --logdir_spec="\
-50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13765446_resnet34_fcn_160k/20260426_003026/vis_data/" \
-    --port=12355 serve
+50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/20260427_013913/vis_data/" \
+    --port=12300 serve
     ;;
 
   *)

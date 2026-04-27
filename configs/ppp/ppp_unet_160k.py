@@ -246,28 +246,28 @@ param_scheduler = [
         start_factor=1e-4,
         end_factor=1.0,
         begin=0,
-        end=8000,
+        end=7000,
         by_epoch=False
     ),
     dict(
         type='LinearLR',
         start_factor=1.0,
         end_factor=1e-1,
-        begin=8001,
-        end=80000,
+        begin=7001,
+        end=70000,
         by_epoch=False
     ),
     dict(
         type='LinearLR',
         start_factor=1.0,
         end_factor=1e-1,
-        begin=80001,
-        end=160000,
+        begin=70001,
+        end=140000,
         by_epoch=False
     )
 ]
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=160000, val_interval=5000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=140000, val_interval=5000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
