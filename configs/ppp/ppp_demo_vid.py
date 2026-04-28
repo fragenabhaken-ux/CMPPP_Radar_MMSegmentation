@@ -36,55 +36,99 @@ model = dict(
     data_preprocessor=data_preprocessor,
     pretrained=None,
     backbone=dict(
-        type='UNet',
-        in_channels=3,
-        base_channels=64,
-        num_stages=5,
-        strides=(1, 1, 1, 1, 1),
-        enc_num_convs=(2, 2, 2, 2, 2),
-        dec_num_convs=(2, 2, 2, 2),
-        downsamples=(True, True, True, True),
-        enc_dilations=(1, 1, 1, 1, 1),
-        dec_dilations=(1, 1, 1, 1),
-        with_cp=False,
-        conv_cfg=None,
+        type='ResNet',
+        depth=34,
+        num_stages=4,
+        out_indices=(0, 1, 2, 3),
+        strides=(1, 2, 1, 1),
+        dilations=(1, 1, 2, 4),
         norm_cfg=dict(type='BN', requires_grad=True),
-        act_cfg=dict(type='ReLU'),
-        upsample_cfg=dict(type='InterpConv'),
         norm_eval=False,
+        style='pytorch',
     ),
     decode_head=dict(
-        type='PPPMarkUNetHead',
-        in_channels=64,
-        in_index=4,
-        channels=64,
-        num_convs=1,
-        dropout_ratio=0.1,
+        type='PPPMarkHeadWoBottleneck',
+        in_channels=512,
+        channels=32,
+        num_convs=2,
+        refine_channels=256,
+        up_channels=(128, 64, 32),
+
+        # for marked PPP targets:
         num_classes=3,
+
         ppp_weight=1,
         depth_weight=0,
         velocity_weight=0,
+
         loss_ppp=dict(
             type='PPPLoss',
             out_img_size=out_img_size,
             normalize_by_gt_count=True,
         ),
-        norm_cfg=dict(type='BN', requires_grad=True),
+
+        in_index=-1,
         align_corners=False,
     ),
     auxiliary_head=None,
-    train_cfg=dict(),
     test_cfg=dict(mode='whole'),
 )
+
+
+# model = dict(
+#     type='EncoderDecoder',
+#     data_preprocessor=data_preprocessor,
+#     pretrained=None,
+#     backbone=dict(
+#         type='UNet',
+#         in_channels=3,
+#         base_channels=64,
+#         num_stages=5,
+#         strides=(1, 1, 1, 1, 1),
+#         enc_num_convs=(2, 2, 2, 2, 2),
+#         dec_num_convs=(2, 2, 2, 2),
+#         downsamples=(True, True, True, True),
+#         enc_dilations=(1, 1, 1, 1, 1),
+#         dec_dilations=(1, 1, 1, 1),
+#         with_cp=False,
+#         conv_cfg=None,
+#         norm_cfg=dict(type='BN', requires_grad=True),
+#         act_cfg=dict(type='ReLU'),
+#         upsample_cfg=dict(type='InterpConv'),
+#         norm_eval=False,
+#     ),
+#     decode_head=dict(
+#         type='PPPMarkUNetHead',
+#         in_channels=64,
+#         in_index=4,
+#         channels=64,
+#         num_convs=1,
+#         dropout_ratio=0.1,
+#         num_classes=3,
+#         ppp_weight=1,
+#         depth_weight=0,
+#         velocity_weight=0,
+#         loss_ppp=dict(
+#             type='PPPLoss',
+#             out_img_size=out_img_size,
+#             normalize_by_gt_count=True,
+#         ),
+#         norm_cfg=dict(type='BN', requires_grad=True),
+#         align_corners=False,
+#     ),
+#     auxiliary_head=None,
+#     train_cfg=dict(),
+#     test_cfg=dict(mode='whole'),
+# )
 
 # ----------------------------
 # Data paths
 # ----------------------------
 
-DATA_PATH_TRAIN = os.environ.get(
-   "SYS100_DATA_PATH",
-   "/p/data1/nxtaim/proprietary/continental/sys100/SYS100_Dataset.csv"
-)
+# DATA_PATH_TRAIN = os.environ.get(
+#    "SYS100_DATA_PATH",
+#    "/p/data1/nxtaim/proprietary/continental/sys100/SYS100_Dataset.csv"
+# )
 DATA_PATH_VAL = os.environ.get(
    "SYS100_DATA_PATH",
    "/p/data1/nxtaim/proprietary/continental/sys100_validation/SYS100_Validation_Dataset.csv"
@@ -112,7 +156,7 @@ DEMO_NUM_FRAMES = (DEMO_FRAME_END - DEMO_FRAME_START) // DEMO_FRAME_STRIDE + 1
 
 dataset_type = 'Sys100PPPHeatmapDatasetDemoVid'
 
-batch_size_train = 25
+# batch_size_train = 25
 batch_size_val = 10
 batch_size_test = 10
 
@@ -120,49 +164,49 @@ batch_size_test = 10
 # Train dataloader
 # ----------------------------
 
-train_dataloader = dict(
-    batch_size=batch_size_train,
-    num_workers=4,
-    pin_memory=True,
-    prefetch_factor=4,
-    sampler=dict(type='InfiniteSampler', shuffle=True),
-    dataset=dict(
-        type=dataset_type,
-        sys100_root=DATA_PATH_TRAIN,
-        source_is_summary_csv=True,
-        fovs=fovs_wo_fisheyeart,
-        pipeline=[
-            dict(
-                type='LoadSys100Sample',
-                sys100_root=DATA_PATH_TRAIN,
-                source_is_summary_csv=True,
-                out_img_size=out_img_size,
-                undistort=True,
-                fovs=fovs_wo_fisheyeart,
-                strict=False,
-                prefetch=True,
-                prefetch_dict={
-                    "buffer_size": 1024,
-                    "queue_size": 120,
-                    "priority": 10,
-                    "num_prefetch_workers": 4,
-                    "wait_till_buffer_has": batch_size_train,
-                    "buffer_fill_pause_threshold": 0.9,
-                    "default_sleep_time": 60,
-                }
-            ),
-            dict(
-                type='BuildPPPHeatmap',
-                thres=0.05,
-                rel_x_centre=0.491,
-                rel_y_centre=0.4370,
-            ),
-            dict(type='PPPRandomCrop', crop_size=crop_size),
-            dict(type='PPPRandomFlip', prob=0.5, direction='horizontal'),
-            dict(type='PPPPackSegInputs'),
-        ]
-    )
-)
+# train_dataloader = dict(
+#     batch_size=batch_size_train,
+#     num_workers=4,
+#     pin_memory=True,
+#     prefetch_factor=4,
+#     sampler=dict(type='InfiniteSampler', shuffle=True),
+#     dataset=dict(
+#         type=dataset_type,
+#         sys100_root=DATA_PATH_TRAIN,
+#         source_is_summary_csv=True,
+#         fovs=fovs_wo_fisheyeart,
+#         pipeline=[
+#             dict(
+#                 type='LoadSys100Sample',
+#                 sys100_root=DATA_PATH_TRAIN,
+#                 source_is_summary_csv=True,
+#                 out_img_size=out_img_size,
+#                 undistort=True,
+#                 fovs=fovs_wo_fisheyeart,
+#                 strict=False,
+#                 prefetch=True,
+#                 prefetch_dict={
+#                     "buffer_size": 1024,
+#                     "queue_size": 120,
+#                     "priority": 10,
+#                     "num_prefetch_workers": 4,
+#                     "wait_till_buffer_has": batch_size_train,
+#                     "buffer_fill_pause_threshold": 0.9,
+#                     "default_sleep_time": 60,
+#                 }
+#             ),
+#             dict(
+#                 type='BuildPPPHeatmap',
+#                 thres=0.05,
+#                 rel_x_centre=0.491,
+#                 rel_y_centre=0.4370,
+#             ),
+#             dict(type='PPPRandomCrop', crop_size=crop_size),
+#             dict(type='PPPRandomFlip', prob=0.5, direction='horizontal'),
+#             dict(type='PPPPackSegInputs'),
+#         ]
+#     )
+# )
 
 # ----------------------------
 # Validation dataloader
@@ -259,48 +303,48 @@ test_dataloader = dict(
 # Optimizer / schedule
 # ----------------------------
 
-optim_wrapper = dict(
-    type='OptimWrapper',
-    optimizer=dict(
-        type='AdamW',
-        lr=1e-2,
-        weight_decay=0.01,
-        betas=(0.9, 0.999)
-    ),
-    clip_grad=dict(
-        max_norm=1.0,
-        norm_type=2
-    )
-)
+# optim_wrapper = dict(
+#     type='OptimWrapper',
+#     optimizer=dict(
+#         type='AdamW',
+#         lr=1e-2,
+#         weight_decay=0.01,
+#         betas=(0.9, 0.999)
+#     ),
+#     clip_grad=dict(
+#         max_norm=1.0,
+#         norm_type=2
+#     )
+# )
 
-param_scheduler = [
-    dict(
-        type='LinearLR',
-        start_factor=1e-4,
-        end_factor=1.0,
-        begin=0,
-        end=7000,
-        by_epoch=False
-    ),
-    dict(
-        type='LinearLR',
-        start_factor=1.0,
-        end_factor=1e-1,
-        begin=7001,
-        end=70000,
-        by_epoch=False
-    ),
-    dict(
-        type='LinearLR',
-        start_factor=1.0,
-        end_factor=1e-1,
-        begin=70001,
-        end=140000,
-        by_epoch=False
-    )
-]
+# param_scheduler = [
+#     dict(
+#         type='LinearLR',
+#         start_factor=1e-4,
+#         end_factor=1.0,
+#         begin=0,
+#         end=7000,
+#         by_epoch=False
+#     ),
+#     dict(
+#         type='LinearLR',
+#         start_factor=1.0,
+#         end_factor=1e-1,
+#         begin=7001,
+#         end=70000,
+#         by_epoch=False
+#     ),
+#     dict(
+#         type='LinearLR',
+#         start_factor=1.0,
+#         end_factor=1e-1,
+#         begin=70001,
+#         end=140000,
+#         by_epoch=False
+#     )
+# ]
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=140000, val_interval=5000)
+# train_cfg = dict(type='IterBasedTrainLoop', max_iters=140000, val_interval=5000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 

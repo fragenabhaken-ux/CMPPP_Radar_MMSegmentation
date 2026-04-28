@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=unet_160k_demo_vid
+#SBATCH --job-name=demo_resn34fcn_8nodes_best
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=develbooster
 #SBATCH --nodes=1
@@ -33,8 +33,12 @@ echo "MASTER_ADDR=$MASTER_ADDR"
 echo "MASTER_PORT=$MASTER_PORT"
 echo "SLURM_NTASKS=${SLURM_NTASKS:-unset} SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-unset}"
 
-CONFIG=configs/ppp/ppp_unet_160k_demo_vid.py
-CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13763261_unet_160k/best_ppp_optimal_score_iter_160000.pth
+CONFIG=configs/ppp/ppp_demo_vid.py
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13763261_unet_160k/best_ppp_optimal_score_iter_160000.pth
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/best_ppp_optimal_score_iter_85000.pth
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/iter_135000.pth
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13767582_resnet34_fcn_160k_8nodes/iter_54000.pth
+CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13767582_resnet34_fcn_160k_8nodes/best_ppp_optimal_score_iter_38000.pth
 
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_NAME}_${SLURM_JOB_ID}"
 mkdir -p "$WORK_DIR"
