@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=unet_160k_8nodes
+#SBATCH --job-name=unet_80k_16nodes
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=booster
-#SBATCH --nodes=8
+#SBATCH --nodes=16
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
@@ -33,8 +33,9 @@ echo "MASTER_ADDR=$MASTER_ADDR"
 echo "MASTER_PORT=$MASTER_PORT"
 echo "SLURM_NTASKS=${SLURM_NTASKS:-unset} SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-unset}"
 
-CONFIG=configs/ppp/ppp_unet_160k.py
+# CONFIG=configs/ppp/ppp_unet_160k.py
 # CONFIG=configs/ppp/ppp_unet_5k.py
+CONFIG=configs/ppp/ppp_unet_80k.py
 
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 mkdir -p "$WORK_DIR"

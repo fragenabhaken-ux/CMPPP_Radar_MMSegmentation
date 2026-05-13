@@ -21,14 +21,19 @@ unet_8nodes:/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/20260
     ;;
   2)
     tensorboard --logdir_spec="\
-50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13767582_resnet34_fcn_160k_8nodes/20260427_011232/vis_data/" \
+resnet34_fcn:/p/scratch/nxtaim-1/huber7/work_dirs/13767582_resnet34_fcn_160k_8nodes/20260427_011232/vis_data/" \
     --port=12357 serve
     ;;
   3)
     tensorboard --logdir_spec="\
-50GBVRAM?:/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/20260427_013913/vis_data/" \
+unet_8nodes:/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/20260427_013913/vis_data/" \
     --port=12300 serve
     ;;
+  4)
+  tensorboard --logdir_spec="\
+unet:/p/scratch/nxtaim-1/huber7/work_dirs/13763261_unet_160k/20260425_004229/vis_data/" \
+  --port=12300 serve
+  ;;
 
   *)
     echo "Invalid option: $choice"
