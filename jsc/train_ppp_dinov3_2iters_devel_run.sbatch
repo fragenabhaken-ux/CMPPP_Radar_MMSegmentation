@@ -37,7 +37,8 @@ echo "SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-unset}"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 
 # CONFIG=configs/ppp/ppp_dinov3_140k.py
-CONFIG=configs/ppp/ppp_dinov3_5k_LRRangeTest.py
+# CONFIG=configs/ppp/ppp_dinov3_5k_LRRangeTest.py
+CONFIG=configs/ppp/ppp_dinov3_rope_neck_5k_LRRangeTest.py
 
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 mkdir -p "$WORK_DIR"
