@@ -219,6 +219,7 @@ class ParallelTransformerBlock(nn.Module):
         return x
 
 
+@MODELS.register_module()
 class DINORoPETransformerNeck(BaseModule):
     """Trainable Transformer neck on top of frozen DINOv3 patch features.
 

@@ -23,7 +23,9 @@ paths = [
     # ("/p/scratch/nxtaim-1/huber7/work_dirs/13753649_unet_5k/20260422_232714/vis_data/20260422_232714.json", "U-Net"),
     # ("/p/scratch/nxtaim-1/huber7/work_dirs/13754310_resnet34_fcn_5k_LRrangetest/20260423_001201/vis_data/20260423_001201.json", "ResNet-34, FCN"),
     # ("/p/scratch/nxtaim-1/huber7/data1/260519_dinov3_5k_LR/13863109_dinov3_LRRangeTest/20260518_224130/vis_data/20260518_224130.json", "DINOv3, ViT-S/16"),
-    ("/p/scratch/nxtaim-1/huber7/work_dirs/13865606_dinov3_LRRangeTest/20260519_144334/vis_data/20260519_144334.json", "DINOv3, ViT-S/16"),
+    # ("/p/scratch/nxtaim-1/huber7/work_dirs/13865606_dinov3_LRRangeTest/20260519_144334/vis_data/20260519_144334.json", "DINOv3, ViT-S/16"),
+    # ("/p/scratch/nxtaim-1/huber7/work_dirs/13878705_dinov3_LRRangeTest/20260522_163612/vis_data/20260522_163612.json", "DINOv3, ViT-S/16"),
+    ("/p/scratch/nxtaim-1/huber7/work_dirs/13879418_dinov3_arch_adjust_RangeTest/20260522_232924/vis_data/20260522_232924.json", "DINOv3, ViT-S/16"),
 ]
 
 # plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_AdamW.png"
@@ -35,7 +37,7 @@ paths = [
 # plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_resnet34_fcn.png"
 # plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_unet.png"
 # plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_resnet34_fcn_V2.png"
-plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_dinov3_vit_s_16_V2.png"
+plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_dinov3_vit_s_16_V3.png"
 
 plt.figure(figsize=(10, 6))
 
@@ -74,10 +76,10 @@ ax.xaxis.set_minor_locator(
 )
 ax.xaxis.set_minor_formatter(mticker.NullFormatter())
 
-plt.ylim(7, 14)
+plt.ylim(15, 50)
 
 plt.xlabel("Learning rate (log scale)")
-plt.ylabel("PPP loss")
+plt.ylabel("loss (PPP + depth)")
 plt.title(f"Learning rate range test, {info}")
 plt.legend()
 
