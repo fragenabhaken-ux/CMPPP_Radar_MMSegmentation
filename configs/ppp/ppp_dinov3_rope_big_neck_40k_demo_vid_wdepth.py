@@ -356,7 +356,7 @@ custom_hooks = [
 
         # optional; leave None for automatic scaling per frame
         depth_vmin=0.0,
-        depth_vmax=5.0,
+        depth_vmax=100.0,
     ),
     dict(type='PrefetchStatsHook')
 ]
