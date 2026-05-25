@@ -250,7 +250,7 @@ optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
         type='AdamW',
-        lr=5e-3,
+        lr=1e-2,
         weight_decay=0.01,
         betas=(0.9, 0.999)
     ),
@@ -266,53 +266,20 @@ param_scheduler = [
         start_factor=1e-5,
         end_factor=1.0,
         begin=0,
-        end=10000,
+        end=2000,
         by_epoch=False
     ),
     dict(
         type='LinearLR',
         start_factor=1.0,
-        end_factor=1e-1, 
-        begin=10001,
-        end=50000,
-        by_epoch=False
-    ),
-    dict(
-        type='LinearLR',
-        start_factor=1.0, 
-        end_factor=1e-1, 
-        begin=50001,
-        end=100000,
+        end_factor=0.6, 
+        begin=2001,
+        end=10000,
         by_epoch=False
     )
 ]
 
-# optim_wrapper = dict(
-#     type='OptimWrapper',
-#     optimizer=dict(
-#         type='AdamW',
-#         lr=1e-8,              # maximale LR
-#         weight_decay=0.01,
-#         betas=(0.9, 0.999)
-#     ),
-#     clip_grad=dict(
-#         max_norm=1.0,
-#         norm_type=2
-#     ),
-# )
-
-# param_scheduler = [
-#     dict(
-#         type='ExponentialLR',
-#         gamma=(1 / 1e-8) ** (1 / 5000),  # (lr_max / lr_min)^(1/T)
-#         begin=0,
-#         end=5000,
-#         by_epoch=False
-#     )
-# ]
-
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=100000, val_interval=1000)
-# train_cfg = dict(type='IterBasedTrainLoop', max_iters=5000, val_interval=5000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=10000, val_interval=1000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 

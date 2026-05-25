@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=dinov3_100k
+#SBATCH --job-name=dinov3_40k_dbwa5
 #SBATCH --account=nxtaim-1
-#SBATCH --partition=booster
+#SBATCH --partition=develbooster
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
-#SBATCH --time=24:00:00
+#SBATCH --time=02:00:00
 #SBATCH --output=logs/%j_%x.out
 #SBATCH --error=logs/%j_%x.err
 #SBATCH --export=ALL
@@ -36,10 +36,18 @@ echo "SLURM_NTASKS=${SLURM_NTASKS:-unset}"
 echo "SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-unset}"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 
-# CONFIG=configs/ppp/ppp_dinov3_rope_neck_5k_testrun.py
-CONFIG=configs/ppp/ppp_dinov3_rope_neck_100k.py
+# CONFIG=configs/ppp/ppp_dinov3_40k_dbwa1.py
+# CONFIG=configs/ppp/ppp_dinov3_40k_dbwa2.py
+# CONFIG=configs/ppp/ppp_dinov3_40k_dbwa3.py
+# CONFIG=configs/ppp/ppp_dinov3_40k_dbwa4.py
+CONFIG=configs/ppp/ppp_dinov3_40k_dbwa5.py
 
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
+# CHECKPOINT="/p/scratch/nxtaim-1/huber7/work_dirs/13882410_dinov3_40k_dbwa1/iter_7000.pth"
+# CHECKPOINT="/p/scratch/nxtaim-1/huber7/work_dirs/13882688_dinov3_40k_dbwa2/iter_7000.pth"
+# CHECKPOINT="/p/scratch/nxtaim-1/huber7/work_dirs/13882814_dinov3_40k_dbwa3/iter_7000.pth"
+CHECKPOINT="/p/scratch/nxtaim-1/huber7/work_dirs/13883022_dinov3_40k_dbwa4/iter_6000.pth"
+
 mkdir -p "$WORK_DIR"
 
 echo "CONFIG=$CONFIG"
@@ -51,4 +59,7 @@ srun --ntasks="$SLURM_NTASKS" \
      --gpu-bind=none \
   python tools/train.py "$CONFIG" \
     --launcher slurm \
-    --work-dir "$WORK_DIR"
+    --work-dir "$WORK_DIR" \
+    --cfg-options \
+    load_from="$CHECKPOINT" \
+    resume=False
