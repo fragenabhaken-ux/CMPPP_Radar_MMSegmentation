@@ -805,8 +805,8 @@ class PPPMarkVisualizationHook(Hook):
             pred_log_intensity = pred[0] # logits
             pred_lambda_theta = torch.exp(pred_log_intensity) # pred_intensity
 
-            pred_depth = pred[1] if pred.size(0) > 1 else None
-            pred_velocity = pred[2] if pred.size(0) > 2 else None
+            pred_depth = torch.exp(pred[1]) if pred.size(0) > 1 else None
+            pred_velocity = pred[2] ** 3 if pred.size(0) > 2 else None
 
             gt_support = gt[0]
             gt_depth = gt[1] if gt.size(0) > 1 else None
@@ -1152,7 +1152,7 @@ class PPPMarkVisualizationHook(Hook):
                 # axs[row].set_ylabel("Pred depth", fontsize=13)
                 axs[row].axis("off")
                 _cbar_under(fig, axs[row], im2)
-                _ylabel(axs[row], "Pred depth")
+                _ylabel(axs[row], "Pred depth [m]")
             else:
                 axs[row].axis("off")
             row += 1
@@ -1170,7 +1170,7 @@ class PPPMarkVisualizationHook(Hook):
                 # axs[row].set_ylabel("Pred vel", fontsize=13)
                 axs[row].axis("off")
                 _cbar_under(fig, axs[row], im3)
-                _ylabel(axs[row], "Pred vel")
+                _ylabel(axs[row], "Pred vel [m/s]")
             else:
                 axs[row].axis("off")
 

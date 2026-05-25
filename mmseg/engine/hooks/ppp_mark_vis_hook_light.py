@@ -336,8 +336,8 @@ class PPPMarkVisHookLight(Hook):
         gt = sample.gt_sem_seg.data.to(pred.device)[0]
 
         lam = torch.exp(pred[0]).detach().cpu().numpy()
-        depth = pred[1].detach().cpu().numpy() if pred.size(0) > 1 else None
-        vel = pred[2].detach().cpu().numpy() if pred.size(0) > 2 else None
+        depth = torch.exp(pred[1]).detach().cpu().numpy() if pred.size(0) > 1 else None
+        vel = (pred[2] ** 3).detach().cpu().numpy() if pred.size(0) > 2 else None
         gt_mask = gt.detach().cpu().numpy()
         img = self._denorm_img(img_tensor.detach().cpu().numpy())
 
@@ -389,7 +389,7 @@ class PPPMarkVisHookLight(Hook):
 
         if depth is not None:
             self._imshow(
-                axs[7], depth, "Pred depth",
+                axs[7], depth, "Pred depth [m]",
                 cmap="viridis", vmin=self.depth_vmin, vmax=self.depth_vmax, fig=fig, cbar=True
             )
         else:
@@ -397,7 +397,7 @@ class PPPMarkVisHookLight(Hook):
 
         if vel is not None:
             self._imshow(
-                axs[8], vel, "Pred vel",
+                axs[8], vel, "Pred vel [m/s]",
                 cmap="coolwarm", vmin=self.vel_vmin, vmax=self.vel_vmax, fig=fig, cbar=True
             )
         else:

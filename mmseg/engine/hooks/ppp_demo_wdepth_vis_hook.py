@@ -400,7 +400,7 @@ class PPPDemoWDepthVisHook(Hook):
         gt = sample.gt_sem_seg.data.to(pred.device)[0]
 
         lam = torch.exp(pred[0]).detach().cpu().numpy()
-        pred_depth = pred[1].detach().cpu().numpy() if pred.size(0) > 1 else None
+        pred_depth = torch.exp(pred[1]).detach().cpu().numpy() if pred.size(0) > 1 else None
         gt_mask = gt.detach().cpu().numpy()
         img = self._denorm_img(img_tensor.detach().cpu().numpy())
 
@@ -499,7 +499,7 @@ class PPPDemoWDepthVisHook(Hook):
             self._imshow(
                 axs[5],
                 pred_depth,
-                "Pred depth",
+                "Pred depth [m]",
                 cmap=self.depth_cmap,
                 vmin=self.depth_vmin,
                 vmax=self.depth_vmax,
