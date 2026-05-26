@@ -54,6 +54,11 @@ dino_V1:/p/scratch/nxtaim-1/huber7/work_dirs/13863109_dinov3_LRRangeTest/2026051
 dino_V1:/p/scratch/nxtaim-1/huber7/work_dirs/13880780_dinov3_5k_testrun/20260524_000241/vis_data/" \
   --port=12300 serve
   ;;
+  9)
+  tensorboard --logdir_spec="\
+dino_LR:/p/scratch/nxtaim-1/huber7/work_dirs/13863109_dinov3_LRRangeTest/20260518_224130/vis_data/" \
+  --port=12300 serve
+  ;;
 
   *)
     echo "Invalid option: $choice"

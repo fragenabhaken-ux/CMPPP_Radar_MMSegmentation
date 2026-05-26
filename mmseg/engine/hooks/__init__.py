@@ -10,6 +10,10 @@ from .ppp_mark_gen_data_meric_eval_hook import PPPMarkGenDataMetricEvalHook
 from .prefetch_stats_hook import PrefetchStatsHook
 from .ppp_demo_vis_hook import PPPDemoVisHook
 from .ppp_demo_wdepth_vis_hook import PPPDemoWDepthVisHook
+from .ppp_mark_twodepth_vis_hook_light import PPPMarkTwoDepthVisHookLight
+from .ppp_demo_twodepth_vis_hook import PPPDemoTwoDepthVisHook
 
 __all__ = ['SegVisualizationHook',
-    'PPPVisualizationHook', 'PPPDebugHook', 'PPPMarkVisualizationHook', 'LossPlotHook', 'VRAMHook', 'PPPMarkVisHookLight', 'PPPMarkGenDataMetricEvalHook', 'PrefetchStatsHook', 'PPPDemoVisHook', 'PPPDemoWDepthVisHook']
+    'PPPVisualizationHook', 'PPPDebugHook', 'PPPMarkVisualizationHook', 'LossPlotHook', 
+    'VRAMHook', 'PPPMarkVisHookLight', 'PPPMarkGenDataMetricEvalHook', 'PrefetchStatsHook', 
+    'PPPDemoVisHook', 'PPPDemoWDepthVisHook', 'PPPMarkTwoDepthVisHookLight', 'PPPDemoTwoDepthVisHook']

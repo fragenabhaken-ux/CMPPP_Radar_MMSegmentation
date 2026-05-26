@@ -195,14 +195,20 @@ class PPPMarkViTPatchRearrangeHead(BaseDecodeHead):
         if gt.shape[0] != preds.shape[0]:
             raise ValueError("Batch size mismatch between preds and GT")
 
-        # Safety fallback. In the intended configuration, this should not be used:
-        # the patch rearrangement should already restore the target resolution.
+        # # Safety fallback. In the intended configuration, this should not be used:
+        # # the patch rearrangement should already restore the target resolution.
+        # if preds.shape[2:] != gt.shape[2:]:
+        #     preds = F.interpolate(
+        #         preds,
+        #         size=gt.shape[2:],
+        #         mode="bilinear",
+        #         align_corners=self.align_corners,
+        #     )
+        # Was the above code the cause of the high expected error bug? Here is a hard error:
         if preds.shape[2:] != gt.shape[2:]:
-            preds = F.interpolate(
-                preds,
-                size=gt.shape[2:],
-                mode="bilinear",
-                align_corners=self.align_corners,
+            raise ValueError(
+                f"ViT head output shape {preds.shape[2:]} != GT shape {gt.shape[2:]}. "
+                "Do not interpolate PPP intensity logits silently."
             )
 
         gt_int = gt[:, 0:1]

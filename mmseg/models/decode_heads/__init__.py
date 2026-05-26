@@ -43,6 +43,8 @@ from .ppp_mark_head_wo_bottlenck import PPPMarkHeadWoBottleneck
 from .ppp_mark_unet_head import PPPMarkUNetHead
 from .ppp_mark_vit_upsample_head import PPPMarkViTUpsampleHead
 from .ppp_mark_vit_patch_rearrange_head import PPPMarkViTPatchRearrangeHead
+from .ppp_mark_vit_patch_rearrange_multitask_head import PPPMarkViTPatchRearrangeMultiTaskHead
+from .ppp_mark_vit_patch_rearrange_multitask_twodepth_head import PPPMarkViTPatchRearrangeMultiTaskTwoDepthHead
 
 __all__ = [
     'FCNHead', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',
@@ -54,5 +56,6 @@ __all__ = [
     'KernelUpdateHead', 'KernelUpdator', 'MaskFormerHead', 'Mask2FormerHead',
     'LightHamHead', 'PIDHead', 'DDRHead', 'VPDDepthHead', 'SideAdapterCLIPHead',
     'PPPHead', 'PPPHead_V2', 'PPPMarkHead', 'PPPMarkUperHead', 'PPPMarkHeadWoBottleneck',
-    'PPPMarkUNetHead', 'PPPMarkViTUpsampleHead', 'PPPMarkViTPatchRearrangeHead'
+    'PPPMarkUNetHead', 'PPPMarkViTUpsampleHead', 'PPPMarkViTPatchRearrangeHead',
+    'PPPMarkViTPatchRearrangeMultiTaskHead', 'PPPMarkViTPatchRearrangeMultiTaskTwoDepthHead'
 ]

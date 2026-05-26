@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=demo_vid_dinov3_40k_last_wdepth_minmax
+#SBATCH --job-name=dinov3_rope_big_neck_7k_depthLossExp_Vwodepth_best_demo_vid
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=develbooster
 #SBATCH --nodes=1
@@ -38,8 +38,8 @@ echo "SLURM_NTASKS=${SLURM_NTASKS:-unset} SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_T
 
 # CONFIG=configs/ppp/ppp_dinov3_40k_demo_vid.py
 # CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_40k_demo_vid.py
-CONFIG=configs/ppp/ppp_dinov3_40k_demo_vid_wdepth.py
-# CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_40k_demo_vid_wdepth.py
+# CONFIG=configs/ppp/ppp_dinov3_40k_demo_vid_wdepth.py
+CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_40k_demo_vid_wdepth.py
 
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13763261_unet_160k/best_ppp_optimal_score_iter_160000.pth
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/best_ppp_optimal_score_iter_85000.pth
@@ -48,9 +48,14 @@ CONFIG=configs/ppp/ppp_dinov3_40k_demo_vid_wdepth.py
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13767582_resnet34_fcn_160k_8nodes/best_ppp_optimal_score_iter_38000.pth
 
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13883122_dinov3_40k_dbwa5/best_ppp_optimal_score_iter_4000.pth
-CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13883122_dinov3_40k_dbwa5/iter_7000.pth
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13883122_dinov3_40k_dbwa5/iter_7000.pth
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13883121_dinov3__rope_big_neck_40k_dbwa5/best_ppp_optimal_score_iter_5000.pth
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13883121_dinov3__rope_big_neck_40k_dbwa5/iter_7000.pth
+
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13887322_dinov3_rope_big_neck_14k_depthLossExp_Vwdepth/best_ppp_optimal_score_iter_3000.pth
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13887322_dinov3_rope_big_neck_14k_depthLossExp_Vwdepth/iter_7000.pth
+CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13887325_dinov3_rope_big_neck_14k_depthLossExp_Vwodepth/best_ppp_optimal_score_iter_2000.pth
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13887325_dinov3_rope_big_neck_14k_depthLossExp_Vwodepth/iter_7000.pth
 
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_NAME}_${SLURM_JOB_ID}"
 mkdir -p "$WORK_DIR"
