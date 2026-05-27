@@ -30,7 +30,7 @@ source "$SCRIPT_DIR/modules.sh"
 python -m venv --prompt "$ENV_NAME" --system-site-packages "$ENV_DIR"
 source "$SCRIPT_DIR/activate.sh"
 
-pip install typing-extensions>=4.8.0
+pip install "typing-extensions>=4.8.0"
 pip install --upgrade pip setuptools wheel
 pip install -r "$SCRIPT_DIR/requirements.txt"
 #pip install -e . # Hier wurde die remote connection abgebrochen
