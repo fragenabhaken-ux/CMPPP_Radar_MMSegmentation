@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_head
+#SBATCH --job-name=ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_two_depth_head
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=develbooster
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
-#SBATCH --time=00:05:00
+#SBATCH --time=02:00:00
 #SBATCH --output=logs/%j_%x.out
 #SBATCH --error=logs/%j_%x.err
 #SBATCH --export=ALL
@@ -43,8 +43,8 @@ echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 # CONFIG=configs/ppp/ppp_dinov3_40k_dbwa5.py
 # CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_14k_depthLossExp_Vwdepth.py
 # CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_14k_depthLossExp_Vwodepth.py
-CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_head.py
-# CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_two_depth_head.py
+# CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_head.py
+CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_two_depth_head.py
 
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 # CHECKPOINT="/p/scratch/nxtaim-1/huber7/work_dirs/13882410_dinov3_40k_dbwa1/iter_7000.pth"

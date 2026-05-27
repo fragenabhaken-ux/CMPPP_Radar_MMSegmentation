@@ -115,9 +115,9 @@ DATA_PATH_VAL = os.environ.get(
 
 dataset_type = 'Sys100PPPHeatmapDataset'
 
-batch_size_train = 75
-batch_size_test = 25
-batch_size_val = 25
+batch_size_train = 25
+batch_size_test = 10
+batch_size_val = 10
 
 train_dataloader = dict(
     batch_size=batch_size_train,
