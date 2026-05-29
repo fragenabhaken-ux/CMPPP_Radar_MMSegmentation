@@ -7,10 +7,9 @@ choice=${1:-0}
 case "$choice" in
   0)
     tensorboard --logdir_spec="\
-unet:/p/scratch/nxtaim-1/huber7/work_dirs/13763261_unet_160k/20260425_004229/vis_data/,\
-upernet_r50:/p/scratch/nxtaim-1/huber7/work_dirs/13763638_upernet_r50_160k/20260425_093832/vis_data/,\
-upernet_r50pretrained:/p/scratch/nxtaim-1/huber7/work_dirs/13763640_upernet_r50pretrained_160k/20260425_093833/vis_data/,\
-resnet34_fcn:/p/scratch/nxtaim-1/huber7/work_dirs/13765446_resnet34_fcn_160k/20260426_003026/vis_data/" \
+base_arch:/p/scratch/nxtaim-1/huber7/work_dirs/13887322_dinov3_rope_big_neck_14k_depthLossExp_Vwdepth/20260526_194440/vis_data/,\
+multitask:/p/scratch/nxtaim-1/huber7/work_dirs/13887756_ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_head/20260527_013112/vis_data/,\
+two_depths_head:/p/scratch/nxtaim-1/huber7/work_dirs/13887760_ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_two_depth_head/20260527_014321/vis_data/"\
     --port=12355 serve
     ;;
   1)
@@ -21,8 +20,8 @@ unet_8nodes:/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/20260
     ;;
   2)
     tensorboard --logdir_spec="\
-resnet34_fcn:/p/scratch/nxtaim-1/huber7/work_dirs/13767582_resnet34_fcn_160k_8nodes/20260427_011232/vis_data/" \
-    --port=12357 serve
+unet_160k_8nodes:/p/data1/nxtaim/users/huber7/260428_unet_140k_8nodes/13767623_unet_160k_8nodes/20260427_013913/vis_data/" \
+    --port=12300 serve
     ;;
   3)
     tensorboard --logdir_spec="\
