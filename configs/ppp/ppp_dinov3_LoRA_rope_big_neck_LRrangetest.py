@@ -5,7 +5,7 @@ _base_ = [
 custom_imports = dict(
     imports=[
         # New DINOv3 architecture components
-        'mmseg.models.backbones.frozen_timm_backbone',
+        'mmseg.models.backbones.lora_timm_backbone',
         'mmseg.models.necks.dino_rope_transformer_neck',
         'mmseg.models.decode_heads.ppp_mark_vit_patch_rearrange_head',
 

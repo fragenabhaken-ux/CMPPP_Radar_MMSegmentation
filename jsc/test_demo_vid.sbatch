@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_two_depth_head_demovid_last
+#SBATCH --job-name=ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_wDepth
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=develbooster
 #SBATCH --nodes=1
@@ -7,8 +7,8 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
 #SBATCH --time=00:20:00
-#SBATCH --output=logs/%x_%j.out
-#SBATCH --error=logs/%x_%j.err
+#SBATCH --output=logs/%j_%x.out
+#SBATCH --error=logs/%j_%x.err
 #SBATCH --export=ALL
 
 set -euo pipefail
@@ -41,7 +41,7 @@ echo "SLURM_NTASKS=${SLURM_NTASKS:-unset} SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_T
 # CONFIG=configs/ppp/ppp_dinov3_40k_demo_vid_wdepth.py
 # CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_40k_demo_vid_wdepth.py
 # CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_head_demovid.py
-CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_two_depth_head_demovid.py
+# CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_two_depth_head_demovid.py
 
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13763261_unet_160k/best_ppp_optimal_score_iter_160000.pth
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/best_ppp_optimal_score_iter_85000.pth
@@ -61,9 +61,45 @@ CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_two_depth_hea
 
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13887756_ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_head/best_ppp_optimal_score_iter_7000.pth
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13887760_ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_two_depth_head/best_ppp_optimal_score_iter_2000.pth
-CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13887760_ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_two_depth_head/iter_7000.pth
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13887760_ppp_dinov3_rope_big_neck_7k_depthLoss_multitask_two_depth_head/iter_7000.pth
 
-WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_NAME}_${SLURM_JOB_ID}"
+# CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_noCrop_12k_demo_vid.py
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13914026_ppp_dinov3_rope_big_neck_noCrop_12k_P2/best_ppp_optimal_score_iter_5000.pth
+
+# CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_depthLoss_multitask_head_noCrop_demo_vid.py
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13914735_ppp_dinov3_rope_big_neck_depthLoss_multitask_head_noCrop_12k_P2/best_ppp_optimal_score_iter_3000.pth
+
+# CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_depthLoss_multitask_two_depth_head_noCrop_demo_vid.py
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13918698_ppp_dinov3_rope_big_neck_depthLoss_multitask_two_depth_head_noCrop_12k_P2/best_ppp_optimal_score_iter_4000.pth
+
+# CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_demo_vid.py
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13918853_ppp_dinov3_LoRA_rope_big_neck_noCrop_12k_P2/best_ppp_optimal_score_iter_6000.pth
+
+# CONFIG=configs/ppp/ppp_dinov3_mid_LoRA_rope_big_neck_noCrop_demo_vid.py
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13920972_ppp_dinov3_mid_LoRA_rope_big_neck_noCrop_12k_P2/best_ppp_optimal_score_iter_2000.pth
+
+# CONFIG=configs/ppp/ppp_dinov3_big_LoRA_rope_big_neck_noCrop_demo_vid.py
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13920974_ppp_dinov3_big_LoRA_rope_big_neck_noCrop_12k_P2/best_ppp_optimal_score_iter_2000.pth
+
+# CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_depthLoss_multitask_head_noCrop_demo_vid_wDepth.py
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13914735_ppp_dinov3_rope_big_neck_depthLoss_multitask_head_noCrop_12k_P2/best_ppp_optimal_score_iter_3000.pth
+
+# CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_demo_vid_wDepth.py
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13918853_ppp_dinov3_LoRA_rope_big_neck_noCrop_12k_P2/best_ppp_optimal_score_iter_6000.pth
+
+# CONFIG=configs/ppp/ppp_dinov3_mid_LoRA_rope_big_neck_noCrop_demo_vid_wDepth.py
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13920972_ppp_dinov3_mid_LoRA_rope_big_neck_noCrop_12k_P2/best_ppp_optimal_score_iter_2000.pth
+
+# CONFIG=configs/ppp/ppp_dinov3_big_LoRA_rope_big_neck_noCrop_demo_vid_wDepth.py
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13920974_ppp_dinov3_big_LoRA_rope_big_neck_noCrop_12k_P2/best_ppp_optimal_score_iter_2000.pth
+
+# CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_noCrop_demo_vid_wDepth.py
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13925792_ppp_dinov3_rope_big_neck_noCrop_12k_P2/best_ppp_optimal_score_iter_6000.pth
+
+CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_wDepth.py
+CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13943679_ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_12k/iter_12000.pth
+
+WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 mkdir -p "$WORK_DIR"
 
 srun --ntasks=4 --gpus-per-task=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \

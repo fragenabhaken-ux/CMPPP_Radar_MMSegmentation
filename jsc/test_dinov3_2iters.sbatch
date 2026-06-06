@@ -7,8 +7,8 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
 #SBATCH --time=00:05:00
-#SBATCH --output=logs/%x_%j.out
-#SBATCH --error=logs/%x_%j.err
+#SBATCH --output=logs/%j_%x.out
+#SBATCH --error=logs/%j_%x.err
 #SBATCH --export=ALL
 
 set -euo pipefail

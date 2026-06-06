@@ -5,7 +5,7 @@ _base_ = [
 custom_imports = dict(
     imports=[
         # New DINOv3 architecture components
-        'mmseg.models.backbones.frozen_timm_backbone',
+        'mmseg.models.backbones.lora_timm_backbone',
         'mmseg.models.necks.dino_rope_transformer_neck',
         'mmseg.models.decode_heads.ppp_mark_vit_patch_rearrange_head',
 
@@ -258,7 +258,7 @@ optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
         type='AdamW',
-        lr=1e-2,
+        lr=1e-3,
         weight_decay=0.01,
         betas=(0.9, 0.999)
     ),
@@ -271,7 +271,7 @@ optim_wrapper = dict(
 param_scheduler = [
     dict(
         type='LinearLR',
-        start_factor=1e-5,
+        start_factor=1e-4,
         end_factor=1.0,
         begin=0,
         end=350,
