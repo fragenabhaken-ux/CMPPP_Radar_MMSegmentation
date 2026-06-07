@@ -58,9 +58,9 @@ source "$ENV_DIR/bin/activate"
 export PYTHONNOUSERSITE=1
 
 if [[ -n "${PYTHONPATH:-}" ]]; then
-  export PYTHONPATH="/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp:${PYTHONPATH}"
+  export PYTHONPATH="/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp:${PYTHONPATH}"
 else
-  export PYTHONPATH="/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp"
+  export PYTHONPATH="/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp"
 fi
 
 echo "Activated $ENV_NAME at $ENV_DIR"
