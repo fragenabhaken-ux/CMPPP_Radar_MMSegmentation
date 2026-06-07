@@ -97,7 +97,8 @@ echo "SLURM_NTASKS=${SLURM_NTASKS:-unset} SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_T
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13925792_ppp_dinov3_rope_big_neck_noCrop_12k_P2/best_ppp_optimal_score_iter_6000.pth
 
 CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_wDepth.py
-CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13943679_ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_12k/iter_12000.pth
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13943679_ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_12k/iter_12000.pth
+CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13942624_ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_12k/best_ppp_optimal_score_iter_8000.pth
 
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 mkdir -p "$WORK_DIR"
