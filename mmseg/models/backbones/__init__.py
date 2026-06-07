@@ -25,6 +25,8 @@ from .unet import UNet
 from .vit import VisionTransformer
 from .vpd import VPD
 from .frozen_timm_backbone import FrozenTIMMBackbone
+from .lora_timm_backbone import LoRATIMMBackbone
+from .lora_timm_intermediate_backbone import LoRAIntermediateTIMMBackbone
 
 __all__ = [
     'ResNet', 'ResNetV1c', 'ResNetV1d', 'ResNeXt', 'HRNet', 'FastSCNN',
@@ -32,5 +34,6 @@ __all__ = [
     'VisionTransformer', 'SwinTransformer', 'MixVisionTransformer',
     'BiSeNetV1', 'BiSeNetV2', 'ICNet', 'TIMMBackbone', 'ERFNet', 'PCPVT',
     'SVT', 'STDCNet', 'STDCContextPathNet', 'BEiT', 'MAE', 'PIDNet', 'MSCAN',
-    'DDRNet', 'VPD', 'FrozenTIMMBackbone'
+    'DDRNet', 'VPD', 'FrozenTIMMBackbone', 'LoRATIMMBackbone',
+    'LoRAIntermediateTIMMBackbone'
 ]

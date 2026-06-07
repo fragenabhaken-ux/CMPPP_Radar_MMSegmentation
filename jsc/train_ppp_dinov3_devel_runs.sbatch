@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=dinov3_LRRangeTest
+#SBATCH --job-name=ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_LRRangeTest
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=develbooster
 #SBATCH --nodes=1
@@ -7,8 +7,8 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
 #SBATCH --time=02:00:00
-#SBATCH --output=logs/%x_%j.out
-#SBATCH --error=logs/%x_%j.err
+#SBATCH --output=logs/%j_%x.out
+#SBATCH --error=logs/%j_%x.err
 #SBATCH --export=ALL
 
 set -euo pipefail
@@ -38,7 +38,20 @@ echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 
 # CONFIG=configs/ppp/ppp_dinov3_140k.py
 # CONFIG=configs/ppp/ppp_dinov3_5k_LRRangeTest.py
-CONFIG=configs/ppp/ppp_dinov3_rope_neck_5k_LRRangeTest.py
+# CONFIG=configs/ppp/ppp_dinov3_rope_neck_5k_LRRangeTest.py
+# CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_LRrangetest.py
+# CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_7k_testrun.py
+# CONFIG=configs/ppp/ppp_dinov3_big_LoRA_rope_big_neck_7k_testrun.py
+
+# CONFIG=configs/ppp/ppp_dinov3_LoRA_x2cap_rope_big_neck_LRrangetest.py
+# CONFIG=configs/ppp/ppp_dinov3_mid_LoRA_rope_big_neck_LRrangetest.py
+# CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_noCrop_5k_LRRangeTest.py
+# CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_depthLoss_multitask_head_noCrop_5k_LRRangeTest.py 
+# CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_5k_LRRangeTest.py
+# CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_depthLoss_multitask_two_depth_head_noCrop_5k_LRRangeTest.py
+# CONFIG=configs/ppp/ppp_dinov3_mid_LoRA_rope_big_neck_noCrop_5k_LRRangeTest.py
+# CONFIG=configs/ppp/ppp_dinov3_big_LoRA_rope_big_neck_noCrop_5k_LRRangeTest.py
+CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_LRRangeTest.py
 
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 mkdir -p "$WORK_DIR"
