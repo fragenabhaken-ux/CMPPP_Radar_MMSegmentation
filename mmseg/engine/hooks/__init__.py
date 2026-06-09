@@ -14,9 +14,12 @@ from .ppp_mark_twodepth_vis_hook_light import PPPMarkTwoDepthVisHookLight
 from .ppp_demo_twodepth_vis_hook import PPPDemoTwoDepthVisHook
 from .ppp_mark_metric_eval_export_hook import PPPMarkMetricEvalExportHook
 from .ppp_mark_metric_eval_export_twodepth_hook import PPPMarkMetricEvalExportTwoDepthHook
+from .ppp_demo_bev_vis_hook import PPPDemoBEVVisHook
+from .ppp_demo_bev_heatmap_vis_hook import PPPDemoBEVHeatmapVisHook
 
 __all__ = ['SegVisualizationHook',
     'PPPVisualizationHook', 'PPPDebugHook', 'PPPMarkVisualizationHook', 'LossPlotHook', 
     'VRAMHook', 'PPPMarkVisHookLight', 'PPPMarkGenDataMetricEvalHook', 'PrefetchStatsHook', 
     'PPPDemoVisHook', 'PPPDemoWDepthVisHook', 'PPPMarkTwoDepthVisHookLight', 'PPPDemoTwoDepthVisHook',
-    'PPPMarkMetricEvalExportHook', 'PPPMarkMetricEvalExportTwoDepthHook']
+    'PPPMarkMetricEvalExportHook', 'PPPMarkMetricEvalExportTwoDepthHook', 'PPPDemoBEVVisHook',
+    'PPPDemoBEVHeatmapVisHook']
