@@ -1120,33 +1120,15 @@ if __name__ == "__main__":
     show_grid = False
     project_radar = True
 
-    data_source_id = 6
+    data_source_id = 0
     source_path = [
-        "/p/data1/nxtaim/proprietary/continental/sys100",
-        "/p/data1/nxtaim/proprietary/continental/sys100_validation",
-        f"/p/scratch/nxtaim-1/users/{username}/logs/20250730_200401_12014693/videos/RadarCond_038000_0.0155/2021.05.04_at_14.54.52_radargrids.h5",
-        f"/p/scratch/nxtaim-1/users/{username}/logs/20250730_200401_12014693/videos/RadarCond_038000_0.0155/2021.06.09_at_11.26.11_radargrids.h5",
-        f"/p/scratch/nxtaim-1/users/{username}/logs/20250730_182914/videos/RadarCond_043000_0.0155/2021.04.15_at_11.38.16_radargrids.h5",
-        f"/p/scratch/nxtaim-1/users/{username}/logs/20250730_200401_12014693/videos/RadarCond_038000_0.0155/2021.04.26_at_08.59.57_radargrids.h5",
-        f"/p/scratch/nxtaim-1/users/{username}/logs/20250909_175001_12394188/videos/RadarCond_034000_0.0248/2021.04.26_at_08.59.57_radargrids.h5",
+        "/e/scratch/nxtaim-1/propietary/aumovio/sys100",
     ][data_source_id]
     save_path = [
-        f"{basepath}/data/SYS100_Dataset.csv",
-        f"{basepath}/data/SYS100_Validation_Dataset.csv",
-        f"/p/scratch/nxtaim-1/users/{username}/logs/20250730_200401_12014693/videos/RadarCond_038000_0.0155/2021.05.04_at_14.54.52_summary.csv",
-        f"/p/scratch/nxtaim-1/users/{username}/logs/20250730_200401_12014693/videos/RadarCond_038000_0.0155/2021.06.09_at_11.26.11_summary.csv",
-        f"/p/scratch/nxtaim-1/users/{username}/logs/20250730_182914/videos/RadarCond_043000_0.0155/2021.04.15_at_11.38.16_radargrids.csv",
-        f"/p/scratch/nxtaim-1/users/{username}/logs/20250730_200401_12014693/videos/RadarCond_038000_0.0155/2021.04.26_at_08.59.57_radargrids.csv",
-        f"/p/scratch/nxtaim-1/users/{username}/logs/20250909_175001_12394188/videos/RadarCond_034000_0.0248/2021.04.26_at_08.59.57_radargrids.csv",
+        "/e/scratch/nxtaim-1/propietary/aumovio/SYS100_Dataset.csv",
     ][data_source_id]
     video_path = [
-        f"/p/scratch/nxtaim-1/users/{username}/sys100",
-        f"/p/scratch/nxtaim-1/users/{username}/sys100_validation",
-        f"/p/scratch/nxtaim-1/users/{username}/sys100_validation_sample_2021.05.04_at_14.54.52",
-        f"/p/scratch/nxtaim-1/users/{username}/sys100_sample_2021.06.09_at_11.26.11",
-        f"/p/scratch/nxtaim-1/users/{username}/sys100_training_sample_4files_2021.04.15_at_11.38.16",
-        f"/p/scratch/nxtaim-1/users/{username}/sys100_training_sample_2021.04.26_at_08.59.57",
-        f"/p/scratch/nxtaim-1/users/{username}/sys100_training_sample_FlowMatching_2021.04.26_at_08.59.57",
+        "/e/scratch/nxtaim-1/propietary/aumovio/sys100",
     ][data_source_id]
     specific_files = [
         #"/p/data1/nxtaim/proprietary/continental/sys100/2021.04.15_at_11.18.03/",

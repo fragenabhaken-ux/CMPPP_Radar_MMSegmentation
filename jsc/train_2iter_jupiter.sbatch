@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ppp_2iter_jupiter_test
+#SBATCH --job-name=ppp_dinov3_rope_big_neck_40k_JUPITER_TEST
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=booster
 #SBATCH --nodes=1
@@ -7,8 +7,8 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
 #SBATCH --time=00:20:00
-#SBATCH --output=logs/%x_%j.out
-#SBATCH --error=logs/%x_%j.err
+#SBATCH --output=logs/%j_%x.out
+#SBATCH --error=logs/%j_%x.err
 #SBATCH --export=NONE
 
 set -euo pipefail
@@ -75,7 +75,7 @@ import prettytable
 print("prettytable:", prettytable.__version__, prettytable.__file__)
 PY
 
-CONFIG="configs/ppp/ppp_dinov3_rope_big_neck_40k_dbwa1.py"
+CONFIG="configs/ppp/ppp_dinov3_rope_big_neck_40k_JUPITER_TEST.py"
 WORK_DIR="/e/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 
 mkdir -p "$WORK_DIR"
@@ -108,10 +108,4 @@ srun --export=ALL \
      --gpu-bind=none \
   "$PYTHON_BIN" tools/train.py "$CONFIG" \
     --launcher slurm \
-    --work-dir "$WORK_DIR" \
-    --cfg-options \
-    train_cfg.max_iters=2 \
-    val_cfg=None \
-    val_dataloader=None \
-    val_evaluator=None \
-    model.backbone.checkpoint_path="/e/project1/nxtaim-1/huber7/pretrained/vit_small_patch16_dinov3.lvd1689m/model.safetensors"
+    --work-dir "$WORK_DIR"
