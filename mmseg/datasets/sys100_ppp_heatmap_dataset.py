@@ -98,6 +98,9 @@ class Sys100PPPHeatmapDataset(Dataset):
         source_is_summary_csv: bool = False,
         max_files=None,
         target_dataset_size=None,
+        subsampling_step=None,
+        random_subsampling=True,
+        seed=None,
         **kwargs,  # ignore mmengine-specific dataset kwargs
     ):
         self.pipeline = Compose(pipeline) if pipeline is not None else None
@@ -110,6 +113,9 @@ class Sys100PPPHeatmapDataset(Dataset):
               source_is_summary_csv=bool(source_is_summary_csv),
               max_files=max_files,
               target_dataset_size=target_dataset_size,
+              subsampling_step=subsampling_step,
+              random_subsampling=random_subsampling,
+              seed=seed,
               extract_video=True,
               out_img_size=out_img_size,
               undistort=undistort,

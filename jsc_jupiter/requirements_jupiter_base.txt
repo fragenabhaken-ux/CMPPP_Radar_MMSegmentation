@@ -1,0 +1,15 @@
+mmengine
+ftfy
+h5py
+einops
+tqdm
+matplotlib
+tensorboard
+future
+ninja
+packaging
+psutil
+pyyaml
+safetensors
+huggingface_hub
+openmim

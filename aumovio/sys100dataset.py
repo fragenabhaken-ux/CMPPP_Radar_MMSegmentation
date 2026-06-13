@@ -1122,13 +1122,13 @@ if __name__ == "__main__":
 
     data_source_id = 0
     source_path = [
-        "/e/scratch/nxtaim-1/propietary/aumovio/sys100",
+        "/e/scratch/nxtaim-1/propietary/aumovio/sys100_validation",
     ][data_source_id]
     save_path = [
-        "/e/scratch/nxtaim-1/propietary/aumovio/SYS100_Dataset.csv",
+        "/e/scratch/nxtaim-1/propietary/aumovio/SYS100_Validation_Dataset.csv",
     ][data_source_id]
     video_path = [
-        "/e/scratch/nxtaim-1/propietary/aumovio/sys100",
+        "/e/scratch/nxtaim-1/propietary/aumovio/sys100_validation",
     ][data_source_id]
     specific_files = [
         #"/p/data1/nxtaim/proprietary/continental/sys100/2021.04.15_at_11.18.03/",
