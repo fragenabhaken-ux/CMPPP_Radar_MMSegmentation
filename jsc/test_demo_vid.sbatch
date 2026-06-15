@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_wDepth
+#SBATCH --job-name=ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_BEV_heatmap
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=develbooster
 #SBATCH --nodes=1
@@ -96,7 +96,9 @@ echo "SLURM_NTASKS=${SLURM_NTASKS:-unset} SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_T
 # CONFIG=configs/ppp/ppp_dinov3_rope_big_neck_noCrop_demo_vid_wDepth.py
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13925792_ppp_dinov3_rope_big_neck_noCrop_12k_P2/best_ppp_optimal_score_iter_6000.pth
 
-CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_wDepth.py
+# CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_wDepth.py
+# CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_BEV.py
+CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_BEV_heatmap.py
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13943679_ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_12k/iter_12000.pth
 CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13942624_ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_12k/best_ppp_optimal_score_iter_8000.pth
 
