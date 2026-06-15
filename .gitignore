@@ -119,3 +119,5 @@ mmseg/.mim
 # Pytorch
 *.pth
 jsc/logs/
+jsc_jupiter/logs/
+

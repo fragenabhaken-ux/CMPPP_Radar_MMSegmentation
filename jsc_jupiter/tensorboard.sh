@@ -7,7 +7,7 @@ choice=${1:-0}
 case "$choice" in
   0)
     tensorboard --logdir_spec="\
-TEST_JUPITER:/e/scratch/nxtaim-1/huber7/work_dirs/852692_ppp_dinov3_rope_big_neck_40k_JUPITER_TEST/20260612_135750/vis_data/"\
+unet_init_test:/e/scratch/nxtaim-1/huber7/work_dirs/858021_ppp_unet_5k_init_test/20260613_175308/vis_data/"\
     --port=12355 serve
     ;;
   1)
@@ -15,6 +15,11 @@ TEST_JUPITER:/e/scratch/nxtaim-1/huber7/work_dirs/852692_ppp_dinov3_rope_big_nec
 unet:/p/scratch/nxtaim-1/huber7/work_dirs/13763261_unet_160k/20260425_004229/vis_data/,\
 unet_8nodes:/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/20260427_013913/vis_data/" \
     --port=12301 serve
+    ;;
+  2)
+    tensorboard --logdir_spec="\
+unet_50k:/e/scratch/nxtaim-1/huber7/work_dirs/858912_ppp_unet_50k/20260614_011350/vis_data/"\
+    --port=12355 serve
     ;;
   *)
     echo "Invalid option: $choice"

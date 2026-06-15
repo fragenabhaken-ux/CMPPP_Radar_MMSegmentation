@@ -91,7 +91,8 @@ paths = [
     # ("/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13914801_ppp_dinov3_rope_big_neck_depthLoss_multitask_two_depth_head_noCrop_5k_LRRangeTest/20260602_230737/20260602_230737.log", "DINOv3, multitask_two_depth_head noCrop"),
     # ("/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13917240_ppp_dinov3_mid_LoRA_rope_big_neck_noCrop_5k_LRRangeTest/20260603_114353/20260603_114353.log", "DINOv3, mid LoRA noCrop"),
     # ("/p/scratch/nxtaim-1/huber7/data1/260601_dinov3_noCrop/13917268_ppp_dinov3_big_LoRA_rope_big_neck_noCrop_5k_LRRangeTest/20260603_115605/20260603_115605.log", "DINOv3, big LoRA noCrop"),
-    ("/p/scratch/nxtaim-1/huber7/work_dirs/13939976_ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_LRRangeTest/20260606_015237/20260606_015237.log", "DINOv3, V2"),
+    # ("/p/scratch/nxtaim-1/huber7/work_dirs/13939976_ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_LRRangeTest/20260606_015237/20260606_015237.log", "DINOv3, V2"),
+    ("/e/scratch/nxtaim-1/huber7/work_dirs/858748_ppp_unet_5k_LRrangetest/20260613_213709/20260613_213709.log", "U-Net, Jupiter"),
 ]
 
 # plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_AdamW.png"
@@ -114,7 +115,8 @@ paths = [
 # plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_dinov3_multitask_two_depth_head_noCrop.png"
 # plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_dinov3_mid_LoRA_noCrop.png"
 # plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_dinov3_big_LoRA_noCrop.png"
-plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_dinov3_V2.png"
+# plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_dinov3_V2.png"
+plot_file = "/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/jupiter_lr_range_plot_unet.png"
 
 plt.figure(figsize=(10, 6))
 
@@ -162,7 +164,7 @@ ax.xaxis.set_minor_locator(
 )
 ax.xaxis.set_minor_formatter(mticker.NullFormatter())
 
-plt.ylim(4, 25)
+plt.ylim(10, 50)
 
 plt.xlabel("Learning rate (log scale)")
 plt.ylabel("loss (PPP + depth)")

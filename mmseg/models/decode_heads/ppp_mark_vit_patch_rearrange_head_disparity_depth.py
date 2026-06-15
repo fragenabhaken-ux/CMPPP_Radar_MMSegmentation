@@ -9,30 +9,104 @@ from mmseg.registry import MODELS
 from .decode_head import BaseDecodeHead
 
 
+class LocalConvResidualBlock(nn.Module):
+    """Small local 3x3 residual block on the ViT patch feature grid.
+
+    Input/output shape:
+        (B, C, H_patch, W_patch)
+
+    This block is intended to add local spatial refinement after the transformer
+    neck and before the patch-to-pixel rearrangement.
+    """
+
+    def __init__(
+        self,
+        channels: int,
+        norm: str = "gn",
+    ):
+        super().__init__()
+
+        channels = int(channels)
+        norm = str(norm).lower()
+
+        if channels <= 0:
+            raise ValueError(f"channels must be positive, got {channels}")
+
+        def make_norm():
+            if norm == "gn":
+                return nn.GroupNorm(1, channels)
+            if norm == "bn":
+                return nn.BatchNorm2d(channels)
+            if norm in {"none", "identity"}:
+                return nn.Identity()
+            raise ValueError(
+                f"Unsupported local_refine_norm={norm!r}. "
+                "Use 'gn', 'bn', or 'none'."
+            )
+
+        self.block = nn.Sequential(
+            nn.Conv2d(
+                channels,
+                channels,
+                kernel_size=3,
+                padding=1,
+                bias=False,
+            ),
+            make_norm(),
+            nn.GELU(),
+            nn.Conv2d(
+                channels,
+                channels,
+                kernel_size=3,
+                padding=1,
+                bias=False,
+            ),
+            make_norm(),
+        )
+
+        self.act = nn.GELU()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.act(x + self.block(x))
+
+
 @MODELS.register_module()
 class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
     """PPP decode head for ViT patch features using two-stage patch-to-pixel rearrangement.
 
-    This variant is identical to PPPMarkViTPatchRearrangeHead except for the
-    depth loss.
-
-    Depth loss:
-
-        old:
-            L_depth = |depth_pred - depth_gt|
-
-        new:
-            L_depth = |1 / depth_pred - 1 / depth_gt|
-
-    This is a pure disparity / inverse-depth loss. It puts more emphasis on
-    close-range depth errors and less emphasis on far-away metric errors.
+    This variant keeps the original disparity-depth behavior by default, but
+    adds a selectable depth loss and optional local 3x3 residual refinement.
 
     Output channels:
-
         channel 0: intensity logits
-        channel 1: depth mark, transformed with exp in the loss
+        channel 1: depth mark, interpreted as log-depth
         channel 2: velocity mark, transformed with cube in the loss
+
+    Supported depth losses:
+        depth_loss_type="disparity":
+            L_depth = |1 / exp(raw_depth) - 1 / depth_gt|
+
+        depth_loss_type="log":
+            L_depth = |raw_depth - log(depth_gt)|
+
+        depth_loss_type="metric":
+            L_depth = |exp(raw_depth) - depth_gt|
+
+    Optional local refinement:
+        local_refine_blocks=0:
+            old behavior, disabled
+
+        local_refine_blocks=2:
+            two local 3x3 residual blocks on the patch feature grid before
+            patch-to-pixel rearrangement
+
+    Expects GT in data_samples[i].gt_sem_seg.data with shape (3, H, W):
+        channel 0: intensity mask {0, 1}
+        channel 1: depth in meters
+        channel 2: velocity
     """
+
+    valid_depth_loss_types = {"disparity", "log", "metric"}
 
     def __init__(
         self,
@@ -43,9 +117,12 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
         ppp_weight: float = 1.0,
         depth_weight: float = 1.0,
         velocity_weight: float = 1.0,
+        depth_loss_type: str = "disparity",
         depth_disparity_eps: float = 1e-3,
         depth_disparity_max: float = 1.0,
-        loss_ppp: dict = dict(type="PPPLoss"),
+        local_refine_blocks: int = 0,
+        local_refine_norm: str = "gn",
+        loss_ppp: dict | None = None,
         **kwargs,
     ):
         self.patch_size = tuple(int(v) for v in patch_size)
@@ -58,6 +135,28 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
         self.refine_channels = int(refine_channels)
         self.num_refine_convs = int(num_refine_convs)
         self.pre_factor = int(pre_factor)
+
+        self.local_refine_blocks = int(local_refine_blocks)
+        self.local_refine_norm = str(local_refine_norm).lower()
+
+        if self.refine_channels <= 0:
+            raise ValueError(
+                f"refine_channels must be positive, got {self.refine_channels}"
+            )
+
+        if self.num_refine_convs < 0:
+            raise ValueError(
+                f"num_refine_convs must be non-negative, got {self.num_refine_convs}"
+            )
+
+        if self.pre_factor <= 0:
+            raise ValueError(f"pre_factor must be positive, got {self.pre_factor}")
+
+        if self.local_refine_blocks < 0:
+            raise ValueError(
+                f"local_refine_blocks must be non-negative, "
+                f"got {self.local_refine_blocks}"
+            )
 
         if self.patch_h % self.pre_factor != 0 or self.patch_w % self.pre_factor != 0:
             raise ValueError(
@@ -73,9 +172,23 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
         if self.num_classes != 3:
             raise ValueError(f"Expected num_classes=3, got {self.num_classes}")
 
+        if not isinstance(self.in_channels, int):
+            raise TypeError(
+                "PPPMarkViTPatchRearrangeDisparityDepthHead expects "
+                f"self.in_channels to be int, got {type(self.in_channels)}. "
+                "Use a single input feature map."
+            )
+
         self.ppp_weight = float(ppp_weight)
         self.depth_weight = float(depth_weight)
         self.velocity_weight = float(velocity_weight)
+
+        self.depth_loss_type = str(depth_loss_type).lower()
+        if self.depth_loss_type not in self.valid_depth_loss_types:
+            raise ValueError(
+                f"depth_loss_type must be one of {sorted(self.valid_depth_loss_types)}, "
+                f"got {depth_loss_type!r}."
+            )
 
         self.depth_disparity_eps = float(depth_disparity_eps)
         self.depth_disparity_max = float(depth_disparity_max)
@@ -90,19 +203,28 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
                 f"depth_disparity_max must be > 0, got {self.depth_disparity_max}"
             )
 
+        if loss_ppp is None:
+            loss_ppp = dict(type="PPPLoss")
+
         self.loss_ppp = MODELS.build(loss_ppp)
 
-        # BaseDecodeHead creates self.conv_seg, but this head does not use the
-        # standard segmentation convolution. We replace it to avoid unused
-        # trainable parameters.
+        # BaseDecodeHead normally creates conv_seg. We do not use it here because
+        # this head has its own custom output path.
         self.conv_seg = nn.Identity()
 
-        # First patch-to-pixel expansion:
-        #
-        # With patch_size=(16, 16), pre_factor=4, refine_channels=32:
-        # B x 384 x 16 x 32
-        # -> B x (32 * 4 * 4) x 16 x 32
-        # -> B x 32 x 64 x 128
+        if self.local_refine_blocks > 0:
+            self.local_refine = nn.Sequential(
+                *[
+                    LocalConvResidualBlock(
+                        channels=self.in_channels,
+                        norm=self.local_refine_norm,
+                    )
+                    for _ in range(self.local_refine_blocks)
+                ]
+            )
+        else:
+            self.local_refine = nn.Identity()
+
         self.patch_proj = nn.Conv2d(
             self.in_channels,
             self.refine_channels * self.pre_factor * self.pre_factor,
@@ -124,10 +246,6 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
                 ]
             )
 
-        # Prepare channels for the second patch-to-pixel expansion:
-        #
-        # B x 32 x 64 x 128
-        # -> B x (32 * 4 * 4) x 64 x 128
         pre_refine_layers.append(
             nn.Conv2d(
                 self.refine_channels,
@@ -138,10 +256,6 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
 
         self.pre_refine = nn.Sequential(*pre_refine_layers)
 
-        # Final local refinement and projection:
-        #
-        # B x 32 x 256 x 512
-        # -> B x 3 x 256 x 512
         self.refine = nn.Sequential(
             nn.Conv2d(
                 self.refine_channels,
@@ -161,8 +275,12 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
     def forward(self, inputs):
         x = self._transform_inputs(inputs)
 
+        # New optional local refinement on the patch feature grid.
+        # With local_refine_blocks=0, this is nn.Identity() and therefore keeps
+        # the old behavior.
+        x = self.local_refine(x)
+
         pixel_features = self.patch_proj(x)
-        # B x (C_ref * pre_factor * pre_factor) x H x W
 
         pre_pixel_features = rearrange(
             pixel_features,
@@ -171,11 +289,8 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
             ph=self.pre_factor,
             pw=self.pre_factor,
         )
-        # B x C_ref x (H * pre_factor) x (W * pre_factor)
 
         mixed_pre_pixel = self.pre_refine(pre_pixel_features)
-        # B x (C_ref * post_factor_h * post_factor_w)
-        #   x (H * pre_factor) x (W * pre_factor)
 
         pixel_features = rearrange(
             mixed_pre_pixel,
@@ -184,12 +299,44 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
             ph=self.post_factor_h,
             pw=self.post_factor_w,
         )
-        # B x C_ref x (H * patch_h) x (W * patch_w)
 
         out = self.refine(pixel_features)
-        # B x 3 x (H * patch_h) x (W * patch_w)
 
         return out
+
+    def _depth_loss_per_pixel(
+        self,
+        raw_depth: torch.Tensor,
+        gt_depth: torch.Tensor,
+    ) -> torch.Tensor:
+        """Compute unmasked per-pixel depth loss.
+
+        raw_depth is the direct network output. It is interpreted as log-depth.
+        gt_depth is metric depth in meters.
+        """
+        gt_depth_safe = torch.clamp(gt_depth, min=self.depth_disparity_eps)
+
+        if self.depth_loss_type == "log":
+            gt_log_depth = torch.log(gt_depth_safe)
+            return F.l1_loss(raw_depth, gt_log_depth, reduction="none")
+
+        pred_depth = torch.exp(raw_depth)
+
+        if self.depth_loss_type == "metric":
+            return F.l1_loss(pred_depth, gt_depth, reduction="none")
+
+        if self.depth_loss_type == "disparity":
+            pred_depth_safe = torch.clamp(pred_depth, min=self.depth_disparity_eps)
+
+            disp_pred = 1.0 / pred_depth_safe
+            disp_gt = 1.0 / gt_depth_safe
+
+            disp_pred = torch.clamp(disp_pred, max=self.depth_disparity_max)
+            disp_gt = torch.clamp(disp_gt, max=self.depth_disparity_max)
+
+            return F.l1_loss(disp_pred, disp_gt, reduction="none")
+
+        raise RuntimeError(f"Unsupported depth_loss_type={self.depth_loss_type!r}")
 
     def loss(self, inputs, batch_data_samples, train_cfg=None):
         preds = self.forward(inputs)
@@ -205,9 +352,6 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
         if gt.shape[0] != preds.shape[0]:
             raise ValueError("Batch size mismatch between preds and GT")
 
-        # Safety check:
-        # The patch rearrangement should already restore the target resolution.
-        # Do not silently interpolate PPP intensity logits.
         if preds.shape[2:] != gt.shape[2:]:
             raise ValueError(
                 f"ViT head output shape {preds.shape[2:]} != GT shape {gt.shape[2:]}. "
@@ -226,7 +370,6 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
         raw_depth = preds[:, 1]
         raw_vel = preds[:, 2]
 
-        pred_depth = torch.exp(raw_depth)
         pred_vel = raw_vel ** 3
 
         loss_ppp = self.loss_ppp(pred_int, gt_int)
@@ -234,36 +377,7 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
         mask = gt_int.squeeze(1)
         nbr_points = mask.sum(dim=(1, 2)).clamp_min(1)
 
-        # ------------------------------------------------------------------
-        # Pure disparity depth loss.
-        #
-        # Instead of penalizing metric distance:
-        #
-        #     |depth_pred - depth_gt|
-        #
-        # we penalize inverse depth / disparity:
-        #
-        #     |1 / depth_pred - 1 / depth_gt|
-        #
-        # This gives close-range errors much more weight.
-        # ------------------------------------------------------------------
-        depth_pred_safe = torch.clamp(pred_depth, min=self.depth_disparity_eps)
-        depth_gt_safe = torch.clamp(gt_depth, min=self.depth_disparity_eps)
-
-        disp_pred = 1.0 / depth_pred_safe
-        disp_gt = 1.0 / depth_gt_safe
-
-        # Cap disparity to avoid exploding gradients if predicted depth becomes
-        # unrealistically close to zero.
-        disp_pred = torch.clamp(disp_pred, max=self.depth_disparity_max)
-        disp_gt = torch.clamp(disp_gt, max=self.depth_disparity_max)
-
-        loss_depth_per_pixel = F.l1_loss(
-            disp_pred,
-            disp_gt,
-            reduction="none",
-        )
-
+        loss_depth_per_pixel = self._depth_loss_per_pixel(raw_depth, gt_depth)
         loss_depth = (
             (loss_depth_per_pixel * mask).sum(dim=(1, 2))
             / nbr_points
