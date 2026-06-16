@@ -9,7 +9,7 @@ custom_imports = dict(
         'mmseg.datasets.transforms.sys100_ppp_transforms',
         'mmseg.evaluation.metrics.ppp_metrics_loss_mmd',
         'mmseg.engine.hooks.prefetch_stats_hook',
-        'mmseg.engine.hooks.ppp_mark_metric_eval_export_hook',
+        'mmseg.engine.hooks.ppp_demo_bev_vis_hook',
     ],
     allow_failed_imports=False
 )
@@ -86,10 +86,10 @@ model = dict(
 # Data pipeline
 # ----------------------------
 
-DATA_PATH_TRAIN = os.environ.get(
-   "SYS100_DATA_PATH",
-   "/e/scratch/nxtaim-1/propietary/aumovio/SYS100_Dataset.csv"
-)
+# DATA_PATH_TRAIN = os.environ.get(
+#    "SYS100_DATA_PATH",
+#    "/p/data1/nxtaim/proprietary/continental/sys100/SYS100_Dataset.csv"
+# )
 DATA_PATH_VAL = os.environ.get(
    "SYS100_DATA_PATH",
    "/e/scratch/nxtaim-1/propietary/aumovio/SYS100_Validation_Dataset.csv"
@@ -297,33 +297,33 @@ test_evaluator = dict(type='PPPLossMMD', out_img_size=out_img_size)
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
-    logger=dict(type='LoggerHook', interval=5),
+    logger=dict(type='LoggerHook', interval=10, log_metric_by_epoch=False),
+    param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(
         type='CheckpointHook',
         by_epoch=False,
-        interval=2000,
+        interval=1000,
         max_keep_ckpts=5,
         save_best='ppp/optimal_score',
         rule='greater'
     ),
+    sampler_seed=dict(type='DistSamplerSeedHook'),
 )
 
 custom_hooks = [
     dict(
-        type='PPPDemoWDepthVisHook',
+        type="PPPDemoBEVHeatmapVisHook",
         max_samples_test=DEMO_NUM_FRAMES,
-        out_dir='demo_frames',
-        gamma=0.2,
-        sim_block_size=8,
-        sim_block_placement='weighted',
-        point_size=28,
-        figsize=(14, 24),   # 6 rows instead of 5
-        dpi=90,
+        out_dir="demo_frames",
         write_all_ranks=True,
-
-        # optional; leave None for automatic scaling per frame
-        depth_vmin=0.0,
-        depth_vmax=100.0,
+        h_fov_deg=110.0,
+        bev_forward_max= 140.0, # 104.0,
+        bev_lateral_max=50.0, # 50.0,
+        figsize=(30, 22),
+        dpi=120,
+        heatmap_gamma=1.0,
+        bev_projection_subpixel_factor=4,
+        bev_heatmap_smoothing_sigma=1.0
     ),
     dict(type='PrefetchStatsHook')
 ]
