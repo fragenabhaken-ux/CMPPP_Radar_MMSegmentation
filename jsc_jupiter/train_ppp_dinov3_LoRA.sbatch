@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ppp_dinov3_LoRA_V3_25k
+#SBATCH --job-name=ppp_dinov3_LoRA_V3_disparity_25k
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=booster
 #SBATCH --nodes=1
@@ -38,7 +38,8 @@ echo "SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-unset}"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 
 # CONFIG="configs/ppp_jupiter_dinov3_LoRA/ppp_dinov3_LoRA_V3_init_test.py"
-CONFIG="configs/ppp_jupiter_dinov3_LoRA/ppp_dinov3_LoRA_V3_25k.py"
+# CONFIG="configs/ppp_jupiter_dinov3_LoRA/ppp_dinov3_LoRA_V3_25k.py"
+CONFIG="configs/ppp_jupiter_dinov3_LoRA/ppp_dinov3_LoRA_V3_disparity_25k.py"
 WORK_DIR="/e/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 
 mkdir -p "$WORK_DIR"

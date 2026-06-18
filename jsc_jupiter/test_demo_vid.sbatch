@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ppp_unet_50k_demo_vid_BEV
+#SBATCH --job-name=ppp_dinov3_LoRA_V3_disparity_25k_demo_vid_BEV
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=booster
 #SBATCH --nodes=1
@@ -40,8 +40,16 @@ echo "SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK:-unset}"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 
 # CONFIG=configs/ppp_jupiter_unet/ppp_unet_50k_demo_vid.py
-CONFIG=configs/ppp_jupiter_unet/ppp_unet_50k_demo_vid_BEV.py
-CHECKPOINT=/e/scratch/nxtaim-1/huber7/data/260615_unet_50k/858912_ppp_unet_50k/iter_50000.pth
+# CONFIG=configs/ppp_jupiter_unet/ppp_unet_50k_demo_vid_BEV.py
+# CHECKPOINT=/e/scratch/nxtaim-1/huber7/data/260615_unet_50k/858912_ppp_unet_50k/iter_50000.pth
+
+# CONFIG=configs/ppp_jupiter_dinov3_LoRA/ppp_dinov3_LoRA_V3_25k_demo_vid.py
+# CONFIG=configs/ppp_jupiter_dinov3_LoRA/ppp_dinov3_LoRA_V3_25k_demo_vid_BEV.py
+# CHECKPOINT=/e/scratch/nxtaim-1/huber7/work_dirs/889927_ppp_dinov3_LoRA_V3_25k/best_ppp_optimal_score_iter_24000.pth
+
+# CONFIG=configs/ppp_jupiter_dinov3_LoRA/ppp_dinov3_LoRA_V3_disparity_25k_demo_vid.py
+CONFIG=configs/ppp_jupiter_dinov3_LoRA/ppp_dinov3_LoRA_V3_disparity_25k_demo_vid_BEV.py
+CHECKPOINT=/e/scratch/nxtaim-1/huber7/data/260617_dinov3_LoRA_V3/906347_ppp_dinov3_LoRA_V3_disparity_25k/best_ppp_optimal_score_iter_25000.pth
 
 mkdir -p "$WORK_DIR"
 

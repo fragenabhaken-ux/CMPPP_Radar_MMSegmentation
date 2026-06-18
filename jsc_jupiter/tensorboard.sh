@@ -18,6 +18,8 @@ unet_8nodes:/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/20260
     ;;
   2)
     tensorboard --logdir_spec="\
+dinov3_LoRA_V3_log:/e/scratch/nxtaim-1/huber7/work_dirs/889927_ppp_dinov3_LoRA_V3_25k/20260615_231613/vis_data/,\
+dinov3_LoRA_V3_disparity:/e/scratch/nxtaim-1/huber7/data/260617_dinov3_LoRA_V3/906347_ppp_dinov3_LoRA_V3_disparity_25k/20260617_043344/vis_data,\
 unet_50k:/e/scratch/nxtaim-1/huber7/work_dirs/858912_ppp_unet_50k/20260614_011350/vis_data/"\
     --port=12355 serve
     ;;
