@@ -16,10 +16,11 @@ from .ppp_mark_metric_eval_export_hook import PPPMarkMetricEvalExportHook
 from .ppp_mark_metric_eval_export_twodepth_hook import PPPMarkMetricEvalExportTwoDepthHook
 from .ppp_demo_bev_vis_hook import PPPDemoBEVVisHook
 from .ppp_demo_bev_heatmap_vis_hook import PPPDemoBEVHeatmapVisHook
+from .ppp_demo_wdepth_wvel_vis_hook import PPPDemoWDepthWVelVisHook
 
 __all__ = ['SegVisualizationHook',
     'PPPVisualizationHook', 'PPPDebugHook', 'PPPMarkVisualizationHook', 'LossPlotHook', 
     'VRAMHook', 'PPPMarkVisHookLight', 'PPPMarkGenDataMetricEvalHook', 'PrefetchStatsHook', 
     'PPPDemoVisHook', 'PPPDemoWDepthVisHook', 'PPPMarkTwoDepthVisHookLight', 'PPPDemoTwoDepthVisHook',
     'PPPMarkMetricEvalExportHook', 'PPPMarkMetricEvalExportTwoDepthHook', 'PPPDemoBEVVisHook',
-    'PPPDemoBEVHeatmapVisHook']
+    'PPPDemoBEVHeatmapVisHook', 'PPPDemoWDepthWVelVisHook']

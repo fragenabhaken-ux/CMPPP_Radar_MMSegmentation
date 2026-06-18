@@ -16,7 +16,7 @@ Inside each file, every sample is stored as a named group:
     /sample_000000/img             – (H, W, 3) uint8
     /sample_000000/pred_lambda     – (H, W)    float32   lambda(x) / (H*W)
     /sample_000000/pred_depth      – (H, W)    float32   exp(raw depth channel)
-    /sample_000000/pred_velocity   – (H, W)    float32   raw velocity channel ** 3
+    /sample_000000/pred_velocity   – (H, W)    float32   decoded velocity
     /sample_000000/gt_support      – (H, W)    float32
     /sample_000000/gt_depth        – (H, W)    float32
     /sample_000000/gt_velocity     – (H, W)    float32
@@ -58,14 +58,30 @@ class PPPMarkMetricEvalExportHook(Hook):
     """
     Export compact HDF5 files for offline metric evaluation.
 
-    The hook assumes the PPP mark model predicts exactly three channels:
+    The hook assumes the PPP mark model predicts either three channels:
 
         pred[0] = log intensity / log lambda parameter
         pred[1] = log depth / transformed via exp(pred[1])
-        pred[2] = signed cube-root velocity / transformed via pred[2] ** 3
+        pred[2] = raw velocity
 
-    and that the ground-truth segmentation tensor contains the matching three
-    channels:
+    or four channels for the two-depth head:
+
+        pred[0] = log intensity / log lambda parameter
+        pred[1] = raw_d0
+        pred[2] = raw_delta
+        pred[3] = raw velocity
+
+    Velocity decoding follows model.decode_head.velocity_mode:
+
+        signed:
+            pred_velocity = raw_velocity ** 3
+            gt_velocity   = gt[2]
+
+        absolute:
+            pred_velocity = abs(raw_velocity)
+            gt_velocity   = abs(gt[2])
+
+    The ground-truth segmentation tensor contains three channels:
 
         gt[0] = support mask
         gt[1] = depth
@@ -159,6 +175,12 @@ class PPPMarkMetricEvalExportHook(Hook):
         was_training = model.training
         model.eval()
 
+        velocity_mode = getattr(model.decode_head, "velocity_mode", "signed")
+        if velocity_mode not in {"signed", "absolute"}:
+            raise ValueError(
+                f"velocity_mode must be 'signed' or 'absolute', got {velocity_mode!r}."
+            )
+
         proc = model.data_preprocessor(data_batch)
         inputs = proc["inputs"]
         data_samples = proc["data_samples"]
@@ -170,6 +192,7 @@ class PPPMarkMetricEvalExportHook(Hook):
         n_save = min(remaining, preds.size(0))
 
         h5f = self._get_h5(runner, phase)
+        h5f.attrs["velocity_mode"] = velocity_mode
 
         for i in range(n_save):
             self._append_sample(
@@ -178,6 +201,7 @@ class PPPMarkMetricEvalExportHook(Hook):
                 pred=preds[i],
                 sample=data_samples[i],
                 local_index=self._written[phase] + i,
+                velocity_mode=velocity_mode,
             )
 
         h5f.flush()
@@ -226,6 +250,7 @@ class PPPMarkMetricEvalExportHook(Hook):
         pred: torch.Tensor,
         sample,
         local_index: int,
+        velocity_mode: str,
     ) -> None:
         if self.require_three_channels:
             self._assert_three_channels(pred, name="prediction")
@@ -233,11 +258,35 @@ class PPPMarkMetricEvalExportHook(Hook):
         # ---- decode prediction ----
         # Channel convention:
         #   pred[0] = log intensity / log lambda parameter
-        #   pred[1] -> depth        = exp(pred[1])
-        #   pred[2] -> velocity     = pred[2] ** 3
+        #   pred[1] -> depth = exp(pred[1])
+        #
+        # Normal heads:
+        #   pred[2] -> raw velocity
+        #
+        # Two-depth heads:
+        #   pred[1] -> raw_d0
+        #   pred[2] -> raw_delta
+        #   pred[3] -> raw velocity
         pred_lambda_theta = torch.exp(pred[0])
         pred_depth = torch.exp(pred[1]).detach().cpu().numpy().astype(np.float32)
-        pred_velocity = (pred[2] ** 3).detach().cpu().numpy().astype(np.float32)
+
+        if pred.shape[0] == 4:
+            raw_velocity = pred[3]
+            pred_velocity_channel = 3
+        else:
+            raw_velocity = pred[2]
+            pred_velocity_channel = 2
+
+        if velocity_mode == "signed":
+            pred_velocity_tensor = raw_velocity ** 3
+        elif velocity_mode == "absolute":
+            pred_velocity_tensor = torch.abs(raw_velocity)
+        else:
+            raise RuntimeError(f"Unsupported velocity_mode={velocity_mode!r}")
+
+        pred_velocity = (
+            pred_velocity_tensor.detach().cpu().numpy().astype(np.float32)
+        )
 
         # ---- GT channels ----
         gt = sample.gt_sem_seg.data.to(pred.device)
@@ -246,7 +295,17 @@ class PPPMarkMetricEvalExportHook(Hook):
 
         gt_support = gt[0].detach().cpu().numpy().astype(np.float32)
         gt_depth = gt[1].detach().cpu().numpy().astype(np.float32)
-        gt_velocity = gt[2].detach().cpu().numpy().astype(np.float32)
+
+        if velocity_mode == "signed":
+            gt_velocity_tensor = gt[2]
+        elif velocity_mode == "absolute":
+            gt_velocity_tensor = torch.abs(gt[2])
+        else:
+            raise RuntimeError(f"Unsupported velocity_mode={velocity_mode!r}")
+
+        gt_velocity = (
+            gt_velocity_tensor.detach().cpu().numpy().astype(np.float32)
+        )
 
         # ---- normalise lambda to mass per pixel ----
         meta = sample.metainfo
@@ -267,6 +326,8 @@ class PPPMarkMetricEvalExportHook(Hook):
         grp = h5f.create_group(f"sample_{local_index:06d}")
 
         self._write_attrs(grp, meta=meta, local_index=local_index)
+        grp.attrs["velocity_mode"] = velocity_mode
+        grp.attrs["pred_velocity_channel"] = int(pred_velocity_channel)
 
         self._create_dataset(grp, "img", img)
         self._create_dataset(grp, "pred_lambda", pred_lambda_mass)

@@ -241,6 +241,12 @@ class PPPMarkVisHookLight(Hook):
         was_training = model.training
         model.eval()
 
+        velocity_mode = getattr(model.decode_head, "velocity_mode", "signed")
+        if velocity_mode not in {"signed", "absolute"}:
+            raise ValueError(
+                f"velocity_mode must be 'signed' or 'absolute', got {velocity_mode!r}."
+            )
+
         proc = model.data_preprocessor(data_batch)
         inputs = proc["inputs"]
         data_samples = proc["data_samples"]
@@ -270,6 +276,7 @@ class PPPMarkVisHookLight(Hook):
                 sample=data_samples[i],
                 iter_seed=runner.iter,
                 sample_idx=start_idx + i,
+                velocity_mode=velocity_mode,
             )
 
         if phase in self._written_in_run:
@@ -332,12 +339,30 @@ class PPPMarkVisHookLight(Hook):
         self._label(ax, ylabel)
         self._textbox(ax, f"N={n}")
 
-    def _visualize_sample(self, runner, step, phase, img_tensor, pred, sample, iter_seed, sample_idx):
+    def _visualize_sample(self, runner, step, phase, img_tensor, pred, sample, iter_seed, sample_idx, velocity_mode):
         gt = sample.gt_sem_seg.data.to(pred.device)[0]
 
         lam = torch.exp(pred[0]).detach().cpu().numpy()
         depth = torch.exp(pred[1]).detach().cpu().numpy() if pred.size(0) > 1 else None
-        vel = (pred[2] ** 3).detach().cpu().numpy() if pred.size(0) > 2 else None
+
+        vel = None
+        vel_label = "Pred vel [m/s]"
+        if pred.size(0) == 4:
+            raw_vel = pred[3]
+        elif pred.size(0) > 2:
+            raw_vel = pred[2]
+        else:
+            raw_vel = None
+
+        if raw_vel is not None:
+            if velocity_mode == "signed":
+                vel = (raw_vel ** 3).detach().cpu().numpy()
+            elif velocity_mode == "absolute":
+                vel = torch.abs(raw_vel).detach().cpu().numpy()
+                vel_label = "Pred |vel| [m/s]"
+            else:
+                raise RuntimeError(f"Unsupported velocity_mode={velocity_mode!r}")
+
         gt_mask = gt.detach().cpu().numpy()
         img = self._denorm_img(img_tensor.detach().cpu().numpy())
 
@@ -397,7 +422,7 @@ class PPPMarkVisHookLight(Hook):
 
         if vel is not None:
             self._imshow(
-                axs[8], vel, "Pred vel [m/s]",
+                axs[8], vel, vel_label,
                 cmap="coolwarm", vmin=self.vel_vmin, vmax=self.vel_vmax, fig=fig, cbar=True
             )
         else:

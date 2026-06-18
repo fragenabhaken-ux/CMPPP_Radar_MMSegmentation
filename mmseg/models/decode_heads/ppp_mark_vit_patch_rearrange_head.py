@@ -50,6 +50,7 @@ class PPPMarkViTPatchRearrangeHead(BaseDecodeHead):
         ppp_weight: float = 1.0,
         depth_weight: float = 1.0,
         velocity_weight: float = 1.0,
+        velocity_mode: str = "signed",
         loss_ppp: dict = dict(type="PPPLoss"),
         **kwargs,
     ):
@@ -81,6 +82,13 @@ class PPPMarkViTPatchRearrangeHead(BaseDecodeHead):
         self.ppp_weight = float(ppp_weight)
         self.depth_weight = float(depth_weight)
         self.velocity_weight = float(velocity_weight)
+
+        self.velocity_mode = str(velocity_mode).lower()
+        if self.velocity_mode not in {"signed", "absolute"}:
+            raise ValueError(
+                f"velocity_mode must be 'signed' or 'absolute', got {velocity_mode!r}."
+            )
+
         self.loss_ppp = MODELS.build(loss_ppp)
 
         # BaseDecodeHead creates self.conv_seg, but this head does not use the
@@ -224,7 +232,15 @@ class PPPMarkViTPatchRearrangeHead(BaseDecodeHead):
         raw_vel = preds[:, 2]
 
         pred_depth = torch.exp(raw_depth)
-        pred_vel = raw_vel ** 3
+
+        if self.velocity_mode == "signed":
+            pred_vel = raw_vel ** 3
+            target_vel = gt_vel
+        elif self.velocity_mode == "absolute":
+            pred_vel = torch.abs(raw_vel)
+            target_vel = torch.abs(gt_vel)
+        else:
+            raise RuntimeError(f"Unsupported velocity_mode={self.velocity_mode!r}")
 
         loss_ppp = self.loss_ppp(pred_int, gt_int)
 
@@ -237,7 +253,7 @@ class PPPMarkViTPatchRearrangeHead(BaseDecodeHead):
         ).mean()
 
         loss_velocity = (
-            (F.l1_loss(pred_vel, gt_vel, reduction="none") * mask).sum(dim=(1, 2))
+            (F.l1_loss(pred_vel, target_vel, reduction="none") * mask).sum(dim=(1, 2))
             / nbr_points
         ).mean()
 
@@ -246,4 +262,3 @@ class PPPMarkViTPatchRearrangeHead(BaseDecodeHead):
             loss_depth=self.depth_weight * loss_depth,
             loss_velocity=self.velocity_weight * loss_velocity,
         )
-

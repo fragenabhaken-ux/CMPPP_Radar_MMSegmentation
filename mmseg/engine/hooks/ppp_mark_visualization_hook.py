@@ -9,7 +9,6 @@ from mmengine.model import is_model_wrapper
 import matplotlib
 matplotlib.use('Agg')
 
-import torch
 import time
 
 import matplotlib.pyplot as plt
@@ -27,86 +26,6 @@ def extract_gt_points_from_mask(mask: np.ndarray) -> np.ndarray:
     return np.stack([xs + 0.5, ys + 0.5], axis=1).astype(np.float64)
 
 
-# def sample_ppp_by_thinning(
-#     lambda_grid: np.ndarray,
-#     *,
-#     rng: np.random.Generator | None = None,
-#     new: bool = True
-# ):
-#     """
-#     Sample an inhomogeneous PPP using thinning from a homogeneous PPP.
- 
-#     lambda_grid is assumed to already be PPP intensity MASS per pixel.
-#     """
-#     if rng is None:
-#         rng = np.random.default_rng()
- 
-#     lam = np.asarray(lambda_grid, dtype=np.float64)
-#     assert np.all(lam >= 0)
-   
-#     H, W = lam.shape
- 
-#     if new:
-           
-#         # Pad to the next multiple of 8 with zeros so no points land in the padded area
-#         Hp = int(np.ceil(H / 8)) * 8
-#         Wp = int(np.ceil(W / 8)) * 8
-#         if Hp != H or Wp != W:
-#             lam_pad = np.zeros((Hp, Wp), dtype=np.float64)
-#             lam_pad[:H, :W] = lam
-#             lam = lam_pad
-#         # reshape to (H8, W8, 64): transpose puts block indices first, then flatten local H/W
-#         lamb = lam.reshape(Hp // 8, 8, Wp // 8, 8).transpose(0, 2, 1, 3).reshape(Hp // 8, Wp // 8, 64)
-#         lambda_max = lamb.max(axis=2)  # maximal intensity over each 8x8 block
-#         points = []
-#         tot_sampled = 0
-#         for i in range(Hp // 8):
-#             for j in range(Wp // 8):
-#                 if lambda_max[i, j] > 0:
-#                     nbr = rng.poisson(lambda_max[i, j] * 64)
-#                     tot_sampled += nbr
-#                     if nbr == 0:
-#                         continue
-#                     xs = rng.random(nbr) * 8 + j * 8
-#                     ys = rng.random(nbr) * 8 + i * 8
-#                     xi = np.clip(xs.astype(int), j * 8, (j + 1) * 8 - 1)
-#                     yi = np.clip(ys.astype(int), i * 8, (i + 1) * 8 - 1)
-#                     lam_x = lam[yi, xi]
-#                     accept_prob = lam_x / lambda_max[i, j]
-#                     keep = rng.random(nbr) < accept_prob
-#                     points.append(np.stack([xs[keep], ys[keep]], axis=1))
-#         lam_max_global = float(lambda_max.max())
-#         if points:
-#             points_xy = np.concatenate(points, axis=0).astype(np.float64)
-#             return points_xy, int(points_xy.shape[0]), lam_max_global, int(tot_sampled)
-#         return np.zeros((0, 2), dtype=np.float64), 0, lam_max_global, int(tot_sampled)
-#     else:
- 
-#         lambda_max = lam.max()
-#         if lambda_max == 0:
-#             return np.zeros((0, 2), dtype=np.float64), 0, 0.0, 0
-   
-#         area_total = H * W
-#         Lambda_hom = lambda_max * area_total
-   
-#         N_prop = rng.poisson(Lambda_hom)
-#         if N_prop == 0:
-#             return np.zeros((0, 2), dtype=np.float64), 0, float(lambda_max), 0
-   
-#         xs = rng.random(N_prop) * W
-#         ys = rng.random(N_prop) * H
-   
-#         xi = np.clip(xs.astype(int), 0, W - 1)
-#         yi = np.clip(ys.astype(int), 0, H - 1)
-   
-#         lam_x = lam[yi, xi]
-#         accept_prob = lam_x / lambda_max
-#         keep = rng.random(N_prop) < accept_prob
-   
-#         points_xy = np.stack([xs[keep], ys[keep]], axis=1).astype(np.float64)
-#         return points_xy, int(points_xy.shape[0]), float(lambda_max), int(N_prop)
- 
- 
 def sample_ppp_by_thinning(
     lambda_grid: np.ndarray,
     *,
@@ -154,7 +73,7 @@ def sample_ppp_by_thinning(
     Lambda_hom = lambda_max * area_total
 
     # 1) sample homogeneous PPP
-    # N_prop is the number of proposal points in the homogeneous Poisson point process 
+    # N_prop is the number of proposal points in the homogeneous Poisson point process
     # with intensity lambda_max over the whole image domain.
     N_prop = rng.poisson(Lambda_hom)
 
@@ -165,13 +84,13 @@ def sample_ppp_by_thinning(
     xs = rng.random(N_prop) * W
     ys = rng.random(N_prop) * H
 
-    # Converts continuous x-coordinates to integers, Equivalent to floor(xs) for 
+    # Converts continuous x-coordinates to integers, Equivalent to floor(xs) for
     # nonnegative values, Maps point → pixel index
     xi = np.clip(xs.astype(int), 0, W - 1)
     yi = np.clip(ys.astype(int), 0, H - 1)
 
     # 2) thinning step
-    # For each proposed point (xi,yi), we evaluate the predicted intensity at its location 
+    # For each proposed point (xi,yi), we evaluate the predicted intensity at its location
     # by looking up the corresponding pixel in lambda_grid.
     lam_x = lam[yi, xi]
     accept_prob = lam_x / lambda_max
@@ -184,7 +103,8 @@ def sample_ppp_by_thinning(
     points_xy = np.stack([xs[keep], ys[keep]], axis=1)
 
     return points_xy, points_xy.shape[0], float(lambda_max), N_prop
- 
+
+
 def sample_ppp_by_thinning_torch(
     lambda_grid: "torch.Tensor",
     *,
@@ -195,17 +115,17 @@ def sample_ppp_by_thinning_torch(
     via thinning.  All proposals across all 8×8 blocks are batched into a single
     flat tensor of length tot_proposed, so memory is O(tot_proposed) rather than
     O(n_blocks × max_proposals_per_block).
- 
+
     lambda_grid: (H, W) torch.Tensor of PPP intensity mass per pixel.
     Returns (points_xy, n_kept, lambda_max_global, tot_proposed) where points_xy
     is a (n_kept, 2) tensor on the same device as lambda_grid.
     """
- 
+
     lam = lambda_grid.double()
     assert (lam >= 0).all(), "lambda_grid must be non-negative"
     H, W = lam.shape
     device = lam.device
- 
+
     # Pad to the next multiple of 8 so no points land in the padded area
     Hp = (H + 7) // 8 * 8
     Wp = (W + 7) // 8 * 8
@@ -213,213 +133,45 @@ def sample_ppp_by_thinning_torch(
         lam_pad = lam.new_zeros(Hp, Wp)
         lam_pad[:H, :W] = lam
         lam = lam_pad
- 
+
     H8, W8 = Hp // 8, Wp // 8
- 
+
     # Per-block max intensity: (H8, W8)
     lamb = lam.reshape(H8, 8, W8, 8).permute(0, 2, 1, 3).reshape(H8, W8, 64)
     lambda_max = lamb.max(dim=2).values  # (H8, W8)
     lam_max_global = float(lambda_max.max())
- 
+
     # Per-block proposal counts ~ Poisson(lambda_max * 64); flatten to (H8*W8,)
     N_flat = torch.poisson(lambda_max.flatten() * 64, generator=generator).long()
     tot_sampled = int(N_flat.sum())
- 
+
     if tot_sampled == 0:
         return lam.new_zeros(0, 2), 0, lam_max_global, 0
- 
+
     # For each proposal, record its block index and derive block row/col
     block_ids = torch.repeat_interleave(
         torch.arange(H8 * W8, device=device), N_flat
     )  # (tot_sampled,)
     block_i = block_ids // W8  # (tot_sampled,)
     block_j = block_ids % W8
- 
+
     # Sample uniform offsets within each 8×8 block
     offs_x = torch.rand(tot_sampled, dtype=torch.float64, device=device, generator=generator)
     offs_y = torch.rand(tot_sampled, dtype=torch.float64, device=device, generator=generator)
     xs = offs_x * 8 + block_j.double() * 8  # absolute x  (tot_sampled,)
     ys = offs_y * 8 + block_i.double() * 8  # absolute y
- 
+
     xi = xs.long()
     yi = ys.long()
- 
+
     # Thinning: accept with probability lam[pixel] / lambda_max[block]
-    lam_x    = lam[yi, xi]
+    lam_x = lam[yi, xi]
     lam_block = lambda_max.flatten()[block_ids]
     u = torch.rand(tot_sampled, dtype=torch.float64, device=device, generator=generator)
     keep = u < (lam_x / lam_block)
- 
+
     points_xy = torch.stack([xs[keep], ys[keep]], dim=1)
     return points_xy, int(keep.sum()), lam_max_global, tot_sampled
-
-# def sample_ppp_by_thinning_torch( #timed
-#     lambda_grid: "torch.Tensor",
-#     *,
-#     generator: "torch.Generator | None" = None,
-# ) -> "tuple[torch.Tensor, int, float, int]":
-#     import time
-#     import torch
-
-#     def _sync(x):
-#         if x.is_cuda:
-#             torch.cuda.synchronize(x.device)
-
-#     _sync(lambda_grid)
-#     t0 = time.perf_counter()
-
-#     lam = lambda_grid.double()
-#     H, W = lam.shape
-#     device = lam.device
-
-#     Hp = (H + 7) // 8 * 8
-#     Wp = (W + 7) // 8 * 8
-#     if Hp != H or Wp != W:
-#         lam_pad = lam.new_zeros(Hp, Wp)
-#         lam_pad[:H, :W] = lam
-#         lam = lam_pad
-
-#     H8, W8 = Hp // 8, Wp // 8
-#     _sync(lam)
-#     t1 = time.perf_counter()
-
-#     lamb = lam.reshape(H8, 8, W8, 8).permute(0, 2, 1, 3).reshape(H8, W8, 64)
-#     lambda_max = lamb.max(dim=2).values
-#     lam_max_global = float(lambda_max.max())
-#     _sync(lam)
-#     t2 = time.perf_counter()
-
-#     N_flat = torch.poisson(lambda_max.flatten() * 64, generator=generator).long()
-#     tot_sampled = int(N_flat.sum())
-#     _sync(lam)
-#     t3 = time.perf_counter()
-
-#     if tot_sampled == 0:
-#         print(f"[torch sampler] prep={(t1-t0)*1000:.3f} max={(t2-t1)*1000:.3f} poisson={(t3-t2)*1000:.3f} total={(t3-t0)*1000:.3f}")
-#         return lam.new_zeros(0, 2), 0, lam_max_global, 0
-
-#     block_ids = torch.repeat_interleave(
-#         torch.arange(H8 * W8, device=device), N_flat
-#     )
-#     block_i = block_ids // W8
-#     block_j = block_ids % W8
-#     _sync(lam)
-#     t4 = time.perf_counter()
-
-#     offs_x = torch.rand(tot_sampled, dtype=torch.float64, device=device, generator=generator)
-#     offs_y = torch.rand(tot_sampled, dtype=torch.float64, device=device, generator=generator)
-#     xs = offs_x * 8 + block_j.double() * 8
-#     ys = offs_y * 8 + block_i.double() * 8
-#     xi = xs.long()
-#     yi = ys.long()
-#     _sync(lam)
-#     t5 = time.perf_counter()
-
-#     lam_x = lam[yi, xi]
-#     lam_block = lambda_max.flatten()[block_ids]
-#     u = torch.rand(tot_sampled, dtype=torch.float64, device=device, generator=generator)
-#     keep = u < (lam_x / lam_block)
-#     points_xy = torch.stack([xs[keep], ys[keep]], dim=1)
-#     _sync(lam)
-#     t6 = time.perf_counter()
-
-#     print(
-#         f"[torch sampler] "
-#         f"prep={(t1-t0)*1000:.3f} ms | "
-#         f"max={(t2-t1)*1000:.3f} ms | "
-#         f"poisson={(t3-t2)*1000:.3f} ms | "
-#         f"repeat={(t4-t3)*1000:.3f} ms | "
-#         f"rand={(t5-t4)*1000:.3f} ms | "
-#         f"thin={(t6-t5)*1000:.3f} ms | "
-#         f"total={(t6-t0)*1000:.3f} ms | "
-#         f"tot_sampled={tot_sampled}"
-#     )
-
-#     return points_xy, int(keep.sum()), lam_max_global, tot_sampled
-
-# def sample_points_block_bernoulli(
-#     lambda_grid: np.ndarray,
-#     *,
-#     block_size: int = 8,
-#     pixel_area: float = 1.0,
-#     placement: str = "weighted",
-#     rng: np.random.Generator | None = None,
-# ):
-#     """
-#     Block/Bernoulli approximation of a PPP:
-#       For each block A:
-#         Λ_A = sum_A λ
-#         Activate with p_A = 1 - exp(-Λ_A)
-#       If active, place exactly one point in A.
-#     """
-#     if rng is None:
-#         rng = np.random.default_rng()
-
-#     lam = np.asarray(lambda_grid, dtype=np.float64)
-#     assert np.all(np.isfinite(lam)), "lambda_grid contains NaN/Inf."
-#     assert np.all(lam >= 0), "lambda_grid contains negative values."
-
-#     H, W = lam.shape
-#     bs = int(block_size)
-#     assert bs > 0
-
-#     points = []
-#     num_blocks = 0
-#     num_active = 0
-#     expected_blocks_active = 0.0
-
-#     for y0 in range(0, H, bs):
-#         for x0 in range(0, W, bs):
-#             y1 = min(y0 + bs, H)
-#             x1 = min(x0 + bs, W)
-#             num_blocks += 1
-
-#             block = lam[y0:y1, x0:x1]
-#             Lambda_A = block.sum()
-
-#             if Lambda_A <= 0:
-#                 continue
-
-#             pA = 1.0 - np.exp(-Lambda_A)
-#             expected_blocks_active += pA
-
-#             if rng.random() >= pA:
-#                 continue
-
-#             num_active += 1
-#             hB, wB = block.shape
-
-#             if placement == "uniform" or block.sum() == 0:
-#                 x = x0 + rng.random() * wB
-#                 y = y0 + rng.random() * hB
-
-#             elif placement == "weighted":
-#                 probs = (block / block.sum()).ravel()
-#                 idx = rng.choice(probs.size, p=probs)
-#                 by, bx = divmod(idx, wB)
-#                 x = x0 + bx + rng.random()
-#                 y = y0 + by + rng.random()
-
-#             else:
-#                 raise ValueError("placement must be 'weighted' or 'uniform'")
-
-#             points.append([x, y])
-
-#     points_xy = (
-#         np.asarray(points, dtype=np.float64)
-#         if points
-#         else np.zeros((0, 2), dtype=np.float64)
-#     )
-
-#     stats = dict(
-#         block_size=bs,
-#         placement=placement,
-#         num_blocks=num_blocks,
-#         num_active_blocks=num_active,
-#         expected_active_blocks=float(expected_blocks_active),
-#         num_points=int(points_xy.shape[0]),
-#     )
-#     return points_xy, stats
 
 
 def sample_points_block_bernoulli(
@@ -547,6 +299,7 @@ def sample_points_block_bernoulli(
     )
     return points_xy, stats
 
+
 @HOOKS.register_module()
 class PPPMarkVisualizationHook(Hook):
     """
@@ -624,6 +377,12 @@ class PPPMarkVisualizationHook(Hook):
         was_training = model.training
         model.eval() # this switches the model into eval mode (at the end we reset it to training mode)
 
+        velocity_mode = getattr(model.decode_head, "velocity_mode", "signed")
+        if velocity_mode not in {"signed", "absolute"}:
+            raise ValueError(
+                f"velocity_mode must be 'signed' or 'absolute', got {velocity_mode!r}."
+            )
+
         # ---------------------------------------------------------
         # Apply data preprocesso
         # ---------------------------------------------------------
@@ -642,6 +401,7 @@ class PPPMarkVisualizationHook(Hook):
             data_samples=data_samples,
             outputs=outputs,
             phase="train",
+            velocity_mode=velocity_mode,
         )
 
         if was_training:
@@ -664,6 +424,12 @@ class PPPMarkVisualizationHook(Hook):
             model = model.module
         model.eval()  # ensure eval mode (already true in test loop, but explicit is fine)
 
+        velocity_mode = getattr(model.decode_head, "velocity_mode", "signed")
+        if velocity_mode not in {"signed", "absolute"}:
+            raise ValueError(
+                f"velocity_mode must be 'signed' or 'absolute', got {velocity_mode!r}."
+            )
+
         proc = model.data_preprocessor(data_batch)
         inputs = proc["inputs"]
         data_samples = proc["data_samples"]
@@ -679,6 +445,7 @@ class PPPMarkVisualizationHook(Hook):
             data_samples=data_samples,
             outputs=None,      # no losses during test
             phase="test",
+            velocity_mode=velocity_mode,
         )
 
     def after_val_iter(self, runner, batch_idx, data_batch=None, outputs=None):
@@ -697,6 +464,12 @@ class PPPMarkVisualizationHook(Hook):
             model = model.module
         model.eval()  # val loop already uses eval, explicit is fine
 
+        velocity_mode = getattr(model.decode_head, "velocity_mode", "signed")
+        if velocity_mode not in {"signed", "absolute"}:
+            raise ValueError(
+                f"velocity_mode must be 'signed' or 'absolute', got {velocity_mode!r}."
+            )
+
         proc = model.data_preprocessor(data_batch)
         inputs = proc["inputs"]
         data_samples = proc["data_samples"]
@@ -712,6 +485,7 @@ class PPPMarkVisualizationHook(Hook):
             data_samples=data_samples,
             outputs=None,   # losses are not passed here either
             phase="val",
+            velocity_mode=velocity_mode,
         )
 
     def _get_vis_dir(self, runner, phase: str) -> str:
@@ -722,7 +496,7 @@ class PPPMarkVisualizationHook(Hook):
         )
         os.makedirs(vis_dir, exist_ok=True)
         return vis_dir
-    
+
     def _draw_points_overlay(
         self,
         ax,
@@ -765,7 +539,7 @@ class PPPMarkVisualizationHook(Hook):
     def _sanitize_for_filename(self, s: str) -> str:
         # Keep filenames safe on cluster FS.
         return "".join(c if c.isalnum() or c in "._-" else "_" for c in s)
-        
+
     def visualize_ppp_batch(
         self,
         *,
@@ -775,7 +549,8 @@ class PPPMarkVisualizationHook(Hook):
         data_samples: list,                # list[SegDataSample]
         outputs: dict | None = None,        # losses (train only)
         phase: str = "train",               # "train" | "test"
-        ):
+        velocity_mode: str = "signed",
+    ):
 
         num_vis = min(self.max_samples, preds.size(0))
         device = inputs.device
@@ -789,16 +564,6 @@ class PPPMarkVisualizationHook(Hook):
             pred = preds[i]
             gt = data_samples[i].gt_sem_seg.data.to(device)
 
-            # # Debug dim issue (expected count undercounts on full frame)
-            # pred_H, pred_W = pred.shape[-2:]
-            # gt_H, gt_W = gt.shape[-2:]
-
-            # print(
-            #     f"[{phase}] pred HW=({pred_H},{pred_W}) | gt HW=({gt_H},{gt_W}) | "
-            #     f"meta img_shape={data_samples[i].metainfo.get('img_shape')} | "
-            #     f"ori_shape={data_samples[i].metainfo.get('ori_shape')}"
-            # )
-
             # ---------------------------------------------
             # Split channels
             # ---------------------------------------------
@@ -806,11 +571,42 @@ class PPPMarkVisualizationHook(Hook):
             pred_lambda_theta = torch.exp(pred_log_intensity) # pred_intensity
 
             pred_depth = torch.exp(pred[1]) if pred.size(0) > 1 else None
-            pred_velocity = pred[2] ** 3 if pred.size(0) > 2 else None
+
+            raw_velocity = None
+            pred_velocity_channel = None
+
+            if pred.size(0) == 4:
+                raw_velocity = pred[3]
+                pred_velocity_channel = 3
+            elif pred.size(0) > 2:
+                raw_velocity = pred[2]
+                pred_velocity_channel = 2
+
+            if raw_velocity is not None:
+                if velocity_mode == "signed":
+                    pred_velocity = raw_velocity ** 3
+                    pred_velocity_label = "Pred vel [m/s]"
+                elif velocity_mode == "absolute":
+                    pred_velocity = torch.abs(raw_velocity)
+                    pred_velocity_label = "Pred |vel| [m/s]"
+                else:
+                    raise RuntimeError(f"Unsupported velocity_mode={velocity_mode!r}")
+            else:
+                pred_velocity = None
+                pred_velocity_label = "Pred vel [m/s]"
 
             gt_support = gt[0]
             gt_depth = gt[1] if gt.size(0) > 1 else None
-            gt_velocity = gt[2] if gt.size(0) > 2 else None
+
+            if gt.size(0) > 2:
+                if velocity_mode == "signed":
+                    gt_velocity = gt[2]
+                elif velocity_mode == "absolute":
+                    gt_velocity = torch.abs(gt[2])
+                else:
+                    raise RuntimeError(f"Unsupported velocity_mode={velocity_mode!r}")
+            else:
+                gt_velocity = None
 
             # ---------------------------------------------
             # Image (de-normalize)
@@ -856,7 +652,7 @@ class PPPMarkVisualizationHook(Hook):
             # Meta information
             # ---------------------------------------------
             meta = data_samples[i].metainfo
-            
+
             frame_idx = int(meta["frame_idx"])
             prefix = (
                 f"iter_{runner.iter:07d}_"
@@ -909,24 +705,6 @@ class PPPMarkVisualizationHook(Hook):
             t3 = time.perf_counter()
             sim2_time_ms = 1000.0 * (t3 - t2)
 
-            # # --- Torch thinning timing ---
-            # if pred_lambda_mass_torch.is_cuda:
-            #     torch.cuda.synchronize(pred_lambda_mass_torch.device)
-
-            # t2 = time.perf_counter()
-            # sim2_points_xy_torch, sim2_N, sim2_lambda_max, sim2_N_prop = sample_ppp_by_thinning_torch(
-            #     pred_lambda_mass_torch,
-            # )
-            # if pred_lambda_mass_torch.is_cuda:
-            #     torch.cuda.synchronize(pred_lambda_mass_torch.device)
-            
-            # t3 = time.perf_counter()
-            # sim2_time_ms = 1000.0 * (t3 - t2)
-
-            # sim2_points_xy = sim2_points_xy_torch.detach().cpu().numpy()
-
-            # print(sim2_N_prop)
-
             print(
                 f"[PPP timing] frame={meta.get('frame_idx')} | "
                 f"numpy={sim1_time_ms:.3f} ms | "
@@ -949,7 +727,7 @@ class PPPMarkVisualizationHook(Hook):
             if vel_np is not None:
                 np.save(os.path.join(out_dir, f"{prefix}_pred_velocity.npy"), vel_np)
                 np.save(os.path.join(out_dir, f"{prefix}_gt_velocity.npy"), gt_vel_np)
-            
+
             np.save(os.path.join(out_dir, f"{prefix}_gt_points_xy.npy"), gt_points_xy)
             np.save(os.path.join(out_dir, f"{prefix}_sim1_points_xy.npy"), sim1_points_xy)
             np.save(os.path.join(out_dir, f"{prefix}_sim2_points_xy.npy"), sim2_points_xy)
@@ -963,6 +741,12 @@ class PPPMarkVisualizationHook(Hook):
                 "sample_in_batch": int(i),
                 "img_shape": meta.get("img_shape", None),
                 "ori_shape": meta.get("ori_shape", None),
+                "velocity_mode": velocity_mode,
+                "pred_velocity_channel": (
+                    int(pred_velocity_channel)
+                    if pred_velocity_channel is not None
+                    else None
+                ),
                 "losses": {
                     k: float(v) for k, v in (outputs or {}).items()
                     if torch.is_tensor(v)
@@ -1020,7 +804,7 @@ class PPPMarkVisualizationHook(Hook):
                 cb = fig.colorbar(im, cax=cax, orientation="horizontal")
                 cb.ax.tick_params(labelsize=10)
                 return cb
-            
+
             def _ylabel(ax, text):
                 ax.text(
                     -0.015, 0.5, text,
@@ -1037,19 +821,10 @@ class PPPMarkVisualizationHook(Hook):
             axs[row].imshow(img, aspect="auto")
             axs[row].axis("off")
             _ylabel(axs[row], "Image")
-            # axs[row].text(
-            #     -0.015, 0.5, "Image",
-            #     transform=axs[row].transAxes,
-            #     rotation=90,
-            #     fontsize=13,
-            #     va="center",
-            #     ha="center",
-            # )
             row += 1
 
             # 2) GT support
             axs[row].imshow(gt_support_np, cmap="gray", aspect="auto")
-            # axs[row].set_ylabel("GT support", fontsize=13)
             _ylabel(axs[row], "GT support")
             axs[row].axis("off")
             row += 1
@@ -1098,7 +873,6 @@ class PPPMarkVisualizationHook(Hook):
 
             # 6) Pred λ mass
             im0 = axs[row].imshow(pred_lambda_mass, cmap="hot", aspect="auto")
-            # axs[row].set_ylabel("Pred λ mass", fontsize=13)
             axs[row].axis("off")
 
             axs[row].text(
@@ -1121,7 +895,6 @@ class PPPMarkVisualizationHook(Hook):
             lam_vis = pred_lambda_mass ** gamma
 
             im1 = axs[row].imshow(lam_vis, cmap="hot", aspect="auto")
-            # axs[row].set_ylabel("λ^γ", fontsize=13)
             axs[row].axis("off")
 
             axs[row].text(
@@ -1149,7 +922,6 @@ class PPPMarkVisualizationHook(Hook):
                     vmax=self.depth_vmax,
                     aspect="auto",
                 )
-                # axs[row].set_ylabel("Pred depth", fontsize=13)
                 axs[row].axis("off")
                 _cbar_under(fig, axs[row], im2)
                 _ylabel(axs[row], "Pred depth [m]")
@@ -1167,10 +939,9 @@ class PPPMarkVisualizationHook(Hook):
                     vmax=self.vel_vmax,
                     aspect="auto",
                 )
-                # axs[row].set_ylabel("Pred vel", fontsize=13)
                 axs[row].axis("off")
                 _cbar_under(fig, axs[row], im3)
-                _ylabel(axs[row], "Pred vel [m/s]")
+                _ylabel(axs[row], pred_velocity_label)
             else:
                 axs[row].axis("off")
 

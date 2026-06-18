@@ -75,12 +75,13 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
     """PPP decode head for ViT patch features using two-stage patch-to-pixel rearrangement.
 
     This variant keeps the original disparity-depth behavior by default, but
-    adds a selectable depth loss and optional local 3x3 residual refinement.
+    adds a selectable depth loss, selectable velocity target, and optional local
+    3x3 residual refinement.
 
     Output channels:
         channel 0: intensity logits
         channel 1: depth mark, interpreted as log-depth
-        channel 2: velocity mark, transformed with cube in the loss
+        channel 2: velocity mark
 
     Supported depth losses:
         depth_loss_type="disparity":
@@ -91,6 +92,17 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
 
         depth_loss_type="metric":
             L_depth = |exp(raw_depth) - depth_gt|
+
+    Supported velocity modes:
+        velocity_mode="signed":
+            old behavior, signed wrapped LOS velocity
+            pred_vel = raw_vel^3
+            target_vel = gt_vel
+
+        velocity_mode="absolute":
+            absolute wrapped LOS velocity magnitude
+            pred_vel = abs(raw_vel)
+            target_vel = abs(gt_vel)
 
     Optional local refinement:
         local_refine_blocks=0:
@@ -103,7 +115,7 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
     Expects GT in data_samples[i].gt_sem_seg.data with shape (3, H, W):
         channel 0: intensity mask {0, 1}
         channel 1: depth in meters
-        channel 2: velocity
+        channel 2: signed wrapped LOS velocity
     """
 
     valid_depth_loss_types = {"disparity", "log", "metric"}
@@ -118,6 +130,7 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
         depth_weight: float = 1.0,
         velocity_weight: float = 1.0,
         depth_loss_type: str = "disparity",
+        velocity_mode: str = "signed",
         depth_disparity_eps: float = 1e-3,
         depth_disparity_max: float = 1.0,
         local_refine_blocks: int = 0,
@@ -188,6 +201,12 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
             raise ValueError(
                 f"depth_loss_type must be one of {sorted(self.valid_depth_loss_types)}, "
                 f"got {depth_loss_type!r}."
+            )
+
+        self.velocity_mode = str(velocity_mode).lower()
+        if self.velocity_mode not in {"signed", "absolute"}:
+            raise ValueError(
+                f"velocity_mode must be 'signed' or 'absolute', got {velocity_mode!r}."
             )
 
         self.depth_disparity_eps = float(depth_disparity_eps)
@@ -275,9 +294,7 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
     def forward(self, inputs):
         x = self._transform_inputs(inputs)
 
-        # New optional local refinement on the patch feature grid.
-        # With local_refine_blocks=0, this is nn.Identity() and therefore keeps
-        # the old behavior.
+        # With local_refine_blocks=0, this is nn.Identity() and keeps old behavior.
         x = self.local_refine(x)
 
         pixel_features = self.patch_proj(x)
@@ -370,7 +387,14 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
         raw_depth = preds[:, 1]
         raw_vel = preds[:, 2]
 
-        pred_vel = raw_vel ** 3
+        if self.velocity_mode == "signed":
+            pred_vel = raw_vel ** 3
+            target_vel = gt_vel
+        elif self.velocity_mode == "absolute":
+            pred_vel = torch.abs(raw_vel)
+            target_vel = torch.abs(gt_vel)
+        else:
+            raise RuntimeError(f"Unsupported velocity_mode={self.velocity_mode!r}")
 
         loss_ppp = self.loss_ppp(pred_int, gt_int)
 
@@ -384,7 +408,7 @@ class PPPMarkViTPatchRearrangeDisparityDepthHead(BaseDecodeHead):
         ).mean()
 
         loss_velocity = (
-            (F.l1_loss(pred_vel, gt_vel, reduction="none") * mask).sum(dim=(1, 2))
+            (F.l1_loss(pred_vel, target_vel, reduction="none") * mask).sum(dim=(1, 2))
             / nbr_points
         ).mean()
 
