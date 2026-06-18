@@ -23,6 +23,13 @@ dinov3_LoRA_V3_disparity:/e/scratch/nxtaim-1/huber7/data/260617_dinov3_LoRA_V3/9
 unet_50k:/e/scratch/nxtaim-1/huber7/work_dirs/858912_ppp_unet_50k/20260614_011350/vis_data/"\
     --port=12355 serve
     ;;
+    3)
+    tensorboard --logdir_spec="\
+dinov3_LoRA_V3_fullMark_vel10:/e/scratch/nxtaim-1/huber7/work_dirs/923580_ppp_dinov3_LoRA_V3_fullMark_init_test_10/20260618_221959/vis_data/,\
+dinov3_LoRA_V3_fullMark_vel100:/e/scratch/nxtaim-1/huber7/work_dirs/923568_ppp_dinov3_LoRA_V3_fullMark_init_test_100/20260618_221127/vis_data/,\
+dinov3_LoRA_V3_fullMark_absVel10:/e/scratch/nxtaim-1/huber7/work_dirs/923623_ppp_dinov3_LoRA_V3_fullMarkAbsVel_init_test/20260618_225217/vis_data/"\
+    --port=12355 serve
+    ;;
   *)
     echo "Invalid option: $choice"
     echo "Usage: $0 [0-9]"

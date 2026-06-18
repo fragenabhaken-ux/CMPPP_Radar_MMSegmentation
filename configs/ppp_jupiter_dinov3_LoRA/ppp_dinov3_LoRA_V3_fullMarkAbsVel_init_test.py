@@ -96,8 +96,8 @@ model = dict(
         local_refine_norm='gn',
 
         ppp_weight=1.0,
-        depth_weight=10.0,
-        velocity_weight=1.0,
+        depth_weight=100.0,
+        velocity_weight=10.0,
         velocity_mode='absolute',
         
         depth_loss_type='log',
@@ -128,9 +128,9 @@ DATA_PATH_VAL = os.environ.get(
 
 dataset_type = 'Sys100PPPHeatmapDataset'
 
-batch_size_train = 10
-batch_size_test = 10
-batch_size_val = 10
+batch_size_train = 14
+batch_size_test = 14
+batch_size_val = 14
 
 train_dataloader = dict(
     batch_size=batch_size_train,
@@ -355,6 +355,8 @@ custom_hooks = [
         sim_block_size=8,
         sim_block_placement='weighted',
         point_size=28,
+        vel_vmin=0.0,
+        vel_vmax=15.0,
     ),
     dict(type='PrefetchStatsHook')
 ]
