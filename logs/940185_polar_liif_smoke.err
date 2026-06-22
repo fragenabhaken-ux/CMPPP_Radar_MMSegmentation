@@ -1,0 +1,36 @@
+
+  [01;33mThis stage is deprecated. Please consider moving to a new stage (2026
+or newer)[0m
+
+/e/project1/nxtaim-1/huber7/env_mmseg_jupiter/lib/python3.12/site-packages/mmengine/optim/optimizer/zero_optimizer.py:11: DeprecationWarning: `TorchScript` support for functional optimizers is deprecated and will be removed in a future PyTorch release. Consider using the `torch.compile` optimizer instead.
+  from torch.distributed.optim import \
+/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/mmseg/models/decode_heads/decode_head.py:136: UserWarning: threshold is not defined for binary, and defaultsto 0.3
+  warnings.warn('threshold is not defined for binary, and defaults'
+/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/mmseg/models/losses/cross_entropy_loss.py:250: UserWarning: Default ``avg_non_ignore`` is False, if you would like to ignore the certain label and average loss over non-ignore labels, which is the same with PyTorch official cross_entropy, set ``avg_non_ignore=True``.
+  warnings.warn(
+Traceback (most recent call last):
+  File "/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/tools/train.py", line 104, in <module>
+    main()
+  File "/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/tools/train.py", line 100, in main
+    runner.train()
+  File "/e/project1/nxtaim-1/huber7/env_mmseg_jupiter/lib/python3.12/site-packages/mmengine/runner/runner.py", line 1777, in train
+    model = self.train_loop.run()  # type: ignore
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "/e/project1/nxtaim-1/huber7/env_mmseg_jupiter/lib/python3.12/site-packages/mmengine/runner/loops.py", line 289, in run
+    self.run_iter(data_batch)
+  File "/e/project1/nxtaim-1/huber7/env_mmseg_jupiter/lib/python3.12/site-packages/mmengine/runner/loops.py", line 313, in run_iter
+    outputs = self.runner.model.train_step(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/e/project1/nxtaim-1/huber7/env_mmseg_jupiter/lib/python3.12/site-packages/mmengine/model/base_model/base_model.py", line 113, in train_step
+    data = self.data_preprocessor(data, True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/e/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/e/software/default/stages/2025/software/PyTorch/2.5.1-gcccoreflexiblas-13.3.0-3.4.4/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/mmseg/models/data_preprocessor.py", line 149, in forward
+    assert gt.shape[0] == 3, f"Expected 3 GT channels, got {gt.shape[0]}"
+           ^^^^^^^^^^^^^^^^
+AssertionError: Expected 3 GT channels, got 1

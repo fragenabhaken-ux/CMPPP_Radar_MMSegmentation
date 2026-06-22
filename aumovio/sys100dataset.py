@@ -38,6 +38,8 @@ from .multifiledataset import MultiFileDataset
 from .videodataset import extract_frame_via_cv2, extract_frame_via_pyav
 # from src.aumovio.fisheye import Undistorter, PinholeCamera, FisheyeCamera
 from aumovio.fisheye import Undistorter, PinholeCamera, FisheyeCamera
+# for BEV modelling, 260619
+from .sys100_radar_polar import radar_grid_to_polar_points
 
 
 
@@ -402,6 +404,9 @@ class Sys100Dataset(MultiFileDataset):
         threshold_cluster_present = 0.1,
         overlay_distortion_grid: bool = False,
         return_metadata: bool = False,
+        return_polar_points: bool = False, # for BEV modelling, 260619
+        debug_polar_origin: bool = False,
+        debug_polar_origin_every: int = 500,
         gamma_adapt: bool = False,
         fovs = (110, 48.4),
         look_for_old_radar = False,
@@ -418,6 +423,10 @@ class Sys100Dataset(MultiFileDataset):
         self.threshold_cluster_present = threshold_cluster_present
         self.gamma_adapt = gamma_adapt
         self.return_metadata = return_metadata
+        self.return_polar_points = return_polar_points # for BEV modelling, 260619
+        self.debug_polar_origin = debug_polar_origin
+        self.debug_polar_origin_every = debug_polar_origin_every
+
         self.overlay_distortion_grid = overlay_distortion_grid
         self.look_for_old_radar = look_for_old_radar
         self.toy_radar_data = toy_radar_data
@@ -496,6 +505,9 @@ class Sys100Dataset(MultiFileDataset):
         plot_radar: bool | None = None,
         gamma_adapt: bool | None = None,
         return_metadata: bool | None = None,
+        return_polar_points: bool | None = None,
+        debug_polar_origin: bool | None = None,
+        debug_polar_origin_every: int | None = None,
     ) -> None:
         super().set_parameters(max_files=max_files, 
                                subsampling_step=subsampling_step, 
@@ -522,6 +534,12 @@ class Sys100Dataset(MultiFileDataset):
             self.gamma_adapt = gamma_adapt
         if return_metadata is not None:
             self.return_metadata = return_metadata
+        if return_polar_points is not None:
+            self.return_polar_points = return_polar_points
+        if debug_polar_origin is not None:
+            self.debug_polar_origin = debug_polar_origin
+        if debug_polar_origin_every is not None:
+            self.debug_polar_origin_every = debug_polar_origin_every
     
     def _get_proper_video_path(self, video_path: str , file_path: str ) -> str:
         """
@@ -580,6 +598,44 @@ class Sys100Dataset(MultiFileDataset):
 
             return safe_valid, None
     
+    def _debug_print_polar_origin_stats(
+        self,
+        polar_radar_points: dict,
+        sample_idx: int,
+    ) -> None:
+        """Print theta_from_xy vs azimuth1 consistency statistics.
+
+        This checks whether the polar angle derived from decoded x/y coordinates
+        agrees with the stored radar azimuth channel.
+
+        Uses:
+            radar_points_meta[:, 5] = theta_from_xy - azimuth1,
+            wrapped to [-pi, pi).
+        """
+        meta = polar_radar_points.get("radar_points_meta", None)
+        if meta is None or meta.shape[0] == 0:
+            print(f"[polar-origin-debug] sample={sample_idx}: no radar points")
+            return
+
+        diffs = meta[:, 5].astype(np.float32)
+
+        # circular statistics
+        z = np.exp(1j * diffs)
+        circ_mean = float(np.angle(np.mean(z)))
+        r = float(np.abs(np.mean(z)))
+        circ_std = float(np.sqrt(-2.0 * np.log(np.clip(r, 1e-12, 1.0))))
+
+        print(
+            "[polar-origin-debug] "
+            f"sample={sample_idx} "
+            f"n={diffs.shape[0]} "
+            f"mean={circ_mean:+.5f} rad "
+            f"std={circ_std:.5f} rad "
+            f"median={np.median(diffs):+.5f} rad "
+            f"p05={np.percentile(diffs, 5):+.5f} rad "
+            f"p95={np.percentile(diffs, 95):+.5f} rad"
+        )
+
     def _getitem(
         self,
         file_path: str,
@@ -629,7 +685,7 @@ class Sys100Dataset(MultiFileDataset):
         img_time = 0
         undistort_time = 0
         gamma_time = 0
-        
+
         # Extract choice IMU metadata
         try:
             vehdyn = row_data['VehDyn']
@@ -644,10 +700,31 @@ class Sys100Dataset(MultiFileDataset):
         radar_data = row_data['RadarFrame']
         dopplerRange = row_data['RadarClusterHead']['f_AmbFreeDopplerRange']
         SensorMounting = VehPar['sensorMounting'] # type: ignore[attr-defined]
+
         if SensorMounting['Orientation'] == 1:
-            radar_data = radar_data[:,::-1,:]
-            radar_data[:,:,1] *= -1 # the lateral offset also need to revert their direction
+            radar_data = radar_data[:, ::-1, :]
+            radar_data[:, :, 1] *= -1 # the lateral offset also need to revert their direction
             radar_data = np.ascontiguousarray(radar_data)
+
+        polar_radar_points = None
+        if self.return_polar_points or self.debug_polar_origin:
+            polar_radar_points = radar_grid_to_polar_points(
+                radar_data,
+                doppler_range=dopplerRange,
+                thres=self.threshold_cluster_present,
+            )
+
+        if (
+            self.debug_polar_origin
+            and polar_radar_points is not None
+            and self.debug_polar_origin_every > 0
+            and sample_idx % self.debug_polar_origin_every == 0
+        ):
+            self._debug_print_polar_origin_stats(
+                polar_radar_points=polar_radar_points,
+                sample_idx=sample_idx,
+            )
+
         radar_frame = self.radar_transform(radar_data)
 
 
@@ -799,6 +876,16 @@ class Sys100Dataset(MultiFileDataset):
             out_dict['VehPar'] = VehPar
         if old_radar_frame is not None:
             out_dict['old_radar'] = old_radar_frame
+        if polar_radar_points is not None and self.return_polar_points:
+            out_dict['radar_points_polar'] = torch.from_numpy(
+                polar_radar_points['radar_points_polar']
+            ).to(torch.float32)
+            out_dict['radar_points_xy'] = torch.from_numpy(
+                polar_radar_points['radar_points_xy']
+            ).to(torch.float32)
+            out_dict['radar_points_meta'] = torch.from_numpy(
+                polar_radar_points['radar_points_meta']
+            ).to(torch.float32)
         
         return out_dict
     

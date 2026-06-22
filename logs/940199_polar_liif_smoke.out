@@ -1,0 +1,371 @@
+Setting vars
+SCRIPT_DIR       = /e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/jsc_jupiter
+REPO_DIR         = /e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp
+USER_PROJECT_DIR = /e/project1/nxtaim-1/huber7
+ENV_NAME         = env_mmseg_jupiter
+ENV_DIR          = /e/project1/nxtaim-1/huber7/env_mmseg_jupiter
+Activated env_mmseg_jupiter at /e/project1/nxtaim-1/huber7/env_mmseg_jupiter
+/e/project1/nxtaim-1/huber7/env_mmseg_jupiter/bin/python
+Python 3.12.3
+06/21 21:43:03 - mmengine - INFO - 
+------------------------------------------------------------
+System environment:
+    sys.platform: linux
+    Python: 3.12.3 (main, Jul 22 2025, 17:32:49) [GCC 13.3.0]
+    CUDA available: True
+    MUSA available: False
+    numpy_random_seed: 503826137
+    GPU 0,1,2,3: NVIDIA GH200 120GB
+    CUDA_HOME: /e/software/default/stages/2025/software/CUDA/12
+    NVCC: Cuda compilation tools, release 12.6, V12.6.20
+    GCC: gcc (GCC) 13.3.0
+    PyTorch: 2.5.1
+    PyTorch compiling details: PyTorch built with:
+  - GCC 11.2
+  - C++ Version: 201703
+  - Intel(R) MKL-DNN v3.5.3 (Git Hash 66f0cb9eb66affd2da3bf5f8d897376f04aae6af)
+  - OpenMP 201511 (a.k.a. OpenMP 4.5)
+  - LAPACK is enabled (usually provided by MKL)
+  - NNPACK is enabled
+  - CPU capability usage: NO AVX
+  - CUDA Runtime 12.6
+  - Built with CUDA Runtime 12.4
+  - NVCC architecture flags: -gencode;arch=compute_50,code=sm_50;-gencode;arch=compute_80,code=sm_80;-gencode;arch=compute_86,code=sm_86;-gencode;arch=compute_89,code=sm_89;-gencode;arch=compute_90,code=sm_90;-gencode;arch=compute_90a,code=sm_90a
+  - CuDNN 90.1
+  - Build settings: BLAS_INFO=nvpl, BUILD_TYPE=Release, CUDA_VERSION=12.4, CUDNN_VERSION=9.1.0, CXX_COMPILER=/opt/rh/gcc-toolset-11/root/usr/bin/c++, CXX_FLAGS=-ffunction-sections -fdata-sections -D_GLIBCXX_USE_CXX11_ABI=1 -fvisibility-inlines-hidden -DUSE_PTHREADPOOL -DNDEBUG -DUSE_KINETO -DLIBKINETO_NOROCTRACER -DLIBKINETO_NOXPUPTI=ON -DUSE_PYTORCH_QNNPACK -DUSE_XNNPACK -DSYMBOLICATE_MOBILE_DEBUG_HANDLE -O2 -fPIC -Wall -Wextra -Werror=return-type -Werror=non-virtual-dtor -Werror=range-loop-construct -Werror=bool-operation -Wnarrowing -Wno-missing-field-initializers -Wno-type-limits -Wno-array-bounds -Wno-unknown-pragmas -Wno-unused-parameter -Wno-strict-overflow -Wno-strict-aliasing -Wno-stringop-overflow -Wsuggest-override -Wno-psabi -Wno-error=old-style-cast -Wno-missing-braces -fdiagnostics-color=always -faligned-new -Wno-unused-but-set-variable -Wno-maybe-uninitialized -fno-math-errno -fno-trapping-math -Werror=format -Wno-stringop-overflow, LAPACK_INFO=nvpl, TORCH_VERSION=2.5.1, USE_CUDA=ON, USE_CUDNN=ON, USE_CUSPARSELT=ON, USE_EXCEPTION_PTR=1, USE_GFLAGS=OFF, USE_GLOG=OFF, USE_GLOO=ON, USE_MKLDNN=ON, USE_MPI=OFF, USE_NCCL=ON, USE_NNPACK=ON, USE_OPENMP=ON, USE_ROCM=OFF, USE_ROCM_KERNEL_ASSERT=OFF, 
+
+    TorchVision: 0.20.1
+    OpenCV: 4.10.0
+    MMEngine: 0.10.7
+
+Runtime environment:
+    cudnn_benchmark: True
+    mp_cfg: {'mp_start_method': 'fork', 'opencv_num_threads': 0}
+    dist_cfg: {'backend': 'nccl'}
+    seed: 503826137
+    Distributed launcher: none
+    Distributed training: False
+    GPU number: 1
+------------------------------------------------------------
+
+06/21 21:43:03 - mmengine - INFO - Config:
+DATA_PATH_TRAIN = '/e/scratch/nxtaim-1/propietary/aumovio/SYS100_Dataset.csv'
+batch_size_train = 2
+crop_size = (
+    544,
+    1792,
+)
+custom_hooks = []
+custom_imports = dict(
+    allow_failed_imports=False,
+    imports=[
+        'mmseg.models.backbones.lora_timm_multilayer_backbone',
+        'mmseg.models.necks.dino_rope_transformer_neck',
+        'mmseg.models.decode_heads.ppp_polar_liif_ppp_head',
+        'mmseg.models.losses.polar_point_ppp_loss',
+        'mmseg.datasets.sys100_ppp_heatmap_dataset',
+        'mmseg.datasets.transforms.sys100_polar_transforms',
+    ])
+data_preprocessor = dict(
+    mean=[
+        0.0,
+        0.0,
+        0.0,
+    ],
+    pad_val=0,
+    seg_pad_val=0,
+    size=(
+        544,
+        1792,
+    ),
+    std=[
+        1.0,
+        1.0,
+        1.0,
+    ],
+    type='SegDataPreProcessor')
+data_rbg_mean = [
+    0.0,
+    0.0,
+    0.0,
+]
+data_rbg_std = [
+    1.0,
+    1.0,
+    1.0,
+]
+dataset_type = 'Sys100PPPHeatmapDataset'
+default_hooks = dict(
+    checkpoint=dict(
+        by_epoch=False, interval=1, max_keep_ckpts=1, type='CheckpointHook'),
+    logger=dict(interval=1, log_metric_by_epoch=False, type='LoggerHook'),
+    param_scheduler=dict(type='ParamSchedulerHook'),
+    sampler_seed=dict(type='DistSamplerSeedHook'),
+    timer=dict(type='IterTimerHook'))
+default_scope = 'mmseg'
+env_cfg = dict(
+    cudnn_benchmark=True,
+    dist_cfg=dict(backend='nccl'),
+    mp_cfg=dict(mp_start_method='fork', opencv_num_threads=0))
+fovs_wo_fisheyeart = (
+    105,
+    48.4,
+)
+launcher = 'none'
+load_from = None
+log_level = 'INFO'
+log_processor = dict(by_epoch=False)
+model = dict(
+    auxiliary_head=None,
+    backbone=dict(
+        apply_output_norm=True,
+        checkpoint_path=
+        '/e/project1/nxtaim-1/huber7/pretrained/vit_small_patch16_dinov3.lvd1689m/model.safetensors',
+        frozen_base=True,
+        in_channels=3,
+        in_feature_channels=384,
+        lora_alpha=32.0,
+        lora_dropout=0.0,
+        lora_r=16,
+        model_name='vit_small_patch16_dinov3',
+        out_channels=384,
+        out_indices=(
+            2,
+            5,
+            8,
+            11,
+        ),
+        patch_size=16,
+        per_layer_out_channels=128,
+        pretrained=False,
+        target_modules=(
+            'attn.qkv',
+            'attn.proj',
+            'mlp.fc1',
+            'mlp.fc2',
+        ),
+        type='LoRAMultiLayerTIMMBackbone',
+        use_fuse_conv=True),
+    data_preprocessor=dict(
+        mean=[
+            0.0,
+            0.0,
+            0.0,
+        ],
+        pad_val=0,
+        seg_pad_val=0,
+        size=(
+            544,
+            1792,
+        ),
+        std=[
+            1.0,
+            1.0,
+            1.0,
+        ],
+        type='SegDataPreProcessor'),
+    decode_head=dict(
+        channels=64,
+        in_channels=384,
+        in_index=0,
+        liif_hidden_channels=128,
+        liif_num_layers=3,
+        loss_ppp=dict(
+            grid_shape=(
+                64,
+                64,
+            ),
+            normalize_by_gt_count=True,
+            r_max=104.0,
+            r_min=0.0,
+            theta_max=1.5707963267948966,
+            theta_min=-1.5707963267948966,
+            type='PolarPointPPPLoss'),
+        num_classes=1,
+        num_latent_convs=2,
+        polar_grid_shape=(
+            64,
+            64,
+        ),
+        ppp_weight=1.0,
+        r_max=104.0,
+        r_min=0.0,
+        theta_max=1.5707963267948966,
+        theta_min=-1.5707963267948966,
+        type='PolarLIIFPPPHead',
+        velocity_mode='signed',
+        velocity_weight=0.0),
+    neck=dict(
+        attn_dropout=0.0,
+        embed_dims=384,
+        in_channels=384,
+        in_index=0,
+        mlp_ratio=4.0,
+        norm_cfg=dict(type='LN'),
+        num_heads=6,
+        num_layers=12,
+        type='DINORoPETransformerNeck'),
+    test_cfg=dict(mode='whole'),
+    train_cfg=dict(),
+    type='EncoderDecoder')
+optim_wrapper = dict(
+    clip_grad=dict(max_norm=1.0, norm_type=2),
+    optimizer=dict(
+        betas=(
+            0.9,
+            0.999,
+        ), lr=0.0001, type='AdamW', weight_decay=0.01),
+    type='OptimWrapper')
+out_img_size = (
+    544,
+    1792,
+)
+param_scheduler = [
+    dict(
+        begin=0,
+        by_epoch=False,
+        end=1,
+        end_factor=1.0,
+        start_factor=0.0001,
+        type='LinearLR'),
+]
+resume = False
+test_cfg = None
+test_dataloader = None
+test_evaluator = None
+train_cfg = dict(max_iters=1, type='IterBasedTrainLoop', val_interval=1000000)
+train_dataloader = dict(
+    batch_size=2,
+    dataset=dict(
+        fovs=(
+            105,
+            48.4,
+        ),
+        pipeline=[
+            dict(
+                fovs=(
+                    105,
+                    48.4,
+                ),
+                out_img_size=(
+                    544,
+                    1792,
+                ),
+                prefetch=False,
+                source_is_summary_csv=True,
+                strict=False,
+                sys100_root=
+                '/e/scratch/nxtaim-1/propietary/aumovio/SYS100_Dataset.csv',
+                type='LoadSys100PolarSample',
+                undistort=True),
+            dict(direction='horizontal', prob=0.5, type='PPPPolarRandomFlip'),
+            dict(type='PPPPackPolarInputs'),
+        ],
+        source_is_summary_csv=True,
+        sys100_root='/e/scratch/nxtaim-1/propietary/aumovio/SYS100_Dataset.csv',
+        type='Sys100PPPHeatmapDataset'),
+    num_workers=0,
+    pin_memory=False,
+    sampler=dict(shuffle=True, type='InfiniteSampler'))
+tta_model = dict(type='SegTTAModel')
+val_cfg = None
+val_dataloader = None
+val_evaluator = None
+vis_backends = [
+    dict(type='LocalVisBackend'),
+]
+visualizer = dict(
+    name='visualizer',
+    type='Visualizer',
+    vis_backends=[
+        dict(type='LocalVisBackend'),
+    ])
+work_dir = '/e/scratch/nxtaim-1/huber7/work_dirs/polar_liif_loader_test'
+
+06/21 21:43:04 - mmengine - INFO - Distributed training is not used, all SyncBatchNorm (SyncBN) layers in the model will be automatically reverted to BatchNormXd layers if they are used.
+06/21 21:43:04 - mmengine - INFO - Hooks will be executed in the following order:
+before_run:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+before_train:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+before_train_epoch:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(NORMAL      ) DistSamplerSeedHook                
+ -------------------- 
+before_train_iter:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+after_train_iter:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(BELOW_NORMAL) LoggerHook                         
+(LOW         ) ParamSchedulerHook                 
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+after_train_epoch:
+(NORMAL      ) IterTimerHook                      
+(LOW         ) ParamSchedulerHook                 
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+before_val:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+before_val_epoch:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+before_val_iter:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+after_val_iter:
+(NORMAL      ) IterTimerHook                      
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+after_val_epoch:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(BELOW_NORMAL) LoggerHook                         
+(LOW         ) ParamSchedulerHook                 
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+after_val:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+after_train:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+before_test:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+before_test_epoch:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+before_test_iter:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+after_test_iter:
+(NORMAL      ) IterTimerHook                      
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+after_test_epoch:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+after_test:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+after_run:
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+06/21 21:43:05 - mmengine - WARNING - Dataset Sys100PPPHeatmapDataset has no metainfo. ``dataset_meta`` in visualizer will be None.
+06/21 21:43:05 - mmengine - WARNING - "FileClient" will be deprecated in future. Please use io functions in https://mmengine.readthedocs.io/en/latest/api/fileio.html#file-io
+06/21 21:43:05 - mmengine - WARNING - "HardDiskBackend" is the alias of "LocalBackend" and the former will be deprecated in future.
+06/21 21:43:05 - mmengine - INFO - Checkpoints will be saved to /e/scratch/nxtaim-1/huber7/work_dirs/polar_liif_loader_test.

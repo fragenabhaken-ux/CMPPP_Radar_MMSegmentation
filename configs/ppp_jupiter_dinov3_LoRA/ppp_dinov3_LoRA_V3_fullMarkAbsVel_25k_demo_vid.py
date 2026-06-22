@@ -97,7 +97,7 @@ model = dict(
 
         ppp_weight=1.0,
         depth_weight=100.0,
-        velocity_weight=1.0,
+        velocity_weight=10.0,
         velocity_mode='absolute',
 
         depth_loss_type='log',
