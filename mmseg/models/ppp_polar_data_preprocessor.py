@@ -1,122 +1,82 @@
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 import torch
-import torch.nn.functional as F
-
 from mmengine.model import BaseDataPreprocessor
 from mmseg.registry import MODELS
 
 
 @MODELS.register_module()
 class PolarPPPDataPreProcessor(BaseDataPreprocessor):
-    """Preprocess images for polar point-list PPP training.
+    """Batch images without forcing variable-length radar points into masks.
 
-    Unlike SegDataPreProcessor, this class does not access gt_sem_seg.
-    It keeps variable-length gt_radar_points inside each data sample.
+    ``data_samples`` remain a list of ``SegDataSample`` objects. Each sample
+    contains ``gt_radar_points`` with variable-length polar/xy/meta tensors.
     """
 
     def __init__(
         self,
         mean: Sequence[float] | None = None,
         std: Sequence[float] | None = None,
-        size: tuple[int, int] | None = None,
-        size_divisor: int | None = None,
-        pad_val: float = 0.0,
         bgr_to_rgb: bool = False,
-        rgb_to_bgr: bool = False,
+        pad_val: float = 0.0,
+        size: tuple[int, int] | None = None,
+        non_blocking: bool = False,
     ) -> None:
-        super().__init__()
-
-        if bgr_to_rgb and rgb_to_bgr:
-            raise ValueError("Only one channel conversion may be enabled.")
+        super().__init__(non_blocking=non_blocking)
 
         if (mean is None) != (std is None):
-            raise ValueError("mean and std must either both be set or both be None.")
+            raise ValueError('mean and std must either both be set or both be None.')
 
-        self.size = tuple(size) if size is not None else None
-        self.size_divisor = size_divisor
+        self.bgr_to_rgb = bool(bgr_to_rgb)
         self.pad_val = float(pad_val)
-        self.channel_conversion = bgr_to_rgb or rgb_to_bgr
+        self.size = None if size is None else tuple(int(v) for v in size)
 
-        if mean is not None:
-            self.register_buffer(
-                "mean",
-                torch.tensor(mean, dtype=torch.float32).view(-1, 1, 1),
-                persistent=False,
-            )
-            self.register_buffer(
-                "std",
-                torch.tensor(std, dtype=torch.float32).view(-1, 1, 1),
-                persistent=False,
-            )
+        if mean is None:
+            self.register_buffer('mean', torch.empty(0), persistent=False)
+            self.register_buffer('std', torch.empty(0), persistent=False)
         else:
-            self.mean = None
-            self.std = None
-
-    def _target_shape(self, inputs: list[torch.Tensor]) -> tuple[int, int]:
-        if self.size is not None:
-            return self.size
-
-        h = max(x.shape[-2] for x in inputs)
-        w = max(x.shape[-1] for x in inputs)
-
-        if self.size_divisor is not None:
-            d = self.size_divisor
-            h = (h + d - 1) // d * d
-            w = (w + d - 1) // d * d
-
-        return h, w
+            mean_t = torch.tensor(mean, dtype=torch.float32).view(-1, 1, 1)
+            std_t = torch.tensor(std, dtype=torch.float32).view(-1, 1, 1)
+            if torch.any(std_t == 0):
+                raise ValueError('std must not contain zero.')
+            self.register_buffer('mean', mean_t, persistent=False)
+            self.register_buffer('std', std_t, persistent=False)
 
     def forward(self, data: dict, training: bool = False) -> dict:
         data = self.cast_data(data)
+        inputs = data['inputs']
 
-        inputs = data["inputs"]
-        data_samples = data.get("data_samples")
+        if isinstance(inputs, (list, tuple)):
+            if not inputs:
+                raise ValueError('Received an empty input batch.')
+            inputs = torch.stack(list(inputs), dim=0)
+        elif not isinstance(inputs, torch.Tensor):
+            raise TypeError(f'inputs must be a Tensor or sequence of Tensors, got {type(inputs)}.')
 
-        if torch.is_tensor(inputs):
-            inputs = list(inputs)
+        if inputs.ndim != 4:
+            raise ValueError(
+                'Expected batched inputs with shape [B, C, H, W], '
+                f'got {tuple(inputs.shape)}.'
+            )
 
-        target_h, target_w = self._target_shape(inputs)
-        processed_inputs = []
+        inputs = inputs.float()
+        if self.bgr_to_rgb:
+            if inputs.shape[1] != 3:
+                raise ValueError('bgr_to_rgb requires three image channels.')
+            inputs = inputs[:, [2, 1, 0], :, :]
 
-        for img in inputs:
-            img = img.float()
+        if self.mean.numel() > 0:
+            inputs = (inputs - self.mean.to(inputs)) / self.std.to(inputs)
 
-            if self.channel_conversion:
-                img = img[[2, 1, 0], ...]
-
-            if self.mean is not None:
-                img = (img - self.mean) / self.std
-
-            h, w = img.shape[-2:]
-            if h > target_h or w > target_w:
-                raise ValueError(
-                    f"Input shape {(h, w)} exceeds target shape "
-                    f"{(target_h, target_w)}."
-                )
-
-            pad_h = target_h - h
-            pad_w = target_w - w
-
-            if pad_h > 0 or pad_w > 0:
-                img = F.pad(img, (0, pad_w, 0, pad_h), value=self.pad_val)
-
-            processed_inputs.append(img)
-
-        inputs = torch.stack(processed_inputs, dim=0)
-
-        if data_samples is not None:
-            for sample, original_img in zip(data_samples, processed_inputs):
-                sample.set_metainfo(
-                    dict(
-                        batch_input_shape=(target_h, target_w),
-                        pad_shape=(target_h, target_w),
-                    )
-                )
+        if self.size is not None and tuple(inputs.shape[-2:]) != self.size:
+            raise ValueError(
+                'All inputs must already have the configured fixed size. '
+                f'Got {tuple(inputs.shape[-2:])}, expected {self.size}.'
+            )
 
         return dict(
             inputs=inputs,
-            data_samples=data_samples,
+            data_samples=data.get('data_samples', None),
         )

@@ -94,7 +94,8 @@ paths = [
     # ("/p/scratch/nxtaim-1/huber7/work_dirs/13939976_ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_LRRangeTest/20260606_015237/20260606_015237.log", "DINOv3, V2"),
     # ("/e/scratch/nxtaim-1/huber7/work_dirs/858748_ppp_unet_5k_LRrangetest/20260613_213709/20260613_213709.log", "U-Net, Jupiter"),
     # ("/e/scratch/nxtaim-1/huber7/work_dirs/881695_ppp_dinov3_LoRA_V3_5k_LRrangetest/20260615_164049/20260615_164049.log", "Trafo V3, Jupiter"),
-    ("/e/scratch/nxtaim-1/huber7/work_dirs/939979_ppp_dinov3_LoRA_V3_fullMarkAbsVel_5k_LRrangetest/20260621_210435/20260621_210435.log", "Trafo V3 fullMarkAbsVel, Jupiter"),
+    # ("/e/scratch/nxtaim-1/huber7/work_dirs/939979_ppp_dinov3_LoRA_V3_fullMarkAbsVel_5k_LRrangetest/20260621_210435/20260621_210435.log", "Trafo V3 fullMarkAbsVel, Jupiter"),
+    ("/p/scratch/nxtaim-1/huber7/work_dirs/14061450_ppp_dinov3_LoRA_V3_polar_liif_LRrangetest/20260626_215900/20260626_215900.log", "Trafo V3 polar liif"),
 ]
 
 # plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_AdamW.png"
@@ -119,7 +120,8 @@ paths = [
 # plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_dinov3_big_LoRA_noCrop.png"
 # plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_dinov3_V2.png"
 # plot_file = "/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/jupiter_lr_range_plot_unet.png"
-plot_file = "/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/jupiter_lr_range_plot_trafo_v3_fullMark_AbsVel.png"
+# plot_file = "/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/jupiter_lr_range_plot_trafo_v3_fullMark_AbsVel.png"
+plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_trafo_v3_polar_liif.png"
 
 plt.figure(figsize=(10, 6))
 
@@ -131,17 +133,17 @@ for path, info in paths:
             print(f"WARNING: no training loss rows found in {path}")
             continue
 
-        df["loss_smooth"] = (
-            df["loss"]
-            .rolling(10, min_periods=10, center=True)
-            .mean()
-        )
+        # df["loss_smooth"] = (
+        #     df["loss"]
+        #     .rolling(10, min_periods=10, center=True)
+        #     .mean()
+        # )
 
         # --- smooth ---
         # df["loss_smooth"] = df["loss"].rolling(700, min_periods=10).mean()
         # df["loss_smooth"] = df["loss"].rolling(50, min_periods=10, center=False, win_type="gaussian").mean(std=10)
         # df["loss_smooth"] = df["loss"].rolling(10, min_periods=10, center=True, ).mean()
-        # df["loss_smooth"] = df["loss"].rolling(200, min_periods=10, center=True, ).mean()
+        df["loss_smooth"] = df["loss"].rolling(200, min_periods=10, center=True, ).mean()
         # df["loss_smooth"] = df["loss"].ewm(span=60, adjust=False).mean()
         
 
@@ -167,7 +169,7 @@ ax.xaxis.set_minor_locator(
 )
 ax.xaxis.set_minor_formatter(mticker.NullFormatter())
 
-plt.ylim(10, 400)
+plt.ylim(0.25, 1.5)
 
 plt.xlabel("Learning rate (log scale)")
 plt.ylabel("loss (PPP + depth)")

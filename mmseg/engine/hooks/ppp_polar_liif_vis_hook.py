@@ -253,7 +253,7 @@ class PPPPolarLIIFVisHook(Hook):
         img = self._denorm_img(img_tensor.detach().cpu().numpy())
 
         log_lam = grid_log_lambda.detach().float().cpu()
-        lam = torch.exp(log_lam.clamp(max=20.0)).numpy()
+        lam = torch.exp(log_lam).numpy()
 
         h_r, w_theta = lam.shape
         dr = (self.r_max - self.r_min) / h_r
@@ -274,12 +274,12 @@ class PPPPolarLIIFVisHook(Hook):
         frame_str = f"{int(frame):06d}" if frame is not None else "unknown_frame"
         gidx_str = f"{int(gidx):08d}" if gidx is not None else "unknown_idx"
 
+        r_edges, theta_edges = self._polar_edges(h_r, w_theta)
         x_mesh, y_mesh = self._polar_to_bev_mesh(h_r, w_theta)
 
         fig = Figure(figsize=self.figsize, dpi=self.dpi)
         FigureCanvasAgg(fig)
         axs = fig.subplots(3, 2)
-
         fig.subplots_adjust(
             left=0.06,
             right=0.98,
@@ -303,7 +303,6 @@ class PPPPolarLIIFVisHook(Hook):
         # 2. GT polar points
         ax = axs[0, 1]
         ax.set_title("GT polar points")
-
         if gt_count > 0:
             ax.scatter(
                 polar[:, 1],
@@ -313,9 +312,8 @@ class PPPPolarLIIFVisHook(Hook):
                 alpha=0.85,
                 edgecolors="none",
             )
-
         ax.set_xlim(self.theta_min, self.theta_max)
-        ax.set_ylim(self.r_min, self.r_max)
+        ax.set_ylim(self.r_max, self.r_min)
         ax.set_xlabel(r"$\theta$")
         ax.set_ylabel(r"$r$")
         ax.grid(True, alpha=0.25)
@@ -325,42 +323,29 @@ class PPPPolarLIIFVisHook(Hook):
         ax = axs[1, 0]
         im = ax.imshow(
             lam,
-            extent=[
-                self.theta_min,
-                self.theta_max,
-                self.r_min,
-                self.r_max,
-            ],
+            extent=[self.theta_min, self.theta_max, self.r_min, self.r_max],
             origin="lower",
             cmap="hot",
             aspect="auto",
         )
+        ax.invert_yaxis()
         ax.set_title(r"Predicted $\lambda(r,\theta)$")
         ax.set_xlabel(r"$\theta$")
         ax.set_ylabel(r"$r$")
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-        self._textbox(
-            ax,
-            f"E[N]={exp_count:.2f}\nGT={gt_count}\nΔ={exp_count - gt_count:+.2f}",
-        )
+        self._textbox(ax, f"E[N]={exp_count:.2f}\nGT={gt_count}\nΔ={exp_count - gt_count:+.2f}")
 
         # 4. Predicted cell mass
         ax = axs[1, 1]
         im = ax.imshow(
             np.power(cell_mass, self.gamma),
-            extent=[
-                self.theta_min,
-                self.theta_max,
-                self.r_min,
-                self.r_max,
-            ],
+            extent=[self.theta_min, self.theta_max, self.r_min, self.r_max],
             origin="lower",
             cmap="hot",
             aspect="auto",
         )
-        ax.set_title(
-            r"Cell mass$^\gamma$: $(\lambda\,\Delta r\,\Delta\theta)^\gamma$"
-        )
+        ax.invert_yaxis()
+        ax.set_title(r"Cell mass$^\gamma$: $(\lambda\,\Delta r\,\Delta\theta)^\gamma$")
         ax.set_xlabel(r"$\theta$")
         ax.set_ylabel(r"$r$")
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
@@ -369,7 +354,6 @@ class PPPPolarLIIFVisHook(Hook):
         # 5. GT BEV points
         ax = axs[2, 0]
         ax.set_title("GT BEV points")
-
         if xy.shape[0] > 0:
             ax.scatter(
                 xy[:, 1],
@@ -379,7 +363,6 @@ class PPPPolarLIIFVisHook(Hook):
                 alpha=0.85,
                 edgecolors="none",
             )
-
         ax.set_xlim(-self.r_max, self.r_max)
         ax.set_ylim(self.r_min, self.r_max)
         ax.set_aspect("equal", adjustable="box")
@@ -387,32 +370,24 @@ class PPPPolarLIIFVisHook(Hook):
         ax.set_ylabel("x forward [m]")
         ax.grid(True, alpha=0.25)
 
-        # 6. Predicted polar cell mass in BEV layout
+        # 6. Predicted intensity warped to BEV
         ax = axs[2, 1]
-        ax.set_title("Predicted polar cell mass in BEV layout")
-
+        ax.set_title("Predicted polar intensity warped to BEV")
         pcm = ax.pcolormesh(
             y_mesh,
             x_mesh,
-            np.power(cell_mass, self.gamma),
+            np.power(lam, self.gamma),
             shading="auto",
             cmap="hot",
         )
-
         ax.set_xlim(-self.r_max, self.r_max)
         ax.set_ylim(self.r_min, self.r_max)
         ax.set_aspect("equal", adjustable="box")
         ax.set_xlabel("y lateral [m]")
         ax.set_ylabel("x forward [m]")
         fig.colorbar(pcm, ax=ax, fraction=0.046, pad=0.04)
-        self._textbox(
-            ax,
-            f"$(\\lambda\\,\\Delta r\\,\\Delta\\theta)^\\gamma$, γ={self.gamma}",
-        )
+        self._textbox(ax, f"λ^γ, γ={self.gamma}")
 
-        tag = (
-            f"ppp_polar_liif_vis/{phase}/"
-            f"{video}_f{frame_str}_idx{gidx_str}_sample{sample_idx}"
-        )
+        tag = f"ppp_polar_liif_vis/{phase}/{video}_f{frame_str}_idx{gidx_str}_sample{sample_idx}"
         runner.visualizer.add_image(tag, fig_to_rgb(fig), step=step)
         fig.clear()

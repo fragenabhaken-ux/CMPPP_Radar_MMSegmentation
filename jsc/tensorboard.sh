@@ -21,7 +21,7 @@ unet_8nodes:/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/20260
     ;;
   2)
     tensorboard --logdir_spec="\
-unet_160k_8nodes:/p/data1/nxtaim/users/huber7/260428_unet_140k_8nodes/13767623_unet_160k_8nodes/20260427_013913/vis_data/" \
+dinov3_polar_BEV:/p/scratch/nxtaim-1/huber7/work_dirs/14053151_ppp_polar_liif_recovered/20260625_225815/vis_data/" \
     --port=12300 serve
     ;;
   3)
