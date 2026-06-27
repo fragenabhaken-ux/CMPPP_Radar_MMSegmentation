@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_BEV_heatmap
+#SBATCH --job-name=ppp_dinov3_LoRA_V3_polar_liif_overlayed_demo_vid
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=develbooster
 #SBATCH --nodes=1
@@ -98,9 +98,17 @@ echo "SLURM_NTASKS=${SLURM_NTASKS:-unset} SLURM_CPUS_PER_TASK=${SLURM_CPUS_PER_T
 
 # CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_wDepth.py
 # CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_BEV.py
-CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_BEV_heatmap.py
+# CONFIG=configs/ppp/ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_demo_vid_BEV_heatmap.py
 # CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13943679_ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_12k/iter_12000.pth
-CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13942624_ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_12k/best_ppp_optimal_score_iter_8000.pth
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/13942624_ppp_dinov3_LoRA_rope_big_neck_noCrop_V2_12k/best_ppp_optimal_score_iter_8000.pth
+
+# CONFIG=configs/ppp_dinov3_LoRA_recovered/ppp_dinov3_LoRA_V3_polar_liif_demo_vid.py
+# CONFIG=configs/ppp_dinov3_LoRA_recovered/ppp_dinov3_LoRA_V3_polar_liif_demo_vid_reproject.py
+CONFIG=configs/ppp_dinov3_LoRA_recovered/ppp_dinov3_LoRA_V3_polar_liif_overlayed_demo_vid.py
+CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/14064173_ppp_dinov3_LoRA_V3_polar_liif_12k/best_ppp_optimal_score_iter_12000.pth
+
+# CONFIG=configs/ppp_dinov3_LoRA_recovered/ppp_dinov3_LoRA_V3_polar_liif__wVel_demo_vid.py
+# CHECKPOINT=/p/scratch/nxtaim-1/huber7/work_dirs/14064174_ppp_dinov3_LoRA_V3_polar_liif__wVel_12k/best_ppp_optimal_score_iter_12000.pth
 
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 mkdir -p "$WORK_DIR"

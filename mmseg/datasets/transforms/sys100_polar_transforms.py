@@ -73,7 +73,13 @@ class LoadSys100PolarSample(BaseTransform):
 
         image_hwc = image.detach().cpu().permute(1, 2, 0).numpy().astype(np.float32, copy=False)
 
-        for key in ('radar_points_polar', 'radar_points_xy', 'radar_points_meta'):
+        for key in (
+            'radar_points_polar',
+            'radar_points_xy',
+            'radar_points_meta',
+            'rad2cam',
+            'real_hw',
+        ):
             if key not in sample:
                 raise KeyError(
                     f'SYS100 sample lacks {key!r}. Ensure the modified '
@@ -106,6 +112,8 @@ class LoadSys100PolarSample(BaseTransform):
         results['radar_points_polar'] = sample['radar_points_polar'].detach().cpu().float()
         results['radar_points_xy'] = sample['radar_points_xy'].detach().cpu().float()
         results['radar_points_meta'] = sample['radar_points_meta'].detach().cpu().float()
+        results['rad2cam'] = sample['rad2cam'].detach().cpu().float()
+        results['real_hw'] = sample['real_hw'].detach().cpu().float()
         results['dopplerRange'] = sample.get('dopplerRange', self.default_doppler)
         results['fovs'] = self.fovs
 
@@ -198,11 +206,16 @@ class PPPPackPolarInputs(BaseTransform):
         if meta.ndim != 2 or meta.shape[0] != polar.shape[0]:
             raise ValueError('radar_points_meta must have the same point count as polar.')
 
+        rad2cam = results['rad2cam'].contiguous().float()
+        real_hw = results['real_hw'].contiguous().float()
         metainfo = dict(results.get('metainfo', {}))
         metainfo.update(
             dict(
                 img_shape=results.get('img_shape'),
                 ori_shape=results.get('ori_shape'),
+                rad2cam=rad2cam,
+                real_hw=real_hw,
+                fovs=tuple(results['fovs']),
             )
         )
         if 'idx' in results:

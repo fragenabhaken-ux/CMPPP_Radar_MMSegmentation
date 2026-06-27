@@ -21,13 +21,13 @@ unet_8nodes:/p/scratch/nxtaim-1/huber7/work_dirs/13767623_unet_160k_8nodes/20260
     ;;
   2)
     tensorboard --logdir_spec="\
-dinov3_polar_BEV:/p/scratch/nxtaim-1/huber7/work_dirs/14053151_ppp_polar_liif_recovered/20260625_225815/vis_data/" \
-    --port=12300 serve
+dinov3_polar_BEV:/p/scratch/nxtaim-1/huber7/work_dirs/14063822_ppp_dinov3_LoRA_V3_polar_liif_12k/20260627_134840/vis_data/" \
+    --port=12303 serve
     ;;
   3)
     tensorboard --logdir_spec="\
 dinov3_lora:/p/scratch/nxtaim-1/huber7/work_dirs/13900238_ppp_dinov3_LoRA_rope_big_neck_7k_testrun/20260529_200721/vis_data/" \
-    --port=12355 serve
+    --port=12305 serve
     ;;
   4)
   tensorboard --logdir_spec="\

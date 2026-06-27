@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ppp_dinov3_LoRA_V3_polar_liif_12k
+#SBATCH --job-name=ppp_dinov3_LoRA_V3_polar_liif__wVel_12k
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=develbooster
 #SBATCH --nodes=1
@@ -38,13 +38,19 @@ echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 
 # CONFIG="configs/ppp_dinov3_LoRA_recovered/ppp_dinov3_LoRA_V3_polar_liif_smoke_recovered.py"
 # CONFIG="configs/ppp_dinov3_LoRA_recovered/ppp_dinov3_LoRA_V3_polar_liif_LRrangetest.py"
-CONFIG="configs/ppp_dinov3_LoRA_recovered/ppp_dinov3_LoRA_V3_polar_liif_12k.py"
+# CONFIG="configs/ppp_dinov3_LoRA_recovered/ppp_dinov3_LoRA_V3_polar_liif_12k.py"
+# CHECKPOINT="/p/scratch/nxtaim-1/huber7/work_dirs/14063822_ppp_dinov3_LoRA_V3_polar_liif_12k/iter_8000.pth"
+
+# CONFIG="configs/ppp_dinov3_LoRA_recovered/ppp_dinov3_LoRA_V3_polar_liif__wVel_smoke_recovered.py"
+CONFIG="configs/ppp_dinov3_LoRA_recovered/ppp_dinov3_LoRA_V3_polar_liif__wVel_12k.py"
+CHECKPOINT="/p/scratch/nxtaim-1/huber7/work_dirs/14063836_ppp_dinov3_LoRA_V3_polar_liif__wVel_12k/iter_8000.pth"
 
 WORK_DIR="/p/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 mkdir -p "$WORK_DIR"
 
 echo "CONFIG=$CONFIG"
 echo "WORK_DIR=$WORK_DIR"
+echo "CHECKPOINT=$CHECKPOINT"
 
 srun --ntasks="$SLURM_NTASKS" \
      --gpus-per-task=1 \
@@ -52,4 +58,7 @@ srun --ntasks="$SLURM_NTASKS" \
      --gpu-bind=none \
   python tools/train.py "$CONFIG" \
     --launcher slurm \
-    --work-dir "$WORK_DIR"
+    --work-dir "$WORK_DIR" \
+    --resume \
+    --cfg-options \
+    load_from="$CHECKPOINT"
