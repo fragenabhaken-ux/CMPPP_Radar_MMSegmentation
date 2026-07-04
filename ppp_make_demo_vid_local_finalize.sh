@@ -16,6 +16,6 @@ micromamba run -n mmseg python make_ppp_demo_video.py \
   --out "$FRAME_WORK_DIR/demo_video/ppp_demo_even" \
   --fps 10 \
   --quality 20 \
-  --preset fast \
-  --width 1260 \
-  --height 1796
+  --preset fast #\
+  # --width 1260 \
+  # --height 1796
