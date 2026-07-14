@@ -477,6 +477,17 @@ class PPPPackSegInputs(BaseTransform):
             )
         )
 
+        if "rad2cam" in results:
+            metainfo["rad2cam"] = (
+                _to_numpy(results["rad2cam"])
+                .astype(np.float32, copy=True)
+            )
+
+        if "fovs" in results:
+            metainfo["fovs"] = tuple(
+                float(value) for value in results["fovs"]
+            )
+            
         if "idx" in results:
             metainfo.setdefault("global_idx", int(results["idx"]))
             metainfo.setdefault("frame_idx", int(results["idx"]))

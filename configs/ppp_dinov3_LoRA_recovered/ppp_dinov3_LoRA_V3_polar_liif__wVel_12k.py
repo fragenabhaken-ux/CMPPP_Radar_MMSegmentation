@@ -30,7 +30,7 @@ data_rbg_std = [1.0, 1.0, 1.0]
 fovs_wo_fisheyeart = (105.0, 48.4)
 
 r_min = 0.0
-r_max = 104.0
+r_max = 150.0
 theta_half_fov = math.radians(fovs_wo_fisheyeart[0] / 2.0)
 theta_min = -theta_half_fov
 theta_max = theta_half_fov
@@ -270,7 +270,7 @@ val_evaluator = dict(
 
     # Cartesian BEV raster used only by the evaluation metric.
     bev_x_min=0.0,
-    bev_x_max=104.0,
+    bev_x_max=150.0,
     bev_y_min=-85.0,
     bev_y_max=85.0,
     bev_resolution=0.5,
@@ -299,7 +299,7 @@ test_evaluator = dict(
     theta_max=theta_max,
 
     bev_x_min=0.0,
-    bev_x_max=104.0,
+    bev_x_max=150.0,
     bev_y_min=-85.0,
     bev_y_max=85.0,
     bev_resolution=0.5,

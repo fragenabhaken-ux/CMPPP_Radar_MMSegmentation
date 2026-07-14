@@ -88,7 +88,7 @@ model = dict(
 
         polar_grid_shape=(64, 64),
         r_min=0.0,
-        r_max=104.0,
+        r_max=150.0,
         theta_min=-1.5707963267948966,
         theta_max=1.5707963267948966,
 
@@ -104,7 +104,7 @@ model = dict(
             type='PolarPointPPPLoss',
             grid_shape=(64, 64),
             r_min=0.0,
-            r_max=104.0,
+            r_max=150.0,
             theta_min=-1.5707963267948966,
             theta_max=1.5707963267948966,
             normalize_by_gt_count=True,
@@ -230,7 +230,7 @@ custom_hooks = [
         img_mean=data_rbg_mean,
         img_std=data_rbg_std,
         r_min=0.0,
-        r_max=104.0,
+        r_max=150.0,
         theta_min=-1.5707963267948966,
         theta_max=1.5707963267948966,
         gamma=0.3,
