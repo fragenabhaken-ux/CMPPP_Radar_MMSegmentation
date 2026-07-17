@@ -105,6 +105,9 @@ class PolarPointPPPLoss(nn.Module):
 
         loss_per_sample = integral_per_sample - observation_per_sample
         if self.normalize_by_gt_count:
-            loss_per_sample = loss_per_sample / num_points.clamp_min(1.0)
+            loss_per_sample = (
+                loss_per_sample
+                / num_points.clamp_min(1.0)
+            )
 
         return self.loss_weight * loss_per_sample.mean()

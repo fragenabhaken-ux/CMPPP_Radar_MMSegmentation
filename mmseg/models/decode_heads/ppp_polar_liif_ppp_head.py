@@ -224,13 +224,18 @@ class PolarLIIFPPPHead(BaseDecodeHead):
         for _ in range(max(int(liif_num_layers) - 1, 0)):
             liif_layers.extend(
                 [
-                    nn.Linear(last_channels, liif_hidden_channels),
+                    nn.Linear(
+                        last_channels,
+                        liif_hidden_channels,
+                    ),
                     nn.GELU(),
                 ]
             )
+
             last_channels = liif_hidden_channels
 
         liif_layers.append(nn.Linear(last_channels, 2))
+
         self.liif_mlp = nn.Sequential(*liif_layers)
 
         if loss_ppp is None:
@@ -274,7 +279,9 @@ class PolarLIIFPPPHead(BaseDecodeHead):
         h_r, w_theta = grid_shape
 
         dr = (self.r_max - self.r_min) / h_r
-        dtheta = (self.theta_max - self.theta_min) / w_theta
+        dtheta = (
+            self.theta_max - self.theta_min
+        ) / w_theta
 
         r = self.r_min + (
             torch.arange(h_r, dtype=torch.float32) + 0.5
@@ -578,6 +585,7 @@ class PolarLIIFPPPHead(BaseDecodeHead):
 
             if pts.shape[0] > 0:
                 points_all.append(pts)
+
                 batch_idx_all.append(
                     torch.full(
                         (pts.shape[0],),
@@ -610,7 +618,10 @@ class PolarLIIFPPPHead(BaseDecodeHead):
 
         return points_all_t, batch_idx_t, num_points_t
 
-    def forward(self, inputs) -> dict[str, torch.Tensor]:
+    def forward(
+        self,
+        inputs,
+    ) -> dict[str, torch.Tensor]:
         polar_latent = self._build_polar_latent(inputs)
         latent_codes = self._prepare_latent_codes(polar_latent)
 
@@ -635,10 +646,12 @@ class PolarLIIFPPPHead(BaseDecodeHead):
         device = grid_log_lambda.device
         dtype = grid_log_lambda.dtype
 
-        points_all, batch_idx, num_points = self._collect_gt_points(
-            batch_data_samples=batch_data_samples,
-            device=device,
-            dtype=dtype,
+        points_all, batch_idx, num_points = (
+            self._collect_gt_points(
+                batch_data_samples=batch_data_samples,
+                device=device,
+                dtype=dtype,
+            )
         )
 
         point_out = self._query_liif(

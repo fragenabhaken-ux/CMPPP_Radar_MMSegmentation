@@ -2,11 +2,14 @@ _base_ = [
     '../_base_/default_runtime.py',
 ]
 
+import math
 import os
 
 
 custom_imports = dict(
     imports=[
+        'mmseg.models.segmentors.polar_encoder_decoder',
+
         'mmseg.models.ppp_polar_data_preprocessor',
 
         'mmseg.models.backbones.lora_timm_multilayer_backbone',
@@ -20,6 +23,8 @@ custom_imports = dict(
 
         'mmseg.engine.hooks.ppp_polar_liif_vis_hook',
         'mmseg.engine.hooks.prefetch_stats_hook',
+
+        'mmseg.evaluation.metrics.polar_ppp_metric',
     ],
     allow_failed_imports=False,
 )
@@ -35,23 +40,25 @@ out_img_size = (544, 1792)
 
 data_rbg_mean = [0.0, 0.0, 0.0]
 data_rbg_std = [1.0, 1.0, 1.0]
+
 fovs_wo_fisheyeart = (105, 48.4)
 
 r_min = 0.0
 r_max = 150.0
 
-import math
-
 camera_hfov_deg = float(fovs_wo_fisheyeart[0])
-
 theta_half_fov = math.radians(camera_hfov_deg / 2.0)
+
 theta_min = -theta_half_fov
 theta_max = +theta_half_fov
 
-# theta_min = -1.5707963267948966
-# theta_max = 1.5707963267948966
+latent_grid_shape = (64, 64)
+quadrature_grid_shape = (256, 256)
 
-polar_grid_shape = (64, 64)
+batch_size_train = 20
+batch_size_val = batch_size_train
+batch_size_test = batch_size_train
+
 
 data_preprocessor = dict(
     type='PolarPPPDataPreProcessor',
@@ -63,7 +70,7 @@ data_preprocessor = dict(
 
 
 model = dict(
-    type='EncoderDecoder',
+    type='PolarEncoderDecoder',
     data_preprocessor=data_preprocessor,
 
     backbone=dict(
@@ -81,7 +88,12 @@ model = dict(
         lora_r=16,
         lora_alpha=32.0,
         lora_dropout=0.0,
-        target_modules=('attn.qkv', 'attn.proj', 'mlp.fc1', 'mlp.fc2'),
+        target_modules=(
+            'attn.qkv',
+            'attn.proj',
+            'mlp.fc1',
+            'mlp.fc2',
+        ),
 
         out_indices=(2, 5, 8, 11),
         in_feature_channels=384,
@@ -110,15 +122,30 @@ model = dict(
         channels=64,
         num_classes=1,
 
-        polar_grid_shape=polar_grid_shape,
+        latent_grid_shape=latent_grid_shape,
+        quadrature_grid_shape=quadrature_grid_shape,
+
         r_min=r_min,
         r_max=r_max,
         theta_min=theta_min,
         theta_max=theta_max,
 
+        # Polar self-attention -> cross-attention -> FFN.
+        decoder_embed_dims=384,
+        decoder_num_layers=4,
+        decoder_num_heads=6,
+        decoder_mlp_ratio=4.0,
+        decoder_attn_dropout=0.0,
+        decoder_ffn_dropout=0.0,
+
+        # Local refinement of the 64x64 polar latent-code grid.
         num_latent_convs=2,
+
+        # LIIF decoder.
         liif_hidden_channels=128,
         liif_num_layers=3,
+        use_feature_unfold=False,
+        query_chunk_size=32768,
 
         ppp_weight=1.0,
         velocity_weight=0.0,
@@ -126,7 +153,7 @@ model = dict(
 
         loss_ppp=dict(
             type='PolarPointPPPLoss',
-            grid_shape=polar_grid_shape,
+            grid_shape=quadrature_grid_shape,
             r_min=r_min,
             r_max=r_max,
             theta_min=theta_min,
@@ -150,16 +177,26 @@ DATA_PATH_TRAIN = os.environ.get(
     '/e/scratch/nxtaim-1/propietary/aumovio/SYS100_Dataset.csv',
 )
 
+DATA_PATH_VAL = os.environ.get(
+    'SYS100_DATA_PATH',
+    '/e/scratch/nxtaim-1/propietary/aumovio/SYS100_Validation_Dataset.csv',
+)
+
+DATA_PATH_TEST = DATA_PATH_TRAIN
+
 dataset_type = 'Sys100PPPHeatmapDataset'
 
-batch_size_train = 28
 
 train_dataloader = dict(
     batch_size=batch_size_train,
     num_workers=4,
+    persistent_workers=True,
     pin_memory=True,
     prefetch_factor=4,
-    sampler=dict(type='InfiniteSampler', shuffle=True),
+    sampler=dict(
+        type='InfiniteSampler',
+        shuffle=True,
+    ),
 
     dataset=dict(
         type=dataset_type,
@@ -205,23 +242,156 @@ train_dataloader = dict(
     ),
 )
 
+num_samples_val = 100
 
-# No validation before the polar evaluator exists.
-val_dataloader = None
-test_dataloader = None
-val_evaluator = None
-test_evaluator = None
+val_dataloader = dict(
+    batch_size=batch_size_val,
+    num_workers=4,
+    persistent_workers=True,
+    pin_memory=True,
+    drop_last=False,
+    sampler=dict(
+        type='DefaultSampler',
+        shuffle=False,
+        round_up=False,
+    ),
+    dataset=dict(
+        type=dataset_type,
+        sys100_root=DATA_PATH_VAL,
+        source_is_summary_csv=True,
+        target_dataset_size=num_samples_val,
+        fovs=fovs_wo_fisheyeart,
+
+        pipeline=[
+            dict(
+                type='LoadSys100PolarSample',
+                sys100_root=DATA_PATH_VAL,
+                source_is_summary_csv=True,
+                target_dataset_size=num_samples_val,
+                random_subsampling=False,
+                out_img_size=out_img_size,
+                undistort=True,
+                fovs=fovs_wo_fisheyeart,
+                strict=False,
+                prefetch=False,
+            ),
+            dict(
+                type='PPPPolarFilterDomain',
+                r_min=r_min,
+                r_max=r_max,
+                theta_min=theta_min,
+                theta_max=theta_max,
+            ),
+            dict(type='PPPPackPolarInputs'),
+        ],
+    ),
+)
+
+num_samples_test = 100
+
+test_dataloader = dict(
+    batch_size=batch_size_test,
+    num_workers=4,
+    persistent_workers=True,
+    pin_memory=True,
+    drop_last=False,
+    sampler=dict(
+        type='DefaultSampler',
+        shuffle=False,
+        round_up=False,
+    ),
+
+    dataset=dict(
+        type=dataset_type,
+        sys100_root=DATA_PATH_TEST,
+        source_is_summary_csv=True,
+        target_dataset_size=num_samples_test,
+        fovs=fovs_wo_fisheyeart,
+
+        pipeline=[
+            dict(
+                type='LoadSys100PolarSample',
+                sys100_root=DATA_PATH_TEST,
+                source_is_summary_csv=True,
+                out_img_size=out_img_size,
+                undistort=True,
+                fovs=fovs_wo_fisheyeart,
+                strict=False,
+                prefetch=False,
+            ),
+            dict(
+                type='PPPPolarFilterDomain',
+                r_min=r_min,
+                r_max=r_max,
+                theta_min=theta_min,
+                theta_max=theta_max,
+            ),
+            dict(type='PPPPackPolarInputs'),
+        ],
+    ),
+)
+
+
+val_evaluator = dict(
+    type='PolarPPPMetric',
+    grid_shape=quadrature_grid_shape,
+    r_min=r_min,
+    r_max=r_max,
+    theta_min=theta_min,
+    theta_max=theta_max,
+
+    # Full current polar domain, in Cartesian BEV coordinates.
+    bev_x_min=0.0,
+    bev_x_max=104.0,
+    bev_y_min=-85.0,
+    bev_y_max=85.0,
+    bev_resolution=0.5,
+
+    # Same old score type by default.
+    score_type='loglik',
+    sigma_min_m=0.0,
+    sigma_max_m=20.0,
+    max_iter=30,
+    tol_sigma_m=0.25,
+    normalize_by_gt=True,
+    check_zero=True,
+
+    verbose_logging=False,
+    prefix='val',
+)
+
+test_evaluator = dict(
+    type='PolarPPPMetric',
+    grid_shape=quadrature_grid_shape,
+    r_min=r_min,
+    r_max=r_max,
+    theta_min=theta_min,
+    theta_max=theta_max,
+    bev_x_min=0.0,
+    bev_x_max=104.0,
+    bev_y_min=-85.0,
+    bev_y_max=85.0,
+    bev_resolution=0.5,
+    score_type='loglik',
+    sigma_min_m=0.0,
+    sigma_max_m=20.0,
+    max_iter=30,
+    tol_sigma_m=0.25,
+    normalize_by_gt=True,
+    check_zero=True,
+    verbose_logging=False,
+    prefix='test',
+)
 
 
 # ---------------------------------------------------------------------
 # Optimizer and schedule
 # ---------------------------------------------------------------------
-
 optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
         type='AdamW',
-        lr=3e-4,
+        lr=1e-4,
         weight_decay=0.01,
         betas=(0.9, 0.999),
     ),
@@ -232,53 +402,51 @@ optim_wrapper = dict(
 )
 
 param_scheduler = [
-    # 1e-7 -> 3e-4
+    # 1e-7 -> 1e-4
     dict(
         type='LinearLR',
-        start_factor=1.0 / 3000.0,
+        start_factor=1e-3,
         end_factor=1.0,
         begin=0,
-        end=800,
+        end=400,
         by_epoch=False,
     ),
 
-    # 3e-4 -> 3e-5
+    # 1e-4 -> 1e-5
     dict(
         type='LinearLR',
         start_factor=1.0,
         end_factor=0.1,
-        begin=800,
-        end=5000,
+        begin=400,
+        end=2400,
         by_epoch=False,
     ),
 ]
 
-# ---------------------------------------------------------------------
-# Runtime
-# ---------------------------------------------------------------------
-
 train_cfg = dict(
     type='IterBasedTrainLoop',
-    max_iters=5000,
-    val_interval=1000000,
+    max_iters=2400,
+    val_interval=400,
 )
 
-val_cfg = None
-test_cfg = None
+val_cfg = dict(type='ValLoop')
+test_cfg = dict(type='TestLoop')
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
     logger=dict(
         type='LoggerHook',
-        interval=20,
+        interval=10,
         log_metric_by_epoch=False,
     ),
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(
         type='CheckpointHook',
         by_epoch=False,
-        interval=1000,
+        interval=400,
         max_keep_ckpts=5,
+        save_best='val/optimal_score',
+        rule='greater',
     ),
     sampler_seed=dict(type='DistSamplerSeedHook'),
 )
@@ -288,8 +456,8 @@ custom_hooks = [
         type='PPPPolarLIIFVisHook',
         train_interval=100,
         max_samples_train=1,
-        max_samples_val=0,
-        max_samples_test=0,
+        max_samples_val=10,
+        max_samples_test=1,
         img_mean=data_rbg_mean,
         img_std=data_rbg_std,
         r_min=r_min,
