@@ -102,56 +102,124 @@ def scale_points_to_shape(
     out[:, 1] *= float(to_h) / float(max(from_h, 1))
     return out
 
+def recover_lateral_from_forward_depth(
+    u_px: np.ndarray,
+    forward_m: np.ndarray,
+    rad2cam: np.ndarray,
+    image_width: int,
+    h_fov_deg: float = 110.0,
+    principal_x_rel: float = 0.491,
+) -> np.ndarray:
+    """
+    Recover the original Cartesian lateral coordinate y from the
+    horizontal image coordinate u and the forward-depth mark d = x.
+
+    The supplied rad2cam matrix must be the same frame-specific matrix
+    used during target construction.
+    """
+    u_px = np.asarray(u_px, dtype=np.float64)
+    forward_m = np.asarray(forward_m, dtype=np.float64)
+    rad2cam = np.asarray(rad2cam, dtype=np.float64)
+
+    if rad2cam.shape != (3, 4):
+        raise ValueError(
+            f"Expected rad2cam with shape (3, 4), got {rad2cam.shape}"
+        )
+
+    width = float(max(int(image_width), 1))
+    cx = float(principal_x_rel) * (width - 1.0)
+    fx = (width / 2.0) / np.tan(
+        np.deg2rad(float(h_fov_deg)) / 2.0
+    )
+
+    qx = (u_px - cx) / fx
+    qx, forward_m = np.broadcast_arrays(qx, forward_m)
+
+    a00 = rad2cam[0, 0]
+    a01 = rad2cam[0, 1]
+    a20 = rad2cam[2, 0]
+    a21 = rad2cam[2, 1]
+
+    t0 = rad2cam[0, 3]
+    t2 = rad2cam[2, 3]
+
+    numerator = (
+        qx * (a20 * forward_m + t2)
+        - (a00 * forward_m + t0)
+    )
+    denominator = a01 - qx * a21
+
+    lateral = np.full_like(numerator, np.nan, dtype=np.float64)
+    np.divide(
+        numerator,
+        denominator,
+        out=lateral,
+        where=np.abs(denominator) > 1e-12,
+    )
+
+    return lateral
 
 def backproject_pixels_to_bev(
     pts_img: np.ndarray,
     depth_m: np.ndarray,
+    rad2cam: np.ndarray,
     image_width: int,
     h_fov_deg: float = 110.0,
-    principal_x_rel: float = 0.5,
+    principal_x_rel: float = 0.491,
     lateral_sign: float = 1.0,
-    depth_is_forward: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    Back-project image x-coordinate plus depth into BEV coordinates.
+    Back-project horizontal image position and forward depth into BEV.
 
-    Returns:
-        bev: shape (N_valid, 2), columns are (lateral_m, forward_m)
-        valid: boolean mask into the original input arrays
+    depth_m is the original Cartesian forward coordinate x.
+    The returned BEV coordinates have columns (lateral, forward).
     """
     pts_img = np.asarray(pts_img, dtype=np.float64)
     depth_m = np.asarray(depth_m, dtype=np.float64)
-
-    if len(pts_img) == 0 or len(depth_m) == 0:
-        return np.zeros((0, 2), dtype=np.float64), np.zeros((len(pts_img),), dtype=bool)
 
     n = min(len(pts_img), len(depth_m))
     pts_img = pts_img[:n]
     depth_m = depth_m[:n]
 
-    valid = np.isfinite(pts_img[:, 0]) & np.isfinite(depth_m) & (depth_m > 0.0)
-    if not np.any(valid):
-        return np.zeros((0, 2), dtype=np.float64), valid
+    valid = (
+        np.isfinite(pts_img[:, 0])
+        & np.isfinite(depth_m)
+        & (depth_m > 0.0)
+    )
 
-    w = float(max(int(image_width), 1))
-    cx = float(principal_x_rel) * (w - 1.0)
-    fx = (w / 2.0) / np.tan(np.deg2rad(float(h_fov_deg)) / 2.0)
+    if not np.any(valid):
+        return (
+            np.zeros((0, 2), dtype=np.float64),
+            valid,
+        )
 
     u = pts_img[valid, 0]
-    d = depth_m[valid]
-    theta = np.arctan((u - cx) / fx)
+    forward = depth_m[valid]
 
-    if depth_is_forward:
-        forward = d
-        lateral = d * np.tan(theta)
-    else:
-        forward = d * np.cos(theta)
-        lateral = d * np.sin(theta)
+    lateral = recover_lateral_from_forward_depth(
+        u_px=u,
+        forward_m=forward,
+        rad2cam=rad2cam,
+        image_width=image_width,
+        h_fov_deg=h_fov_deg,
+        principal_x_rel=principal_x_rel,
+    )
 
-    lateral = float(lateral_sign) * lateral
-    bev = np.stack([lateral, forward], axis=1).astype(np.float64)
-    return bev, valid
+    stable = np.isfinite(lateral)
 
+    valid_indices = np.flatnonzero(valid)
+    final_valid = valid.copy()
+    final_valid[valid_indices[~stable]] = False
+
+    lateral = float(lateral_sign) * lateral[stable]
+    forward = forward[stable]
+
+    bev = np.stack(
+        [lateral, forward],
+        axis=1,
+    ).astype(np.float64)
+
+    return bev, final_valid
 
 def _gaussian_kernel1d(sigma: float) -> np.ndarray:
     sigma = float(sigma)
@@ -241,6 +309,7 @@ def _bilinear_splat_to_bev(
 def project_mass_heatmap_to_bev(
     lam_mass: np.ndarray,
     depth_m: np.ndarray,
+    rad2cam: np.ndarray,
     *,
     bev_h: int,
     bev_w: int,
@@ -249,7 +318,6 @@ def project_mass_heatmap_to_bev(
     h_fov_deg: float,
     principal_x_rel: float,
     lateral_sign: float,
-    depth_is_forward: bool,
     subpixel_factor: int = 3,
     chunk_rows: int = 32,
     min_mass: float = 0.0,
@@ -287,8 +355,8 @@ def project_mass_heatmap_to_bev(
     x_idx = x_base.astype(np.int64)
     x_right = np.clip(x_idx + 1, 0, w - 1)
 
-    cx = float(principal_x_rel) * (w - 1.0)
-    fx = (w / 2.0) / np.tan(np.deg2rad(float(h_fov_deg)) / 2.0)
+    # cx = float(principal_x_rel) * (w - 1.0)
+    # fx = (w / 2.0) / np.tan(np.deg2rad(float(h_fov_deg)) / 2.0)
 
     offsets = (np.arange(subpixel_factor, dtype=np.float64) + 0.5) / subpixel_factor
 
@@ -318,15 +386,16 @@ def project_mass_heatmap_to_bev(
                 depth_sub = (1.0 - oy) * depth_top + oy * depth_bottom
 
                 u_sub = x_base + ox
-                theta = np.arctan((u_sub - cx) / fx)
+                forward = depth_sub
 
-                if depth_is_forward:
-                    forward = depth_sub
-                    lateral = depth_sub * np.tan(theta[None, :])
-                else:
-                    forward = depth_sub * np.cos(theta[None, :])
-                    lateral = depth_sub * np.sin(theta[None, :])
-
+                lateral = recover_lateral_from_forward_depth(
+                    u_px=u_sub,
+                    forward_m=forward,
+                    rad2cam=rad2cam,
+                    image_width=w,
+                    h_fov_deg=h_fov_deg,
+                    principal_x_rel=principal_x_rel,
+                )
                 lateral = float(lateral_sign) * lateral
 
                 valid = np.isfinite(mass_each)
@@ -374,9 +443,8 @@ class PPPDemoBEVHeatmapVisHook(Hook):
         image_ext="png",
         write_all_ranks=False,
         h_fov_deg=110.0,
-        principal_x_rel=0.5,
+        principal_x_rel=0.491,
         lateral_sign=1.0,
-        depth_is_forward=True,
         bev_forward_max=104.0,
         bev_lateral_max=50.0,
         bev_grid_shape=(416, 400),
@@ -417,7 +485,6 @@ class PPPDemoBEVHeatmapVisHook(Hook):
         self.h_fov_deg = float(h_fov_deg)
         self.principal_x_rel = float(principal_x_rel)
         self.lateral_sign = float(lateral_sign)
-        self.depth_is_forward = bool(depth_is_forward)
 
         self.bev_forward_max = float(bev_forward_max)
         self.bev_lateral_max = float(bev_lateral_max)
@@ -822,6 +889,20 @@ class PPPDemoBEVHeatmapVisHook(Hook):
         gt_h, gt_w = gt_mask.shape[-2:]
 
         meta = sample.metainfo
+        if "rad2cam" not in meta:
+            raise KeyError(
+                "Missing rad2cam in sample metainfo. "
+                "Add it in PPPPackSegInputs."
+            )
+        rad2cam = np.asarray(
+            meta["rad2cam"],
+            dtype=np.float64,
+        )
+        fovs = meta.get("fovs", None)
+        if fovs is not None:
+            h_fov_deg = float(fovs[0])
+        else:
+            h_fov_deg = self.h_fov_deg
         video = self._tagify(str(meta.get("video_name", "unknown_video")))
         frame = self._to_int_or_none(meta.get("video_frame_idx"))
         gidx = self._to_int_or_none(meta.get("global_idx", meta.get("frame_idx")))
@@ -845,11 +926,11 @@ class PPPDemoBEVHeatmapVisHook(Hook):
         gt_bev, gt_valid = backproject_pixels_to_bev(
             gt_pts_img,
             gt_depths,
+            rad2cam=rad2cam,
             image_width=img_w,
-            h_fov_deg=self.h_fov_deg,
+            h_fov_deg=h_fov_deg,
             principal_x_rel=self.principal_x_rel,
             lateral_sign=self.lateral_sign,
-            depth_is_forward=self.depth_is_forward,
         )
         gt_depths_bev = gt_depths[: len(gt_valid)][gt_valid] if len(gt_valid) else np.zeros((0,), dtype=np.float64)
 
@@ -871,14 +952,14 @@ class PPPDemoBEVHeatmapVisHook(Hook):
             bev_heat = project_mass_heatmap_to_bev(
                 lam_mass,
                 pred_depth,
+                rad2cam=rad2cam,
                 bev_h=bev_h,
                 bev_w=bev_w,
                 bev_forward_max=self.bev_forward_max,
                 bev_lateral_max=self.bev_lateral_max,
-                h_fov_deg=self.h_fov_deg,
+                h_fov_deg=h_fov_deg,
                 principal_x_rel=self.principal_x_rel,
                 lateral_sign=self.lateral_sign,
-                depth_is_forward=self.depth_is_forward,
                 subpixel_factor=self.bev_projection_subpixel_factor,
                 chunk_rows=self.bev_projection_chunk_rows,
                 min_mass=self.bev_projection_min_mass,

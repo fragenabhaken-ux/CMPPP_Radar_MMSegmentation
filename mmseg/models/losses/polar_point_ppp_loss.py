@@ -8,22 +8,15 @@ from mmseg.registry import MODELS
 
 @MODELS.register_module()
 class PolarPointPPPLoss(nn.Module):
-    """PPP negative log-likelihood for continuous polar point-list targets.
+    """Negative log-likelihood of a polar Poisson point process.
 
-    Ground truth consists only of variable-length point lists:
-        {(r_i, theta_i)} for i = 1, ..., N.
+    The intensity is defined with respect to the polar measure ``dr dtheta``.
+    For a fixed quadrature grid, the per-sample loss is
 
-    The model defines one continuous intensity field lambda(r, theta).
-    During training, that field is evaluated in two ways:
+        sum_ij exp(log_lambda_ij) * dr * dtheta
+        - sum_k log_lambda(r_k, theta_k).
 
-        1. On a fine regular quadrature grid for the integral:
-           sum lambda(r_q, theta_q) * dr * dtheta
-
-        2. At the exact continuous GT point coordinates:
-           -sum log lambda(r_i, theta_i)
-
-    The quadrature grid is a predicted intensity heatmap only.
-    It is not a rasterized GT target.
+    No target heatmap and no clipping of ``log_lambda`` are used.
     """
 
     def __init__(
@@ -38,26 +31,23 @@ class PolarPointPPPLoss(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.grid_shape = tuple(int(v) for v in grid_shape)
+        h_r, w_theta = (int(grid_shape[0]), int(grid_shape[1]))
+        if h_r <= 0 or w_theta <= 0:
+            raise ValueError('grid_shape must contain positive dimensions.')
+        if r_max <= r_min:
+            raise ValueError('r_max must be larger than r_min.')
+        if theta_max <= theta_min:
+            raise ValueError('theta_max must be larger than theta_min.')
+
+        self.grid_shape = (h_r, w_theta)
         self.normalize_by_gt_count = bool(normalize_by_gt_count)
         self.loss_weight = float(loss_weight)
 
-        h_r, w_theta = self.grid_shape
-
-        if h_r <= 0 or w_theta <= 0:
-            raise ValueError("grid_shape must contain positive dimensions.")
-
-        dr = (r_max - r_min) / h_r
-        dtheta = (theta_max - theta_min) / w_theta
-
-        area_weights = torch.full(
-            (1, 1, h_r, w_theta),
-            dr * dtheta,
-            dtype=torch.float32,
-        )
+        dr = (float(r_max) - float(r_min)) / h_r
+        dtheta = (float(theta_max) - float(theta_min)) / w_theta
         self.register_buffer(
-            "area_weights",
-            area_weights,
+            'cell_measure',
+            torch.tensor(dr * dtheta, dtype=torch.float32),
             persistent=False,
         )
 
@@ -68,62 +58,44 @@ class PolarPointPPPLoss(nn.Module):
         batch_idx: torch.Tensor,
         num_points: torch.Tensor,
     ) -> torch.Tensor:
-        """Compute the polar PPP negative log-likelihood.
+        if grid_log_lambda.ndim != 4 or grid_log_lambda.shape[1] != 1:
+            raise ValueError(
+                'grid_log_lambda must have shape [B, 1, H_r, W_theta], '
+                f'got {tuple(grid_log_lambda.shape)}.'
+            )
+        if tuple(grid_log_lambda.shape[-2:]) != self.grid_shape:
+            raise ValueError(
+                'grid_log_lambda grid shape does not match configured grid_shape: '
+                f'got {tuple(grid_log_lambda.shape[-2:])}, '
+                f'expected {self.grid_shape}.'
+            )
 
-        Args:
-            grid_log_lambda:
-                Fine predicted quadrature grid, shape [B, 1, H_r, W_theta].
-
-            point_log_lambda:
-                Predictions from the same continuous field at exact GT point
-                coordinates, shape [M].
-
-            batch_idx:
-                Batch assignment of each GT point, shape [M].
-
-            num_points:
-                Number of valid GT points per sample, shape [B].
-        """
-        b = grid_log_lambda.shape[0]
+        batch_size = grid_log_lambda.shape[0]
         dtype = grid_log_lambda.dtype
         device = grid_log_lambda.device
 
-        if tuple(grid_log_lambda.shape[-2:]) != self.grid_shape:
+        point_log_lambda = point_log_lambda.to(device=device, dtype=dtype)
+        batch_idx = batch_idx.to(device=device, dtype=torch.long)
+        num_points = num_points.to(device=device, dtype=dtype)
+
+        if num_points.shape != (batch_size,):
             raise ValueError(
-                "grid_log_lambda shape does not match configured grid_shape: "
-                f"got {tuple(grid_log_lambda.shape[-2:])}, "
-                f"expected {self.grid_shape}."
+                f'num_points must have shape [{batch_size}], '
+                f'got {tuple(num_points.shape)}.'
             )
-
-        point_log_lambda = point_log_lambda.to(
-            device=device,
-            dtype=dtype,
-        )
-        batch_idx = batch_idx.to(
-            device=device,
-            dtype=torch.long,
-        )
-        num_points = num_points.to(
-            device=device,
-            dtype=dtype,
-        )
-        area_weights = self.area_weights.to(
-            device=device,
-            dtype=dtype,
-        )
-
-        lambda_grid = torch.exp(grid_log_lambda)
+        if point_log_lambda.numel() != batch_idx.numel():
+            raise ValueError('point_log_lambda and batch_idx must have equal length.')
 
         integral_per_sample = (
-            lambda_grid * area_weights
-        ).sum(dim=(1, 2, 3))
+            torch.exp(grid_log_lambda).sum(dim=(1, 2, 3))
+            * self.cell_measure.to(device=device, dtype=dtype)
+        )
 
         observation_per_sample = torch.zeros(
-            b,
+            batch_size,
             device=device,
             dtype=dtype,
         )
-
         if point_log_lambda.numel() > 0:
             observation_per_sample.scatter_add_(
                 dim=0,
@@ -131,11 +103,7 @@ class PolarPointPPPLoss(nn.Module):
                 src=point_log_lambda,
             )
 
-        loss_per_sample = (
-            integral_per_sample
-            - observation_per_sample
-        )
-
+        loss_per_sample = integral_per_sample - observation_per_sample
         if self.normalize_by_gt_count:
             loss_per_sample = (
                 loss_per_sample

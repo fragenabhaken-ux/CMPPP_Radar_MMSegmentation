@@ -44,7 +44,7 @@ data_rbg_std = [1.0, 1.0, 1.0]
 fovs_wo_fisheyeart = (105, 48.4)
 
 r_min = 0.0
-r_max = 104.0
+r_max = 150.0
 
 camera_hfov_deg = float(fovs_wo_fisheyeart[0])
 theta_half_fov = math.radians(camera_hfov_deg / 2.0)

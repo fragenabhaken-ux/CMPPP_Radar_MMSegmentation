@@ -16,7 +16,6 @@ class FFN(nn.Module):
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
-
         self.net = nn.Sequential(
             nn.Linear(embed_dims, hidden_dims),
             nn.GELU(),
@@ -69,7 +68,6 @@ class PolarSelfCrossAttentionBlock(nn.Module):
         image_tokens: torch.Tensor,
     ) -> torch.Tensor:
         q = self.norm1(polar_tokens)
-
         polar_tokens = polar_tokens + self.self_attn(
             q,
             q,
@@ -78,7 +76,6 @@ class PolarSelfCrossAttentionBlock(nn.Module):
         )[0]
 
         q = self.norm2(polar_tokens)
-
         polar_tokens = polar_tokens + self.cross_attn(
             q,
             image_tokens,
@@ -86,16 +83,18 @@ class PolarSelfCrossAttentionBlock(nn.Module):
             need_weights=False,
         )[0]
 
-        polar_tokens = polar_tokens + self.ffn(
-            self.norm3(polar_tokens)
-        )
-
+        polar_tokens = polar_tokens + self.ffn(self.norm3(polar_tokens))
         return polar_tokens
 
 
 @MODELS.register_module()
 class PolarLIIFPPPHead(BaseDecodeHead):
-    """Polar PPP head with transformer decoder and LIIF decoder."""
+    """Polar PPP head with transformer decoder and continuous LIIF queries.
+
+    The PPP integral uses deterministic midpoint quadrature at the fixed
+    centres of ``quadrature_grid_shape``. Ground-truth radar points are
+    queried at their exact continuous polar coordinates.
+    """
 
     def __init__(
         self,
@@ -124,10 +123,7 @@ class PolarLIIFPPPHead(BaseDecodeHead):
     ) -> None:
         super().__init__(**kwargs)
 
-        self.latent_grid_shape = tuple(
-            int(v) for v in latent_grid_shape
-        )
-
+        self.latent_grid_shape = tuple(int(v) for v in latent_grid_shape)
         self.quadrature_grid_shape = tuple(
             int(v) for v in quadrature_grid_shape
         )
@@ -158,17 +154,12 @@ class PolarLIIFPPPHead(BaseDecodeHead):
             kernel_size=1,
         )
 
-        self.image_token_norm = nn.LayerNorm(
-            self.decoder_embed_dims
-        )
+        self.image_token_norm = nn.LayerNorm(self.decoder_embed_dims)
 
         self.image_coord_embed = nn.Sequential(
             nn.Linear(2, self.decoder_embed_dims),
             nn.GELU(),
-            nn.Linear(
-                self.decoder_embed_dims,
-                self.decoder_embed_dims,
-            ),
+            nn.Linear(self.decoder_embed_dims, self.decoder_embed_dims),
         )
 
         self.polar_query_token = nn.Parameter(
@@ -178,10 +169,7 @@ class PolarLIIFPPPHead(BaseDecodeHead):
         self.polar_coord_embed = nn.Sequential(
             nn.Linear(2, self.decoder_embed_dims),
             nn.GELU(),
-            nn.Linear(
-                self.decoder_embed_dims,
-                self.decoder_embed_dims,
-            ),
+            nn.Linear(self.decoder_embed_dims, self.decoder_embed_dims),
         )
 
         self.decoder_blocks = nn.ModuleList(
@@ -228,7 +216,6 @@ class PolarLIIFPPPHead(BaseDecodeHead):
             if self.use_feature_unfold
             else self.channels
         )
-
         liif_in_channels = code_channels + 2
 
         liif_layers: list[nn.Module] = []
@@ -264,10 +251,7 @@ class PolarLIIFPPPHead(BaseDecodeHead):
 
         self.loss_ppp = MODELS.build(loss_ppp)
 
-        latent_rtheta = self._make_regular_grid(
-            self.latent_grid_shape
-        )
-
+        latent_rtheta = self._make_regular_grid(self.latent_grid_shape)
         quadrature_rtheta = self._make_regular_grid(
             self.quadrature_grid_shape
         )
@@ -277,13 +261,11 @@ class PolarLIIFPPPHead(BaseDecodeHead):
             latent_rtheta,
             persistent=False,
         )
-
         self.register_buffer(
             "quadrature_rtheta",
             quadrature_rtheta,
             persistent=False,
         )
-
         self.register_buffer(
             "latent_rtheta_norm",
             self._normalize_polar_coords(latent_rtheta),
@@ -310,11 +292,7 @@ class PolarLIIFPPPHead(BaseDecodeHead):
         ) * dtheta
 
         rr, tt = torch.meshgrid(r, theta, indexing="ij")
-
-        return torch.stack(
-            [rr, tt],
-            dim=-1,
-        ).reshape(-1, 2)
+        return torch.stack([rr, tt], dim=-1).reshape(-1, 2)
 
     def _normalize_polar_coords(
         self,
@@ -323,24 +301,14 @@ class PolarLIIFPPPHead(BaseDecodeHead):
         r = points_rtheta[:, 0]
         theta = points_rtheta[:, 1]
 
-        r_norm = (
-            2.0
-            * (r - self.r_min)
-            / (self.r_max - self.r_min)
-            - 1.0
-        )
-
+        r_norm = 2.0 * (r - self.r_min) / (self.r_max - self.r_min) - 1.0
         theta_norm = (
-            2.0
-            * (theta - self.theta_min)
+            2.0 * (theta - self.theta_min)
             / (self.theta_max - self.theta_min)
             - 1.0
         )
 
-        return torch.stack(
-            [r_norm, theta_norm],
-            dim=-1,
-        )
+        return torch.stack([r_norm, theta_norm], dim=-1)
 
     def _make_image_coord_tokens(
         self,
@@ -349,33 +317,13 @@ class PolarLIIFPPPHead(BaseDecodeHead):
         device: torch.device,
         dtype: torch.dtype,
     ) -> torch.Tensor:
-        yy = torch.linspace(
-            -1.0,
-            1.0,
-            h,
-            device=device,
-            dtype=dtype,
-        )
-
-        xx = torch.linspace(
-            -1.0,
-            1.0,
-            w,
-            device=device,
-            dtype=dtype,
-        )
+        yy = torch.linspace(-1.0, 1.0, h, device=device, dtype=dtype)
+        xx = torch.linspace(-1.0, 1.0, w, device=device, dtype=dtype)
 
         yy, xx = torch.meshgrid(yy, xx, indexing="ij")
+        return torch.stack([yy, xx], dim=-1).reshape(-1, 2)
 
-        return torch.stack(
-            [yy, xx],
-            dim=-1,
-        ).reshape(-1, 2)
-
-    def _build_polar_latent(
-        self,
-        inputs,
-    ) -> torch.Tensor:
+    def _build_polar_latent(self, inputs) -> torch.Tensor:
         x = self._transform_inputs(inputs)
         x = self.image_proj(x)
 
@@ -397,8 +345,7 @@ class PolarLIIFPPPHead(BaseDecodeHead):
         image_tokens = self.image_token_norm(image_tokens)
 
         num_polar_tokens = (
-            self.latent_grid_shape[0]
-            * self.latent_grid_shape[1]
+            self.latent_grid_shape[0] * self.latent_grid_shape[1]
         )
 
         polar_tokens = self.polar_query_token.expand(
@@ -425,7 +372,7 @@ class PolarLIIFPPPHead(BaseDecodeHead):
             self.decoder_embed_dims,
             self.latent_grid_shape[0],
             self.latent_grid_shape[1],
-        )
+        ).contiguous()
 
         return self.latent_proj(polar_latent)
 
@@ -444,12 +391,7 @@ class PolarLIIFPPPHead(BaseDecodeHead):
             padding=1,
         )
 
-        return codes.view(
-            b,
-            c * 9,
-            h_r,
-            w_theta,
-        )
+        return codes.view(b, c * 9, h_r, w_theta)
 
     def _query_liif(
         self,
@@ -504,7 +446,6 @@ class PolarLIIFPPPHead(BaseDecodeHead):
             device=device,
             dtype=dtype,
         )
-
         batch_idx = batch_idx.to(
             device=device,
             dtype=torch.long,
@@ -514,9 +455,7 @@ class PolarLIIFPPPHead(BaseDecodeHead):
         theta = points_rtheta[:, 1]
 
         dr = (self.r_max - self.r_min) / h_r
-        dtheta = (
-            self.theta_max - self.theta_min
-        ) / w_theta
+        dtheta = (self.theta_max - self.theta_min) / w_theta
 
         u = (r - self.r_min) / dr - 0.5
         v = (theta - self.theta_min) / dtheta - 0.5
@@ -571,21 +510,10 @@ class PolarLIIFPPPHead(BaseDecodeHead):
         pred_10 = decode(r1, t0)
         pred_11 = decode(r1, t1)
 
-        w_00 = (
-            (1.0 - du) * (1.0 - dv)
-        ).unsqueeze(-1)
-
-        w_01 = (
-            (1.0 - du) * dv
-        ).unsqueeze(-1)
-
-        w_10 = (
-            du * (1.0 - dv)
-        ).unsqueeze(-1)
-
-        w_11 = (
-            du * dv
-        ).unsqueeze(-1)
+        w_00 = ((1.0 - du) * (1.0 - dv)).unsqueeze(-1)
+        w_01 = ((1.0 - du) * dv).unsqueeze(-1)
+        w_10 = (du * (1.0 - dv)).unsqueeze(-1)
+        w_11 = (du * dv).unsqueeze(-1)
 
         return (
             w_00 * pred_00
@@ -607,11 +535,8 @@ class PolarLIIFPPPHead(BaseDecodeHead):
             dtype=latent_codes.dtype,
         )
 
-        points = points.unsqueeze(0).expand(
-            b,
-            -1,
-            -1,
-        ).reshape(-1, 2)
+        # Fixed polar cell centres. No random quadrature jitter.
+        points = points.unsqueeze(0).expand(b, -1, -1).reshape(-1, 2)
 
         batch_idx = torch.arange(
             b,
@@ -679,7 +604,6 @@ class PolarLIIFPPPHead(BaseDecodeHead):
                 device=device,
                 dtype=dtype,
             )
-
             batch_idx_t = torch.zeros(
                 (0,),
                 device=device,
@@ -699,14 +623,9 @@ class PolarLIIFPPPHead(BaseDecodeHead):
         inputs,
     ) -> dict[str, torch.Tensor]:
         polar_latent = self._build_polar_latent(inputs)
+        latent_codes = self._prepare_latent_codes(polar_latent)
 
-        latent_codes = self._prepare_latent_codes(
-            polar_latent
-        )
-
-        quadrature_out = self._query_quadrature_grid(
-            latent_codes
-        )
+        quadrature_out = self._query_quadrature_grid(latent_codes)
 
         return dict(
             polar_latent=polar_latent,
@@ -722,7 +641,6 @@ class PolarLIIFPPPHead(BaseDecodeHead):
         train_cfg=None,
     ) -> dict:
         preds = self.forward(inputs)
-
         grid_log_lambda = preds["grid_log_lambda"]
 
         device = grid_log_lambda.device
@@ -753,10 +671,7 @@ class PolarLIIFPPPHead(BaseDecodeHead):
 
         zero = grid_log_lambda.sum() * 0.0
 
-        if (
-            self.velocity_weight > 0.0
-            and points_all.shape[0] > 0
-        ):
+        if self.velocity_weight > 0.0 and points_all.shape[0] > 0:
             pred_vel = point_out[:, 1]
             target_vel = points_all[:, 2]
 
