@@ -31,6 +31,8 @@ Output:
         velocity_signed_train_vs_val.png
         velocity_abs_train_vs_val.png
         velocity_bucket_train_vs_val.png
+        rcs_train_vs_val.png
+        rcs_train_vs_val_log_y.png
         radar_point_brightness_train_vs_val.png
         image_space_density_train.png
         image_space_density_val.png
@@ -52,6 +54,17 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+from ppp_eda_geometry import (
+    camera_domain_mask,
+    camera_plot_limits,
+    cartesian_domain_mask,
+    cartesian_plot_limits,
+    load_spatial_config_from_scan_dir,
+    polar_domain_mask,
+    polar_plot_limits,
+    spatial_configs_equal,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -168,7 +181,10 @@ def load_scan(scan_dir: Path) -> Tuple[pd.DataFrame, Dict[str, np.ndarray]]:
     frames = pd.read_csv(frames_csv)
 
     pts_raw = np.load(points_npz)
-    required = ["eda_idx", "x_pix", "y_pix", "depth", "velocity", "rgb"]
+    required = [
+        "eda_idx", "x_pix", "y_pix", "depth", "velocity", "rcs",
+        "lateral", "forward", "range", "azimuth_deg", "rgb",
+    ]
     missing = [k for k in required if k not in pts_raw.files]
     if missing:
         raise KeyError(
@@ -258,11 +274,13 @@ def make_point_summary(split_name: str, points: Dict[str, np.ndarray]) -> pd.Dat
     depth = points["depth"].astype(float)
     velocity = points["velocity"].astype(float)
     abs_velocity = np.abs(velocity)
+    rcs = points["rcs"].astype(float)
 
     for name, arr in [
         ("depth", depth),
         ("velocity", velocity),
         ("abs_velocity", abs_velocity),
+        ("rcs", rcs),
     ]:
         row = {
             "split": split_name,
@@ -524,29 +542,32 @@ def plot_grouped_bucket_bar(
     save_fig(path)
 
 
-def image_space_density(
-    x_pix: np.ndarray,
-    y_pix: np.ndarray,
-    image_width: int,
-    image_height: int,
+def spatial_density(
+    x_values: np.ndarray,
+    y_values: np.ndarray,
+    mask: np.ndarray,
+    xlim: Tuple[float, float],
+    ylim: Tuple[float, float],
     x_bins: int,
     y_bins: int,
     normalize: bool = True,
 ) -> np.ndarray:
+    x_values = np.asarray(x_values, dtype=float)
+    y_values = np.asarray(y_values, dtype=float)
+    mask = np.asarray(mask, dtype=bool)
+    mask &= np.isfinite(x_values) & np.isfinite(y_values)
+
     density, _, _ = np.histogram2d(
-        x_pix.astype(float),
-        y_pix.astype(float),
+        x_values[mask],
+        y_values[mask],
         bins=[x_bins, y_bins],
-        range=[[0, image_width], [0, image_height]],
+        range=[list(xlim), list(ylim)],
     )
-
     density = density.T
-
     if normalize:
         total = density.sum()
         if total > 0:
             density = density / total
-
     return density
 
 
@@ -554,25 +575,26 @@ def plot_density_image(
     density: np.ndarray,
     path: Path,
     title: str,
-    image_width: int,
-    image_height: int,
+    xlim: Tuple[float, float],
+    ylim: Tuple[float, float],
+    xlabel: str,
+    ylabel: str,
+    origin: str = "lower",
     log_scale: bool = True,
+    reverse_x: bool = False,
 ) -> None:
-    plt.figure(figsize=(16, 6))
-
+    plt.figure(figsize=(12, 7))
     img = np.log1p(density) if log_scale else density
-
-    plt.imshow(
-        img,
-        origin="upper",
-        extent=[0, image_width, image_height, 0],
-        aspect="auto",
-    )
+    extent = [xlim[0], xlim[1], ylim[0], ylim[1]]
+    if origin == "upper":
+        extent = [xlim[0], xlim[1], ylim[1], ylim[0]]
+    plt.imshow(img, origin=origin, extent=extent, aspect="auto")
+    if reverse_x:
+        plt.xlim(xlim[1], xlim[0])
     plt.colorbar(label="log(1 + normalized count)" if log_scale else "normalized count")
     plt.title(title)
-    plt.xlabel("x pixel")
-    plt.ylabel("y pixel")
-
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
     save_fig(path)
 
 
@@ -580,28 +602,37 @@ def plot_density_difference(
     train_density: np.ndarray,
     val_density: np.ndarray,
     path: Path,
-    image_width: int,
-    image_height: int,
+    title: str,
+    xlim: Tuple[float, float],
+    ylim: Tuple[float, float],
+    xlabel: str,
+    ylabel: str,
+    origin: str = "lower",
+    reverse_x: bool = False,
 ) -> None:
     diff = val_density - train_density
-    max_abs = float(np.max(np.abs(diff)))
+    max_abs = float(np.max(np.abs(diff))) if diff.size else 0.0
     if max_abs <= 0:
         max_abs = 1.0
 
-    plt.figure(figsize=(16, 6))
+    plt.figure(figsize=(12, 7))
+    extent = [xlim[0], xlim[1], ylim[0], ylim[1]]
+    if origin == "upper":
+        extent = [xlim[0], xlim[1], ylim[1], ylim[0]]
     plt.imshow(
         diff,
-        origin="upper",
-        extent=[0, image_width, image_height, 0],
+        origin=origin,
+        extent=extent,
         aspect="auto",
         vmin=-max_abs,
         vmax=max_abs,
     )
+    if reverse_x:
+        plt.xlim(xlim[1], xlim[0])
     plt.colorbar(label="val normalized density minus train normalized density")
-    plt.title("Image-space radar GT density difference, val minus train")
-    plt.xlabel("x pixel")
-    plt.ylabel("y pixel")
-
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
     save_fig(path)
 
 
@@ -625,6 +656,14 @@ def main() -> None:
 
     train_frames, train_points = load_scan(train_dir)
     val_frames, val_points = load_scan(val_dir)
+    train_spatial = load_spatial_config_from_scan_dir(train_dir)
+    val_spatial = load_spatial_config_from_scan_dir(val_dir)
+    if not spatial_configs_equal(train_spatial, val_spatial):
+        raise ValueError(
+            "Train and validation scans use different ppp_eda_spatial settings. "
+            "Rerun both scans with one shared EDA config before comparing spatial densities."
+        )
+    spatial = train_spatial
 
     if "point_count" not in train_frames.columns:
         raise KeyError(f"Missing point_count in {train_dir / 'frames.csv'}")
@@ -729,6 +768,9 @@ def main() -> None:
     train_velocity = train_points["velocity"].astype(float)
     val_velocity = val_points["velocity"].astype(float)
 
+    train_rcs = train_points["rcs"].astype(float)
+    val_rcs = val_points["rcs"].astype(float)
+
     plot_hist_compare(
         train_values=train_depth,
         val_values=val_depth,
@@ -788,6 +830,27 @@ def main() -> None:
     )
 
     plot_hist_compare(
+        train_values=train_rcs,
+        val_values=val_rcs,
+        path=out_dir / "rcs_train_vs_val.png",
+        title="GT RCS, train vs val",
+        xlabel="GT RCS",
+        bins=args.hist_bins,
+        clip_quantile=1.0,
+    )
+
+    plot_hist_compare(
+        train_values=train_rcs,
+        val_values=val_rcs,
+        path=out_dir / "rcs_train_vs_val_log_y.png",
+        title="GT RCS, train vs val, log-y",
+        xlabel="GT RCS",
+        bins=args.hist_bins,
+        clip_quantile=1.0,
+        log_y=True,
+    )
+
+    plot_hist_compare(
         train_values=get_radar_point_brightness(train_points),
         val_values=get_radar_point_brightness(val_points),
         path=out_dir / "radar_point_brightness_train_vs_val.png",
@@ -798,54 +861,84 @@ def main() -> None:
     )
 
     # -------------------------------------------------------------------------
-    # Image-space density comparisons
+    # Camera, Cartesian BEV, and polar density comparisons
     # -------------------------------------------------------------------------
 
-    train_density = image_space_density(
-        x_pix=train_points["x_pix"],
-        y_pix=train_points["y_pix"],
-        image_width=args.image_width,
-        image_height=args.image_height,
-        x_bins=args.density_x_bins,
-        y_bins=args.density_y_bins,
-        normalize=True,
+    camera_xlim, camera_ylim = camera_plot_limits(
+        args.image_width, args.image_height, spatial
+    )
+    cart_xlim, cart_ylim = cartesian_plot_limits(
+        np.concatenate([train_points["lateral"], val_points["lateral"]]),
+        np.concatenate([train_points["forward"], val_points["forward"]]),
+        spatial,
+    )
+    polar_xlim, polar_ylim = polar_plot_limits(
+        np.concatenate([train_points["azimuth_deg"], val_points["azimuth_deg"]]),
+        np.concatenate([train_points["range"], val_points["range"]]),
+        spatial,
     )
 
-    val_density = image_space_density(
-        x_pix=val_points["x_pix"],
-        y_pix=val_points["y_pix"],
-        image_width=args.image_width,
-        image_height=args.image_height,
-        x_bins=args.density_x_bins,
-        y_bins=args.density_y_bins,
-        normalize=True,
-    )
+    density_specs = [
+        dict(
+            name="image_space",
+            train_x=train_points["x_pix"], train_y=train_points["y_pix"],
+            val_x=val_points["x_pix"], val_y=val_points["y_pix"],
+            train_mask=camera_domain_mask(train_points["x_pix"], train_points["y_pix"], spatial),
+            val_mask=camera_domain_mask(val_points["x_pix"], val_points["y_pix"], spatial),
+            xlim=camera_xlim, ylim=camera_ylim,
+            xlabel="x pixel", ylabel="y pixel", origin="upper", reverse_x=False,
+            title="Image-space radar GT density",
+        ),
+        dict(
+            name="cartesian_bev",
+            train_x=train_points["lateral"], train_y=train_points["forward"],
+            val_x=val_points["lateral"], val_y=val_points["forward"],
+            train_mask=cartesian_domain_mask(train_points["lateral"], train_points["forward"], spatial),
+            val_mask=cartesian_domain_mask(val_points["lateral"], val_points["forward"], spatial),
+            xlim=cart_xlim, ylim=cart_ylim,
+            xlabel="lateral position [m]", ylabel="forward position [m]", origin="lower", reverse_x=True,
+            title="Cartesian BEV radar GT density",
+        ),
+        dict(
+            name="polar",
+            train_x=train_points["azimuth_deg"], train_y=train_points["range"],
+            val_x=val_points["azimuth_deg"], val_y=val_points["range"],
+            train_mask=polar_domain_mask(train_points["range"], train_points["azimuth_deg"], spatial),
+            val_mask=polar_domain_mask(val_points["range"], val_points["azimuth_deg"], spatial),
+            xlim=polar_xlim, ylim=polar_ylim,
+            xlabel="azimuth [deg]", ylabel="range [m]", origin="lower", reverse_x=True,
+            title="Polar radar GT density",
+        ),
+    ]
 
-    plot_density_image(
-        density=train_density,
-        path=out_dir / "image_space_density_train.png",
-        title="Image-space radar GT density, train",
-        image_width=args.image_width,
-        image_height=args.image_height,
-        log_scale=True,
-    )
-
-    plot_density_image(
-        density=val_density,
-        path=out_dir / "image_space_density_val.png",
-        title="Image-space radar GT density, val",
-        image_width=args.image_width,
-        image_height=args.image_height,
-        log_scale=True,
-    )
-
-    plot_density_difference(
-        train_density=train_density,
-        val_density=val_density,
-        path=out_dir / "image_space_density_difference_val_minus_train.png",
-        image_width=args.image_width,
-        image_height=args.image_height,
-    )
+    for spec in density_specs:
+        train_density = spatial_density(
+            spec["train_x"], spec["train_y"], spec["train_mask"],
+            spec["xlim"], spec["ylim"], args.density_x_bins, args.density_y_bins,
+        )
+        val_density = spatial_density(
+            spec["val_x"], spec["val_y"], spec["val_mask"],
+            spec["xlim"], spec["ylim"], args.density_x_bins, args.density_y_bins,
+        )
+        plot_density_image(
+            train_density,
+            out_dir / f"{spec['name']}_density_train.png",
+            f"{spec['title']}, train",
+            spec["xlim"], spec["ylim"], spec["xlabel"], spec["ylabel"], spec["origin"], reverse_x=spec["reverse_x"],
+        )
+        plot_density_image(
+            val_density,
+            out_dir / f"{spec['name']}_density_val.png",
+            f"{spec['title']}, val",
+            spec["xlim"], spec["ylim"], spec["xlabel"], spec["ylabel"], spec["origin"], reverse_x=spec["reverse_x"],
+        )
+        plot_density_difference(
+            train_density,
+            val_density,
+            out_dir / f"{spec['name']}_density_difference_val_minus_train.png",
+            f"{spec['title']} difference, val minus train",
+            spec["xlim"], spec["ylim"], spec["xlabel"], spec["ylabel"], spec["origin"], reverse_x=spec["reverse_x"],
+        )
 
     # -------------------------------------------------------------------------
     # JSON summary
@@ -862,6 +955,13 @@ def main() -> None:
         "velocity_static_eps": float(args.velocity_static_eps),
         "image_height": int(args.image_height),
         "image_width": int(args.image_width),
+        "ppp_eda_spatial": spatial,
+        "train_camera_domain_points": int(np.sum(camera_domain_mask(train_points["x_pix"], train_points["y_pix"], spatial))),
+        "val_camera_domain_points": int(np.sum(camera_domain_mask(val_points["x_pix"], val_points["y_pix"], spatial))),
+        "train_cartesian_bev_domain_points": int(np.sum(cartesian_domain_mask(train_points["lateral"], train_points["forward"], spatial))),
+        "val_cartesian_bev_domain_points": int(np.sum(cartesian_domain_mask(val_points["lateral"], val_points["forward"], spatial))),
+        "train_polar_domain_points": int(np.sum(polar_domain_mask(train_points["range"], train_points["azimuth_deg"], spatial))),
+        "val_polar_domain_points": int(np.sum(polar_domain_mask(val_points["range"], val_points["azimuth_deg"], spatial))),
         "outputs": {
             "frame_summary": str(out_dir / "frame_summary_train_val.csv"),
             "point_summary": str(out_dir / "point_summary_train_val.csv"),

@@ -98,7 +98,7 @@ class PPPfinalsPolarLIIFPPPHead(BaseDecodeHead):
     LIIF output channels:
         channel 0: log intensity
         channel 1: signed wrapped radial velocity
-        channel 2: RCS mark, interpreted as log-RCS
+        channel 2: RCS mark
 
     The RCS target is read from ``gt_radar_points.meta[:, 2]``.
     """
@@ -741,7 +741,7 @@ class PPPfinalsPolarLIIFPPPHead(BaseDecodeHead):
             grid_log_lambda=quadrature_out[:, 0:1],
             grid_velocity=quadrature_out[:, 1:2],
             grid_raw_rcs=grid_raw_rcs,
-            grid_rcs=torch.exp(grid_raw_rcs),
+            grid_rcs=grid_raw_rcs**3,
         )
 
     def loss(

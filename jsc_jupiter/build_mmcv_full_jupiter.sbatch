@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
-#SBATCH --time=00:05:00
+#SBATCH --time=00:30:00
 #SBATCH --output=logs/%j_%x.out
 #SBATCH --error=logs/%j_%x.err
 #SBATCH --export=NONE
@@ -72,6 +72,27 @@ print("cuda available:", torch.cuda.is_available())
 if torch.cuda.is_available():
     print("device:", torch.cuda.get_device_name(0))
     print("capability:", torch.cuda.get_device_capability(0))
+PY
+
+echo
+echo "=== Python 3.12 build-tool compatibility check ==="
+python - <<'PY'
+from importlib.metadata import version
+from packaging.version import Version
+
+setuptools_version = Version(version("setuptools"))
+print("setuptools:", setuptools_version)
+if setuptools_version < Version("66.1.0"):
+    raise SystemExit(
+        "setuptools is too old for Python 3.12. "
+        "Run setup_jupiter.sh again or install setuptools==69.5.1."
+    )
+
+import pkg_resources
+from torch.utils.cpp_extension import CUDA_HOME
+print("pkg_resources: OK")
+print("torch cpp_extension: OK")
+print("CUDA_HOME:", CUDA_HOME)
 PY
 
 echo

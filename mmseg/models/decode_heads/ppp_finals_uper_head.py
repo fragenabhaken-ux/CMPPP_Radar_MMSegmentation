@@ -313,7 +313,7 @@ class PPPfinalsUperHead(BaseDecodeHead):
 
         # Mark links
         pred_depth = torch.exp(raw_depth)
-        pred_rcs = torch.exp(raw_rcs)
+        pred_rcs = raw_rcs**3
 
         if self.velocity_mode == "signed":
             pred_vel = raw_vel**3

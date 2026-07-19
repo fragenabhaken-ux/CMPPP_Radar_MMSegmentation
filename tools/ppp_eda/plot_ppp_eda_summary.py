@@ -18,9 +18,12 @@ Output:
         velocity_signed_hist.png
         velocity_abs_hist.png
         velocity_bucket_bar.png
+        rcs_hist.png
+        rcs_hist_log_y.png
         image_space_density.png
         depth_vs_y_pix.png
         velocity_vs_depth.png
+        rcs_vs_depth.png
         rgb_at_radar_points_hist.png
         summary_frames.csv
         summary_points.csv
@@ -48,6 +51,16 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+from ppp_eda_geometry import (
+    camera_domain_mask,
+    camera_plot_limits,
+    cartesian_domain_mask,
+    cartesian_plot_limits,
+    load_spatial_config_from_scan_dir,
+    polar_domain_mask,
+    polar_plot_limits,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -231,7 +244,7 @@ def make_summary_frame_stats(frames: pd.DataFrame) -> pd.DataFrame:
 def make_summary_point_stats(points: Dict[str, np.ndarray]) -> pd.DataFrame:
     rows = []
 
-    for name in ["depth", "velocity"]:
+    for name in ["depth", "velocity", "rcs"]:
         if name in points:
             stats = quantile_dict(points[name].astype(float), prefix=name)
             row = {"variable": name}
@@ -392,6 +405,67 @@ def sample_for_scatter(
     return [a[idx] for a in arrays]
 
 
+def plot_spatial_density(
+    x_values: np.ndarray,
+    y_values: np.ndarray,
+    mask: np.ndarray,
+    path: Path,
+    title: str,
+    xlabel: str,
+    ylabel: str,
+    xlim: Tuple[float, float],
+    ylim: Tuple[float, float],
+    x_bins: int,
+    y_bins: int,
+    origin: str = "lower",
+    reverse_x: bool = False,
+) -> None:
+    x_values = np.asarray(x_values, dtype=float)
+    y_values = np.asarray(y_values, dtype=float)
+    mask = np.asarray(mask, dtype=bool)
+    mask &= np.isfinite(x_values) & np.isfinite(y_values)
+
+    plt.figure(figsize=(12, 7))
+
+    if not np.any(mask):
+        plt.text(0.5, 0.5, "No points inside configured domain", ha="center", va="center")
+        plt.title(title)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        if reverse_x:
+            plt.xlim(xlim[1], xlim[0])
+        else:
+            plt.xlim(*xlim)
+        plt.ylim(*ylim)
+        save_fig(path)
+        return
+
+    density, _, _ = np.histogram2d(
+        x_values[mask],
+        y_values[mask],
+        bins=[x_bins, y_bins],
+        range=[list(xlim), list(ylim)],
+    )
+
+    extent = [xlim[0], xlim[1], ylim[0], ylim[1]]
+    if origin == "upper":
+        extent = [xlim[0], xlim[1], ylim[1], ylim[0]]
+
+    plt.imshow(
+        np.log1p(density.T),
+        origin=origin,
+        extent=extent,
+        aspect="auto",
+    )
+    if reverse_x:
+        plt.xlim(xlim[1], xlim[0])
+    plt.colorbar(label="log(1 + count)")
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    save_fig(path)
+
+
 def plot_image_space_density(
     x_pix: np.ndarray,
     y_pix: np.ndarray,
@@ -400,37 +474,76 @@ def plot_image_space_density(
     image_height: int,
     x_bins: int,
     y_bins: int,
+    spatial: Dict[str, object],
 ) -> None:
-    plt.figure(figsize=(16, 6))
-
-    if len(x_pix) == 0:
-        plt.text(0.5, 0.5, "No radar points", ha="center", va="center")
-        plt.title("Image-space radar GT density")
-        save_fig(path)
-        return
-
-    density, x_edges, y_edges = np.histogram2d(
-        x_pix,
-        y_pix,
-        bins=[x_bins, y_bins],
-        range=[[0, image_width], [0, image_height]],
-    )
-
-    # histogram2d returns shape x_bins, y_bins. For imshow use y, x.
-    density_img = density.T
-
-    plt.imshow(
-        np.log1p(density_img),
+    xlim, ylim = camera_plot_limits(image_width, image_height, spatial)
+    mask = camera_domain_mask(x_pix, y_pix, spatial)
+    plot_spatial_density(
+        x_values=x_pix,
+        y_values=y_pix,
+        mask=mask,
+        path=path,
+        title="Image-space radar GT density",
+        xlabel="x pixel",
+        ylabel="y pixel",
+        xlim=xlim,
+        ylim=ylim,
+        x_bins=x_bins,
+        y_bins=y_bins,
         origin="upper",
-        extent=[0, image_width, image_height, 0],
-        aspect="auto",
     )
-    plt.colorbar(label="log(1 + count)")
-    plt.title("Image-space radar GT density")
-    plt.xlabel("x pixel")
-    plt.ylabel("y pixel")
 
-    save_fig(path)
+
+def plot_cartesian_bev_density(
+    lateral: np.ndarray,
+    forward: np.ndarray,
+    path: Path,
+    x_bins: int,
+    y_bins: int,
+    spatial: Dict[str, object],
+) -> None:
+    xlim, ylim = cartesian_plot_limits(lateral, forward, spatial)
+    mask = cartesian_domain_mask(lateral, forward, spatial)
+    plot_spatial_density(
+        x_values=lateral,
+        y_values=forward,
+        mask=mask,
+        path=path,
+        title="Cartesian BEV radar GT density",
+        xlabel="lateral position [m]",
+        ylabel="forward position [m]",
+        xlim=xlim,
+        ylim=ylim,
+        x_bins=x_bins,
+        y_bins=y_bins,
+        reverse_x=True,
+    )
+
+
+def plot_polar_density(
+    azimuth_deg: np.ndarray,
+    range_m: np.ndarray,
+    path: Path,
+    x_bins: int,
+    y_bins: int,
+    spatial: Dict[str, object],
+) -> None:
+    xlim, ylim = polar_plot_limits(azimuth_deg, range_m, spatial)
+    mask = polar_domain_mask(range_m, azimuth_deg, spatial)
+    plot_spatial_density(
+        x_values=azimuth_deg,
+        y_values=range_m,
+        mask=mask,
+        path=path,
+        title="Polar radar GT density",
+        xlabel="azimuth [deg]",
+        ylabel="range [m]",
+        xlim=xlim,
+        ylim=ylim,
+        x_bins=x_bins,
+        y_bins=y_bins,
+        reverse_x=True,
+    )
 
 
 def plot_depth_vs_y(
@@ -501,6 +614,40 @@ def plot_velocity_vs_depth(
     save_fig(path)
 
 
+def plot_rcs_vs_depth(
+    depth: np.ndarray,
+    rcs: np.ndarray,
+    path: Path,
+    max_scatter_points: int,
+    seed: int,
+) -> None:
+    depth = depth.astype(float)
+    rcs = rcs.astype(float)
+
+    mask = np.isfinite(depth) & np.isfinite(rcs)
+    depth = depth[mask]
+    rcs = rcs[mask]
+
+    depth_plot, rcs_plot = sample_for_scatter(
+        [depth, rcs],
+        max_points=max_scatter_points,
+        seed=seed,
+    )
+
+    plt.figure(figsize=(10, 7))
+
+    if len(depth_plot) == 0:
+        plt.text(0.5, 0.5, "No finite values", ha="center", va="center")
+    else:
+        plt.scatter(depth_plot, rcs_plot, s=2, alpha=0.15)
+
+    plt.title("GT RCS vs GT depth")
+    plt.xlabel("GT depth [m]")
+    plt.ylabel("GT RCS")
+
+    save_fig(path)
+
+
 def plot_rgb_at_radar_points(rgb: np.ndarray, path: Path) -> None:
     plt.figure(figsize=(10, 6))
 
@@ -529,7 +676,10 @@ def plot_rgb_at_radar_points(rgb: np.ndarray, path: Path) -> None:
 def load_points(npz_path: Path) -> Dict[str, np.ndarray]:
     pts = np.load(npz_path)
 
-    required = ["eda_idx", "x_pix", "y_pix", "depth", "velocity", "rgb"]
+    required = [
+        "eda_idx", "x_pix", "y_pix", "depth", "velocity", "rcs",
+        "lateral", "forward", "range", "azimuth_deg", "rgb",
+    ]
     missing = [k for k in required if k not in pts.files]
     if missing:
         raise KeyError(
@@ -558,6 +708,7 @@ def main() -> None:
 
     frames = pd.read_csv(frames_csv)
     points = load_points(point_values_npz)
+    spatial = load_spatial_config_from_scan_dir(scan_dir)
 
     if "point_count" not in frames.columns:
         raise KeyError("frames.csv must contain column 'point_count'.")
@@ -630,6 +781,7 @@ def main() -> None:
     depth = points["depth"].astype(float)
     velocity = points["velocity"].astype(float)
     abs_velocity = np.abs(velocity)
+    rcs = points["rcs"].astype(float)
 
     plot_hist(
         values=depth,
@@ -673,6 +825,23 @@ def main() -> None:
         log_y=True,
     )
 
+    plot_hist(
+        values=rcs,
+        path=out_dir / "rcs_hist.png",
+        title="GT RCS distribution at projected radar points",
+        xlabel="GT RCS",
+        bins=100,
+    )
+
+    plot_hist(
+        values=rcs,
+        path=out_dir / "rcs_hist_log_y.png",
+        title="GT RCS distribution at projected radar points, log-y",
+        xlabel="GT RCS",
+        bins=100,
+        log_y=True,
+    )
+
     labels, counts = velocity_buckets(velocity, eps=args.velocity_static_eps)
     plot_bar(
         labels=labels,
@@ -690,6 +859,25 @@ def main() -> None:
         image_height=args.image_height,
         x_bins=args.density_x_bins,
         y_bins=args.density_y_bins,
+        spatial=spatial,
+    )
+
+    plot_cartesian_bev_density(
+        lateral=points["lateral"].astype(float),
+        forward=points["forward"].astype(float),
+        path=out_dir / "cartesian_bev_density.png",
+        x_bins=args.density_x_bins,
+        y_bins=args.density_y_bins,
+        spatial=spatial,
+    )
+
+    plot_polar_density(
+        azimuth_deg=points["azimuth_deg"].astype(float),
+        range_m=points["range"].astype(float),
+        path=out_dir / "polar_density.png",
+        x_bins=args.density_x_bins,
+        y_bins=args.density_y_bins,
+        spatial=spatial,
     )
 
     plot_depth_vs_y(
@@ -704,6 +892,14 @@ def main() -> None:
         depth=points["depth"],
         velocity=points["velocity"],
         path=out_dir / "velocity_vs_depth.png",
+        max_scatter_points=args.max_scatter_points,
+        seed=args.random_seed,
+    )
+
+    plot_rcs_vs_depth(
+        depth=points["depth"],
+        rcs=points["rcs"],
+        path=out_dir / "rcs_vs_depth.png",
         max_scatter_points=args.max_scatter_points,
         seed=args.random_seed,
     )
@@ -729,6 +925,10 @@ def main() -> None:
         "num_point_rows": int(len(points["eda_idx"])),
         "image_height": int(args.image_height),
         "image_width": int(args.image_width),
+        "ppp_eda_spatial": spatial,
+        "camera_domain_points": int(np.sum(camera_domain_mask(points["x_pix"], points["y_pix"], spatial))),
+        "cartesian_bev_domain_points": int(np.sum(cartesian_domain_mask(points["lateral"], points["forward"], spatial))),
+        "polar_domain_points": int(np.sum(polar_domain_mask(points["range"], points["azimuth_deg"], spatial))),
         "point_count_buckets": {
             label: int(count)
             for label, count in zip(labels_pc, counts_pc)

@@ -26,6 +26,46 @@ dataset_type = 'Sys100PPPHeatmapDataset'
 demo_dataset_type = 'Sys100PPPHeatmapDatasetDemoVid'
 
 # -----------------------------------------------------------------------------
+# Spatial domains used by all EDA evaluations and visualizations
+# -----------------------------------------------------------------------------
+#
+# Every individual bound may be set to None. None means that no additional
+# evaluation-domain constraint is applied for that bound. For unconstrained
+# Cartesian and polar plots, the axes are scaled from the finite data.
+# Camera limits are pixel coordinates; all None keeps the full camera image.
+#
+# To disable every additional spatial constraint, set all values inside
+# camera, cartesian_bev, and polar to None.
+# -----------------------------------------------------------------------------
+
+ppp_eda_spatial = dict(
+    principal_x_rel=0.491,
+    lateral_sign=1.0,
+    fallback_h_fov_deg=float(fovs_wo_fisheyeart[0]),
+
+    camera=dict(
+        x_min=None,
+        x_max=None,
+        y_min=None,
+        y_max=None,
+    ),
+
+    cartesian_bev=dict(
+        lateral_min=None,
+        lateral_max=None,
+        forward_min=None,
+        forward_max=None,
+    ),
+
+    polar=dict(
+        range_min=None,
+        range_max=None,
+        azimuth_min_deg=None,
+        azimuth_max_deg=None,
+    ),
+)
+
+# -----------------------------------------------------------------------------
 # EDA subset settings
 # -----------------------------------------------------------------------------
 
@@ -95,7 +135,7 @@ DEMO_NUM_FRAMES = (DEMO_FRAME_END - DEMO_FRAME_START) // DEMO_FRAME_STRIDE + 1
 #
 # The EDA scripts should receive plain:
 #   sample["img"]         H, W, 3 float32 in [-1, 1]
-#   sample["gt_seg_map"]  H, W, 3 float32
+#   sample["gt_seg_map"]  H, W, 4 float32
 #   sample["metainfo"]    metadata
 # -----------------------------------------------------------------------------
 
@@ -130,8 +170,6 @@ def make_eda_pipeline(
             thres=0.05,
             rel_x_centre=0.491,
             rel_y_centre=0.4370,
-            clip_depth=(0.0, 150.0),
-            clip_vel=(-10.0, 10.0),
         ),
     ]
 
@@ -255,6 +293,7 @@ eda_demo_dataloader = dict(
 ppp_eda_meta = dict(
     out_img_size=out_img_size,
     fovs=fovs_wo_fisheyeart,
+    spatial=ppp_eda_spatial,
 
     train_samples=num_samples_train_eda,
     val_samples=num_samples_val_eda,

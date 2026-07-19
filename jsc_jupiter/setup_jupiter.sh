@@ -20,7 +20,11 @@ export CUDA_HOME="/e/software/default/stages/2025/software/CUDA/12"
 export PATH="${CUDA_HOME}/bin:${PATH}"
 export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
 
-python -m pip install --upgrade pip setuptools wheel
+# Upgrade pip first. setuptools/wheel are pinned again after all base
+# dependencies, because packages such as openxlab can otherwise downgrade
+# setuptools to a Python-3.12-incompatible release.
+python -m pip install --upgrade pip
+python -m pip install "setuptools==69.5.1" "wheel==0.43.0"
 
 # OpenMMLab base tooling and Python dependencies.
 # requirements_jupiter_base.txt should NOT contain:
@@ -32,6 +36,7 @@ python -m pip install --upgrade pip setuptools wheel
 #   opencv-python
 #   opencv-python-headless
 #   numpy
+#   openmim  (not needed here; it pulls openxlab, which pins old setuptools)
 python -m pip install -r "$SCRIPT_DIR/requirements_jupiter_base.txt"
 
 # Extra dependency needed by MMSeg metrics/depth_metric.py.
@@ -42,6 +47,28 @@ python -m pip install prettytable
 # opencv-python or NumPy 2.x. NumPy 1.26.4 comes from the JSC SciPy-bundle.
 python -m pip uninstall -y opencv-python opencv-python-headless || true
 python -m pip install --no-deps "opencv-python-headless==4.10.0.84"
+
+# Re-assert Python 3.12-compatible build tooling after all base dependencies.
+# This must remain after the requirements installation so no transitive
+# dependency can leave setuptools at the incompatible 60.2.0 release.
+python -m pip install \
+    --upgrade \
+    --force-reinstall \
+    "setuptools==69.5.1" \
+    "wheel==0.43.0" \
+    "Cython<3"
+
+# Verify the exact import path used by PyTorch C++/CUDA extensions.
+python - <<'PY'
+import setuptools
+import pkg_resources
+from torch.utils.cpp_extension import CUDA_HOME
+
+print("setuptools:", setuptools.__version__)
+print("pkg_resources: OK")
+print("torch cpp_extension: OK")
+print("CUDA_HOME:", CUDA_HOME)
+PY
 
 # Do NOT install torchvision here.
 # The pip torchvision wheel caused:
@@ -122,6 +149,11 @@ for name in [
     "mmcv",
     "mmcv-lite",
     "prettytable",
+    "setuptools",
+    "wheel",
+    "Cython",
+    "openmim",
+    "openxlab",
 ]:
     try:
         d = md.distribution(name)

@@ -22,6 +22,8 @@ Categories:
     high_negative_velocity
     high_mean_abs_velocity
     mostly_static
+    high_rcs
+    low_rcs
 
 Depth is still computed for selected_examples.csv, but it is no longer used
 as a selection category.
@@ -82,6 +84,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=5,
         help="Minimum radar GT points required for velocity categories.",
+    )
+    parser.add_argument(
+        "--min-points-for-rcs-stats",
+        type=int,
+        default=5,
+        help="Minimum radar GT points required for RCS categories.",
     )
     parser.add_argument(
         "--sparse-max-points",
@@ -159,7 +167,7 @@ def filter_and_rank(
 def load_point_stats(point_values_npz: Path) -> pd.DataFrame:
     pts = np.load(point_values_npz)
 
-    required = ["eda_idx", "depth", "velocity"]
+    required = ["eda_idx", "depth", "velocity", "rcs"]
     for key in required:
         if key not in pts.files:
             raise KeyError(
@@ -170,6 +178,7 @@ def load_point_stats(point_values_npz: Path) -> pd.DataFrame:
     eda_idx = pts["eda_idx"].astype(np.int32)
     depth = pts["depth"].astype(np.float32)
     velocity = pts["velocity"].astype(np.float32)
+    rcs = pts["rcs"].astype(np.float32)
 
     if len(eda_idx) == 0:
         return pd.DataFrame(
@@ -191,6 +200,12 @@ def load_point_stats(point_values_npz: Path) -> pd.DataFrame:
                 "velocity_pos_fraction_eps_0_5",
                 "velocity_neg_fraction_eps_0_5",
                 "velocity_near_zero_fraction_eps_0_5",
+                "rcs_min",
+                "rcs_q05",
+                "rcs_q50",
+                "rcs_q95",
+                "rcs_max",
+                "rcs_mean",
             ]
         )
 
@@ -199,6 +214,7 @@ def load_point_stats(point_values_npz: Path) -> pd.DataFrame:
             "eda_idx": eda_idx,
             "depth": depth,
             "velocity": velocity,
+            "rcs": rcs,
         }
     )
     point_df["abs_velocity"] = point_df["velocity"].abs()
@@ -213,6 +229,9 @@ def load_point_stats(point_values_npz: Path) -> pd.DataFrame:
         velocity_mean=("velocity", "mean"),
         velocity_abs_mean=("abs_velocity", "mean"),
         velocity_abs_max=("abs_velocity", "max"),
+        rcs_min=("rcs", "min"),
+        rcs_max=("rcs", "max"),
+        rcs_mean=("rcs", "mean"),
     )
 
     depth_q = grouped["depth"].quantile([0.05, 0.50, 0.95]).unstack()
@@ -220,6 +239,9 @@ def load_point_stats(point_values_npz: Path) -> pd.DataFrame:
 
     velocity_q = grouped["velocity"].quantile([0.05, 0.50, 0.95]).unstack()
     velocity_q.columns = ["velocity_q05", "velocity_q50", "velocity_q95"]
+
+    rcs_q = grouped["rcs"].quantile([0.05, 0.50, 0.95]).unstack()
+    rcs_q.columns = ["rcs_q05", "rcs_q50", "rcs_q95"]
 
     eps = 0.5
     velocity_flags = point_df.assign(
@@ -232,7 +254,7 @@ def load_point_stats(point_values_npz: Path) -> pd.DataFrame:
         velocity_near_zero_fraction_eps_0_5=("vel_zero", "mean"),
     )
 
-    out = stats.join(depth_q).join(velocity_q).join(velocity_flags)
+    out = stats.join(depth_q).join(velocity_q).join(rcs_q).join(velocity_flags)
     out = out.reset_index()
 
     return out
@@ -242,6 +264,7 @@ def build_selected_examples(
     df: pd.DataFrame,
     n: int,
     min_points_for_velocity_stats: int,
+    min_points_for_rcs_stats: int,
     sparse_max_points: int,
 ) -> Dict[str, List[int]]:
     selected: Dict[str, List[int]] = {}
@@ -317,6 +340,22 @@ def build_selected_examples(
         min_points=min_points_for_velocity_stats,
     )
 
+    selected["high_rcs"] = top_n(
+        df,
+        column="rcs_mean",
+        n=n,
+        ascending=False,
+        min_points=min_points_for_rcs_stats,
+    )
+
+    selected["low_rcs"] = top_n(
+        df,
+        column="rcs_mean",
+        n=n,
+        ascending=True,
+        min_points=min_points_for_rcs_stats,
+    )
+
     return selected
 
 
@@ -375,6 +414,12 @@ def build_selected_csv(df: pd.DataFrame, selected: Dict[str, List[int]]) -> pd.D
         "velocity_pos_fraction_eps_0_5",
         "velocity_neg_fraction_eps_0_5",
         "velocity_near_zero_fraction_eps_0_5",
+        "rcs_mean",
+        "rcs_min",
+        "rcs_max",
+        "rcs_q05",
+        "rcs_q50",
+        "rcs_q95",
     ]
 
     cols = [c for c in first_cols if c in out.columns]
@@ -419,6 +464,7 @@ def main() -> None:
         df=df,
         n=args.num_per_category,
         min_points_for_velocity_stats=args.min_points_for_velocity_stats,
+        min_points_for_rcs_stats=args.min_points_for_rcs_stats,
         sparse_max_points=args.sparse_max_points,
     )
 
@@ -435,6 +481,7 @@ def main() -> None:
             "num_point_rows": int(pts["eda_idx"].shape[0]),
             "num_per_category": int(args.num_per_category),
             "min_points_for_velocity_stats": int(args.min_points_for_velocity_stats),
+            "min_points_for_rcs_stats": int(args.min_points_for_rcs_stats),
             "sparse_max_points": int(args.sparse_max_points),
         },
         "categories": selected,

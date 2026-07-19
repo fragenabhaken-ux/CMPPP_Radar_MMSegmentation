@@ -468,7 +468,7 @@ class PPPfinalsViTPatchRearrangeHead(BaseDecodeHead):
         else:
             raise RuntimeError(f"Unsupported velocity_mode={self.velocity_mode!r}")
 
-        pred_rcs = torch.exp(raw_rcs)
+        pred_rcs = raw_rcs**3
 
         loss_ppp = self.loss_ppp(pred_int, gt_int)
 

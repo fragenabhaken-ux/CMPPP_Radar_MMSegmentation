@@ -135,6 +135,7 @@ render_ppp_demo_temporal_accumulation.py
 
 ```text
 tools/ppp_eda/
+├── ppp_eda_geometry.py
 ├── scan_ppp_eda.py
 ├── select_ppp_examples.py
 ├── render_ppp_examples.py
@@ -157,13 +158,107 @@ jsc_jupiter/
 └── ppp_eda_temporal_accumulation.sbatch
 ```
 
-EDA config:
+EDA config and provided configuration snippet:
 
 ```text
 configs/ppp_eda/ppp_eda.py
+configs/ppp_eda/ppp_eda_spatial_config_snippet.py
 ```
 
 ## Config
+
+The config defines the EDA dataloaders and one shared optional spatial-domain block.
+
+### Spatial-domain settings
+
+Add the following to `configs/ppp_eda/ppp_eda.py`:
+
+```python
+ppp_eda_spatial = dict(
+    principal_x_rel=0.491,
+    lateral_sign=1.0,
+    fallback_h_fov_deg=110.0,
+
+    camera=dict(
+        x_min=None,
+        x_max=None,
+        y_min=None,
+        y_max=None,
+    ),
+
+    cartesian_bev=dict(
+        lateral_min=-50.0,
+        lateral_max=50.0,
+        forward_min=0.0,
+        forward_max=150.0,
+    ),
+
+    polar=dict(
+        range_min=0.0,
+        range_max=150.0,
+        azimuth_min_deg=-52.5,
+        azimuth_max_deg=52.5,
+    ),
+)
+```
+
+Every individual domain bound may be set to `None`.
+
+```python
+ppp_eda_spatial = dict(
+    principal_x_rel=0.491,
+    lateral_sign=1.0,
+    fallback_h_fov_deg=110.0,
+    camera=dict(
+        x_min=None,
+        x_max=None,
+        y_min=None,
+        y_max=None,
+    ),
+    cartesian_bev=dict(
+        lateral_min=None,
+        lateral_max=None,
+        forward_min=None,
+        forward_max=None,
+    ),
+    polar=dict(
+        range_min=None,
+        range_max=None,
+        azimuth_min_deg=None,
+        azimuth_max_deg=None,
+    ),
+)
+```
+
+The meaning of `None` is consistent:
+
+```text
+Point filtering
+    No lower or upper filter is applied for that bound.
+
+Camera plotting
+    None uses the corresponding full image edge.
+
+Cartesian and polar plotting
+    None causes that plot edge to be inferred from the finite points.
+```
+
+Bounds are independently optional. For example, this allows all lateral values while restricting only forward distance:
+
+```python
+cartesian_bev=dict(
+    lateral_min=None,
+    lateral_max=None,
+    forward_min=0.0,
+    forward_max=150.0,
+)
+```
+
+The horizontal FOV used for back-projection is read from each sample's `fovs` field. `fallback_h_fov_deg` is used only when the sample does not provide it. The frame-specific `rad2cam` matrix is always required.
+
+The scan writes the fully resolved dictionary to `scan_summary.json`. Offline summary and train-validation scripts read it from there, so the same domain settings are applied after scanning. Train and validation comparison stops with an error when their saved spatial settings differ.
+
+Changing only display bounds requires rerendering or replotting. Changing `principal_x_rel`, `lateral_sign`, or the camera calibration requires rerunning the scan because the exported Cartesian and polar coordinates change.
 
 The config defines EDA dataloaders only.
 
@@ -335,6 +430,11 @@ x_pix
 y_pix
 depth
 velocity
+rcs
+lateral
+forward
+range
+azimuth_deg
 rgb
 ```
 
@@ -353,6 +453,21 @@ depth
 velocity
     GT radial velocity mark.
 
+rcs
+    GT radar cross section mark.
+
+lateral
+    Recovered Cartesian lateral radar coordinate in metres.
+
+forward
+    Cartesian forward radar coordinate in metres. This equals the stored depth mark.
+
+range
+    Polar range in metres, computed from lateral and forward.
+
+azimuth_deg
+    Polar azimuth in degrees, computed as atan2(lateral, forward).
+
 rgb
     Camera RGB value at the projected GT radar point.
 ```
@@ -365,6 +480,11 @@ x_pix     int16
 y_pix     int16
 depth     float32
 velocity  float32
+rcs       float32
+lateral   float32
+forward   float32
+range     float32
+azimuth_deg float32
 rgb       uint8, shape (N, 3)
 ```
 
@@ -396,6 +516,8 @@ high_positive_velocity
 high_negative_velocity
 high_mean_abs_velocity
 mostly_static
+high_rcs
+low_rcs
 ```
 
 Meaning:
@@ -427,6 +549,12 @@ high_mean_abs_velocity
 
 mostly_static
     Frames with smallest mean absolute GT velocity.
+
+high_rcs
+    Frames with largest mean GT RCS.
+
+low_rcs
+    Frames with smallest mean GT RCS.
 ```
 
 Depth is not used as a selection category, because most frames contain both near and far radar points. Depth is still rendered as an overlay.
@@ -435,12 +563,15 @@ Depth is not used as a selection category, because most frames contain both near
 
 The renderer rebuilds the same EDA dataloader, loads selected `eda_idx` frames, verifies that rendered samples match the scan, and saves overlays.
 
-Each selected frame gets three overlays:
+Each selected frame gets six outputs:
 
 ```text
 points
 depth
 velocity
+rcs
+cartesian_bev
+polar
 ```
 
 Example:
@@ -449,7 +580,10 @@ Example:
 /e/scratch/nxtaim-1/huber7/ppp_eda/train_seed42_n5000/examples/dark/
 ├── dark_rank001_eda000123_points.png
 ├── dark_rank001_eda000123_depth.png
-└── dark_rank001_eda000123_velocity.png
+├── dark_rank001_eda000123_velocity.png
+├── dark_rank001_eda000123_rcs.png
+├── dark_rank001_eda000123_cartesian_bev.png
+└── dark_rank001_eda000123_polar.png
 ```
 
 Meaning:
@@ -463,6 +597,15 @@ depth.png
 
 velocity.png
     Camera image with GT radar points colored by signed GT radial velocity.
+
+rcs.png
+    Camera image with GT radar points colored by GT RCS.
+
+cartesian_bev.png
+    The same surviving camera-target points back-projected to lateral/forward BEV.
+
+polar.png
+    The same points shown on the model-style rectangular azimuth/range domain.
 ```
 
 ## Summary plots
@@ -495,9 +638,14 @@ velocity_signed_hist_log_y.png
 velocity_abs_hist.png
 velocity_abs_hist_log_y.png
 velocity_bucket_bar.png
+rcs_hist.png
+rcs_hist_log_y.png
 image_space_density.png
+cartesian_bev_density.png
+polar_density.png
 depth_vs_y_pix.png
 velocity_vs_depth.png
+rcs_vs_depth.png
 rgb_at_radar_points_hist.png
 ```
 
@@ -542,6 +690,8 @@ v > 0.5
 
 The additional log-y velocity histograms are used because radial velocity often has a very large spike around zero and much smaller tails.
 
+RCS receives the analogous raw-value and log-y histograms, summary statistics, train-validation comparison, depth scatter plot, and overlays. Absolute-value and bucket plots are not added for RCS because those velocity plots specifically describe signed motion and the near-static threshold.
+
 ## Train-validation comparison
 
 Run from inside `jsc_jupiter/` after both scans exist:
@@ -577,10 +727,18 @@ velocity_signed_train_vs_val_log_y.png
 velocity_abs_train_vs_val.png
 velocity_abs_train_vs_val_log_y.png
 velocity_bucket_train_vs_val.png
+rcs_train_vs_val.png
+rcs_train_vs_val_log_y.png
 radar_point_brightness_train_vs_val.png
 image_space_density_train.png
 image_space_density_val.png
 image_space_density_difference_val_minus_train.png
+cartesian_bev_density_train.png
+cartesian_bev_density_val.png
+cartesian_bev_density_difference_val_minus_train.png
+polar_density_train.png
+polar_density_val.png
+polar_density_difference_val_minus_train.png
 ```
 
 Also written:
@@ -627,6 +785,9 @@ Output goes to:
 ├── points/
 ├── depth/
 ├── velocity/
+├── rcs/
+├── cartesian_bev/
+├── polar/
 ├── render_summary.json
 └── rendered_frames.json
 ```
@@ -682,6 +843,9 @@ Output:
 ├── accumulated_points_alpha_fade.png
 ├── accumulated_depth.png
 ├── accumulated_velocity.png
+├── accumulated_rcs.png
+├── accumulated_cartesian_bev.png
+├── accumulated_polar.png
 ├── accumulated_points.csv
 └── temporal_accumulation_summary.json
 ```
@@ -704,6 +868,15 @@ accumulated_depth.png
 accumulated_velocity.png
     Accumulated projected GT radar points colored by GT radial velocity.
 
+accumulated_rcs.png
+    Accumulated projected GT radar points colored by GT RCS.
+
+accumulated_cartesian_bev.png
+    Accumulated points in Cartesian BEV. Each frame remains in its own local radar frame.
+
+accumulated_polar.png
+    Accumulated points in rectangular azimuth/range coordinates.
+
 accumulated_points.csv
     One row per accumulated projected radar point.
 
@@ -711,7 +884,7 @@ temporal_accumulation_summary.json
     Metadata and point counts for the temporal window.
 ```
 
-Important: this is image-space accumulation. It does not use ego-motion compensation.
+Important: none of the temporal accumulation views uses ego-motion compensation. The camera, Cartesian BEV, and polar accumulations therefore combine points expressed in the individual neighboring-frame coordinate systems.
 
 So it is correct to describe it as:
 
@@ -1117,6 +1290,7 @@ cols = [
     "brightness_mean",
     "velocity_mean",
     "velocity_abs_mean",
+    "rcs_mean",
 ]
 print(df[cols].head(80))
 PY

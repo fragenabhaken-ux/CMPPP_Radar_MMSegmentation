@@ -12,4 +12,4 @@ psutil
 pyyaml
 safetensors
 huggingface_hub
-openmim
+Cython<3

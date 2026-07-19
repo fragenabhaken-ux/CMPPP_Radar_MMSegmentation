@@ -174,7 +174,7 @@ class PPPPolarViTPatchRearrangeHead(BaseDecodeHead):
         rcs_weight: float = 1.0,
         velocity_mode: str = "signed",
         velocity_link: str = "cube",
-        rcs_link: str = "exp",
+        rcs_link: str = "cube",
         r_min: float = 0.0,
         r_max: float = 104.0,
         theta_min: float = -1.5707963267948966,
@@ -289,9 +289,9 @@ class PPPPolarViTPatchRearrangeHead(BaseDecodeHead):
             )
 
         self.rcs_link = str(rcs_link).lower()
-        if self.rcs_link not in {"identity", "exp"}:
+        if self.rcs_link not in {"identity", "cube"}:
             raise ValueError(
-                "rcs_link must be 'identity' or 'exp', "
+                "rcs_link must be 'identity' or 'cube', "
                 f"got {rcs_link!r}."
             )
 
@@ -494,8 +494,8 @@ class PPPPolarViTPatchRearrangeHead(BaseDecodeHead):
     def _rcs_prediction(self, raw_rcs: torch.Tensor) -> torch.Tensor:
         if self.rcs_link == "identity":
             return raw_rcs
-        if self.rcs_link == "exp":
-            return torch.exp(raw_rcs)
+        if self.rcs_link == "cube":
+            return raw_rcs**3
 
         raise RuntimeError(f"Unsupported rcs_link={self.rcs_link!r}.")
 

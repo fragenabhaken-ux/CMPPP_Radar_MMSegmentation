@@ -3,7 +3,7 @@ A mmsegmentation-compatible adapter around the SYS100 codebase.
 
 Content:
 - SYS100 dataset internals (radar → clusters, camera model), directly from SYS100 codebase
-- PPP target definition (3-channel heatmap, Poisson view)
+- PPP target definition (4-channel heatmap, Poisson view)
 - mmseg BaseTransform for PPP-style supervision
 - Naming, structure, integration into training loop
 
@@ -220,7 +220,7 @@ class LoadSys100Sample(BaseTransform):
 @TRANSFORMS.register_module()
 class BuildPPPHeatmap(BaseTransform):
     """
-    Builds gt_seg_map with 3 channels:
+    Builds gt_seg_map with 4 channels:
       0: intensity (1 at projected points)
       1: depth
       2: velocity

@@ -16,6 +16,15 @@ Output:
         velocity/
             frame_000000_eda000000_velocity.png
             ...
+        rcs/
+            frame_000000_eda000000_rcs.png
+            ...
+        cartesian_bev/
+            frame_000000_eda000000_cartesian_bev.png
+            ...
+        polar/
+            frame_000000_eda000000_polar.png
+            ...
         render_summary.json
 
 Example:
@@ -51,6 +60,15 @@ from mmengine.config import Config
 from mmengine.registry import init_default_scope
 from mmengine.runner import Runner
 from mmengine.utils import import_modules_from_strings
+
+from ppp_eda_geometry import (
+    camera_domain_mask,
+    camera_plot_limits,
+    filter_point_dict,
+    points_from_gt,
+    resolve_spatial_config_from_cfg,
+)
+from render_ppp_examples import save_cartesian_bev, save_polar_domain
 
 
 def parse_args() -> argparse.Namespace:
@@ -95,8 +113,8 @@ def parse_args() -> argparse.Namespace:
         "--outputs",
         type=str,
         nargs="*",
-        default=["points", "depth", "velocity"],
-        choices=["points", "depth", "velocity"],
+        default=["points", "depth", "velocity", "rcs", "cartesian_bev", "polar"],
+        choices=["points", "depth", "velocity", "rcs", "cartesian_bev", "polar"],
         help="Which overlays to save.",
     )
     parser.add_argument(
@@ -140,6 +158,18 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=10.0,
         help="Velocity color range is [-velocity_vmax, +velocity_vmax].",
+    )
+    parser.add_argument(
+        "--rcs-vmin",
+        type=float,
+        default=None,
+        help="Optional fixed RCS color minimum. Default: automatic per image.",
+    )
+    parser.add_argument(
+        "--rcs-vmax",
+        type=float,
+        default=None,
+        help="Optional fixed RCS color maximum. Default: automatic per image.",
     )
     parser.add_argument(
         "--overwrite",
@@ -197,11 +227,11 @@ def normalize_gt_to_hwc(gt: Any) -> np.ndarray:
     if gt.ndim != 3:
         raise ValueError(f"Expected gt_seg_map ndim=3 after squeezing, got {gt.shape}")
 
-    if gt.shape[0] == 3 and gt.shape[-1] != 3:
+    if gt.shape[0] == 4 and gt.shape[-1] != 4:
         gt = np.transpose(gt, (1, 2, 0))
 
-    if gt.shape[-1] != 3:
-        raise ValueError(f"Expected gt_seg_map with last dim 3, got {gt.shape}")
+    if gt.shape[-1] != 4:
+        raise ValueError(f"Expected gt_seg_map with last dim 4, got {gt.shape}")
 
     return gt.astype(np.float32, copy=False)
 
@@ -312,30 +342,24 @@ def prepare_out_dir(out_dir: Path, overwrite: bool, outputs: List[str]) -> None:
         (out_dir / name).mkdir(parents=True, exist_ok=True)
 
 
-def extract_points(gt: np.ndarray) -> Dict[str, np.ndarray]:
-    mask = gt[..., 0] > 0
-    y_pix, x_pix = np.nonzero(mask)
-
-    depth = gt[..., 1][mask]
-    velocity = gt[..., 2][mask]
-
-    return dict(
-        x=x_pix.astype(np.float32, copy=False),
-        y=y_pix.astype(np.float32, copy=False),
-        depth=depth.astype(np.float32, copy=False),
-        velocity=velocity.astype(np.float32, copy=False),
-    )
-
-
-def make_figure(img01: np.ndarray, title: str, fig_width: float):
+def make_figure(
+    img01: np.ndarray,
+    title: str,
+    fig_width: float,
+    spatial: Dict[str, Any],
+):
     h, w = img01.shape[:2]
-    fig_height = fig_width * h / w
+    xlim, ylim = camera_plot_limits(w, h, spatial)
+    visible_w = max(xlim[1] - xlim[0], 1.0)
+    visible_h = max(ylim[1] - ylim[0], 1.0)
+    fig_height = fig_width * visible_h / visible_w
 
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
     ax.imshow(img01)
+    ax.set_xlim(*xlim)
+    ax.set_ylim(ylim[1], ylim[0])
     ax.set_title(title, fontsize=10)
     ax.axis("off")
-
     return fig, ax
 
 
@@ -348,8 +372,9 @@ def save_points_overlay(
     alpha: float,
     fig_width: float,
     dpi: int,
+    spatial: Dict[str, Any],
 ) -> None:
-    fig, ax = make_figure(img01, title=title, fig_width=fig_width)
+    fig, ax = make_figure(img01, title=title, fig_width=fig_width, spatial=spatial)
 
     if len(points["x"]) > 0:
         ax.scatter(
@@ -389,8 +414,9 @@ def save_depth_overlay(
     dpi: int,
     depth_vmin: float,
     depth_vmax: float,
+    spatial: Dict[str, Any],
 ) -> None:
-    fig, ax = make_figure(img01, title=title, fig_width=fig_width)
+    fig, ax = make_figure(img01, title=title, fig_width=fig_width, spatial=spatial)
 
     if len(points["x"]) > 0:
         sc = ax.scatter(
@@ -435,8 +461,9 @@ def save_velocity_overlay(
     fig_width: float,
     dpi: int,
     velocity_vmax: float,
+    spatial: Dict[str, Any],
 ) -> None:
-    fig, ax = make_figure(img01, title=title, fig_width=fig_width)
+    fig, ax = make_figure(img01, title=title, fig_width=fig_width, spatial=spatial)
 
     if len(points["x"]) > 0:
         sc = ax.scatter(
@@ -454,6 +481,54 @@ def save_velocity_overlay(
 
         cbar = fig.colorbar(sc, ax=ax, fraction=0.025, pad=0.01)
         cbar.set_label("GT radial velocity")
+    else:
+        ax.text(
+            0.5,
+            0.5,
+            "No projected GT radar points",
+            transform=ax.transAxes,
+            ha="center",
+            va="center",
+            fontsize=14,
+            color="white",
+            bbox=dict(facecolor="black", alpha=0.65, pad=8),
+        )
+
+    fig.savefig(out_path, dpi=dpi, bbox_inches="tight", pad_inches=0.05)
+    plt.close(fig)
+
+
+def save_rcs_overlay(
+    img01: np.ndarray,
+    points: Dict[str, np.ndarray],
+    out_path: Path,
+    title: str,
+    point_size: float,
+    alpha: float,
+    fig_width: float,
+    dpi: int,
+    rcs_vmin: float | None,
+    rcs_vmax: float | None,
+    spatial: Dict[str, Any],
+) -> None:
+    fig, ax = make_figure(img01, title=title, fig_width=fig_width, spatial=spatial)
+
+    if len(points["x"]) > 0:
+        sc = ax.scatter(
+            points["x"],
+            points["y"],
+            s=point_size,
+            c=points["rcs"],
+            cmap="viridis",
+            vmin=rcs_vmin,
+            vmax=rcs_vmax,
+            alpha=alpha,
+            edgecolors="black",
+            linewidths=0.20,
+        )
+
+        cbar = fig.colorbar(sc, ax=ax, fraction=0.025, pad=0.01)
+        cbar.set_label("GT RCS")
     else:
         ax.text(
             0.5,
@@ -498,21 +573,32 @@ def render_frame(
     *,
     img01: np.ndarray,
     gt: np.ndarray,
+    sample: Dict[str, Any],
     out_dir: Path,
     eda_idx: int,
     rendered_idx: int,
     args: argparse.Namespace,
     identity: Dict[str, Any],
+    spatial: Dict[str, Any],
 ) -> Dict[str, Any]:
-    points = extract_points(gt)
+    points = points_from_gt(
+        gt=gt,
+        sample=sample,
+        image_width=img01.shape[1],
+        spatial=spatial,
+    )
     point_count = int(len(points["x"]))
+    camera_points = filter_point_dict(
+        points,
+        camera_domain_mask(points["x"], points["y"], spatial),
+    )
 
     base = f"frame_{rendered_idx:06d}_eda{eda_idx:06d}"
 
     if "points" in args.outputs:
         save_points_overlay(
             img01=img01,
-            points=points,
+            points=camera_points,
             out_path=out_dir / "points" / f"{base}_points.png",
             title=build_title(
                 overlay_name="points",
@@ -525,12 +611,13 @@ def render_frame(
             alpha=args.alpha,
             fig_width=args.fig_width,
             dpi=args.dpi,
+            spatial=spatial,
         )
 
     if "depth" in args.outputs:
         save_depth_overlay(
             img01=img01,
-            points=points,
+            points=camera_points,
             out_path=out_dir / "depth" / f"{base}_depth.png",
             title=build_title(
                 overlay_name="depth",
@@ -545,12 +632,13 @@ def render_frame(
             dpi=args.dpi,
             depth_vmin=args.depth_vmin,
             depth_vmax=args.depth_vmax,
+            spatial=spatial,
         )
 
     if "velocity" in args.outputs:
         save_velocity_overlay(
             img01=img01,
-            points=points,
+            points=camera_points,
             out_path=out_dir / "velocity" / f"{base}_velocity.png",
             title=build_title(
                 overlay_name="velocity",
@@ -564,6 +652,66 @@ def render_frame(
             fig_width=args.fig_width,
             dpi=args.dpi,
             velocity_vmax=args.velocity_vmax,
+            spatial=spatial,
+        )
+
+    if "rcs" in args.outputs:
+        save_rcs_overlay(
+            img01=img01,
+            points=camera_points,
+            out_path=out_dir / "rcs" / f"{base}_rcs.png",
+            title=build_title(
+                overlay_name="RCS",
+                eda_idx=eda_idx,
+                rendered_idx=rendered_idx,
+                identity=identity,
+                point_count=point_count,
+            ),
+            point_size=args.point_size,
+            alpha=args.alpha,
+            fig_width=args.fig_width,
+            dpi=args.dpi,
+            rcs_vmin=args.rcs_vmin,
+            rcs_vmax=args.rcs_vmax,
+            spatial=spatial,
+        )
+
+    if "cartesian_bev" in args.outputs:
+        save_cartesian_bev(
+            points=points,
+            out_path=out_dir / "cartesian_bev" / f"{base}_cartesian_bev.png",
+            title=build_title(
+                overlay_name="Cartesian BEV target",
+                eda_idx=eda_idx,
+                rendered_idx=rendered_idx,
+                identity=identity,
+                point_count=point_count,
+            ),
+            point_size=args.point_size,
+            alpha=args.alpha,
+            dpi=args.dpi,
+            depth_vmin=args.depth_vmin,
+            depth_vmax=args.depth_vmax,
+            spatial=spatial,
+        )
+
+    if "polar" in args.outputs:
+        save_polar_domain(
+            points=points,
+            out_path=out_dir / "polar" / f"{base}_polar.png",
+            title=build_title(
+                overlay_name="polar target",
+                eda_idx=eda_idx,
+                rendered_idx=rendered_idx,
+                identity=identity,
+                point_count=point_count,
+            ),
+            point_size=args.point_size,
+            alpha=args.alpha,
+            dpi=args.dpi,
+            depth_vmin=args.depth_vmin,
+            depth_vmax=args.depth_vmax,
+            spatial=spatial,
         )
 
     return {
@@ -584,6 +732,7 @@ def main() -> None:
     prepare_out_dir(out_dir, overwrite=args.overwrite, outputs=args.outputs)
 
     cfg = load_config(args.config)
+    spatial = resolve_spatial_config_from_cfg(cfg)
     loader = build_dataloader_from_cfg(cfg, args.dataloader)
 
     try:
@@ -635,11 +784,13 @@ def main() -> None:
             row = render_frame(
                 img01=img01,
                 gt=gt,
+                sample=sample,
                 out_dir=out_dir,
                 eda_idx=eda_idx,
                 rendered_idx=rendered,
                 args=args,
                 identity=identity,
+                spatial=spatial,
             )
             rows.append(row)
 
@@ -663,6 +814,9 @@ def main() -> None:
         "depth_vmin": float(args.depth_vmin),
         "depth_vmax": float(args.depth_vmax),
         "velocity_vmax": float(args.velocity_vmax),
+        "rcs_vmin": args.rcs_vmin,
+        "rcs_vmax": args.rcs_vmax,
+        "ppp_eda_spatial": spatial,
     }
 
     with open(out_dir / "render_summary.json", "w", encoding="utf-8") as f:

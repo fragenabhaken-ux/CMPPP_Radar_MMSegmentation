@@ -2,11 +2,9 @@
 """
 Render temporal accumulation of projected PPP radar GT points for one demo frame.
 
-This is image-space accumulation:
-    Neighboring frames are loaded with the demo dataloader.
-    Their already projected radar GT pixels are drawn onto the center camera image.
-
-This is not ego-motion compensated.
+Neighboring frames are loaded with the demo dataloader. Their projected camera
+points are drawn onto the center image and are also converted into Cartesian BEV
+and polar coordinates. None of the accumulated views is ego-motion compensated.
 
 Example:
 
@@ -35,6 +33,17 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+from ppp_eda_geometry import (
+    camera_domain_mask,
+    camera_plot_limits,
+    cartesian_domain_mask,
+    cartesian_plot_limits,
+    points_from_gt,
+    polar_domain_mask,
+    polar_plot_limits,
+    resolve_spatial_config_from_cfg,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -120,6 +129,18 @@ def parse_args() -> argparse.Namespace:
         help="Velocity colorbar maximum.",
     )
     parser.add_argument(
+        "--rcs-vmin",
+        type=float,
+        default=None,
+        help="Optional fixed RCS colorbar minimum. Default: automatic.",
+    )
+    parser.add_argument(
+        "--rcs-vmax",
+        type=float,
+        default=None,
+        help="Optional fixed RCS colorbar maximum. Default: automatic.",
+    )
+    parser.add_argument(
         "--save-csv",
         action="store_true",
         help="Also save accumulated_points.csv.",
@@ -200,12 +221,12 @@ def normalize_gt_to_hwc(gt: Any) -> np.ndarray:
         raise ValueError(f"Expected gt_seg_map with 3 dims, got shape {gt.shape}")
 
     # Support CHW just in case.
-    if gt.shape[0] == 3 and gt.shape[-1] != 3:
+    if gt.shape[0] == 4 and gt.shape[-1] != 4:
         gt = np.transpose(gt, (1, 2, 0))
 
-    if gt.shape[-1] < 3:
+    if gt.shape[-1] < 4:
         raise ValueError(
-            f"Expected gt_seg_map with at least 3 channels, got shape {gt.shape}"
+            f"Expected gt_seg_map with at least 4 channels, got shape {gt.shape}"
         )
 
     return gt.astype(np.float32)
@@ -277,22 +298,6 @@ def normalize_metainfo(metainfo: Any) -> Dict[str, Any]:
     return {str(k): scalarize(v) for k, v in metainfo.items()}
 
 
-def extract_points(gt: np.ndarray) -> Dict[str, np.ndarray]:
-    mask = gt[..., 0] > 0
-
-    y_pix, x_pix = np.nonzero(mask)
-
-    depth = gt[..., 1][mask].astype(np.float32)
-    velocity = gt[..., 2][mask].astype(np.float32)
-
-    return {
-        "x_pix": x_pix.astype(np.float32),
-        "y_pix": y_pix.astype(np.float32),
-        "depth": depth,
-        "velocity": velocity,
-    }
-
-
 def build_dataloader(config_path: str, dataloader_key: str):
     from mmengine.config import Config
     from mmengine.registry import init_default_scope
@@ -314,7 +319,7 @@ def build_dataloader(config_path: str, dataloader_key: str):
             f"Available keys include: {list(cfg.keys())}"
         )
 
-    return Runner.build_dataloader(cfg[dataloader_key])
+    return cfg, Runner.build_dataloader(cfg[dataloader_key])
 
 
 def get_needed_indices(center_idx: int, radius: int, stride: int) -> List[int]:
@@ -333,6 +338,7 @@ def get_needed_indices(center_idx: int, radius: int, stride: int) -> List[int]:
 def load_window_samples(
     dataloader,
     needed_indices: List[int],
+    spatial: Dict[str, Any],
 ) -> Dict[int, Dict[str, Any]]:
     needed_set = set(needed_indices)
     max_needed = max(needed_indices)
@@ -355,7 +361,14 @@ def load_window_samples(
         if "metainfo" in sample:
             metainfo = normalize_metainfo(sample["metainfo"])
 
-        points = extract_points(gt)
+        points = points_from_gt(
+            gt=gt,
+            sample=sample,
+            image_width=img.shape[1],
+            spatial=spatial,
+        )
+        points["x_pix"] = points.pop("x")
+        points["y_pix"] = points.pop("y")
 
         loaded[eda_idx] = {
             "eda_idx": eda_idx,
@@ -400,14 +413,27 @@ def collect_accumulated_points(
                     "y_pix": float(points["y_pix"][i]),
                     "depth": float(points["depth"][i]),
                     "velocity": float(points["velocity"][i]),
+                    "rcs": float(points["rcs"][i]),
+                    "lateral": float(points["lateral"][i]),
+                    "forward": float(points["forward"][i]),
+                    "range": float(points["range"][i]),
+                    "azimuth_deg": float(points["azimuth_deg"][i]),
                 }
             )
 
     return pd.DataFrame(rows)
 
 
-def draw_base_image(img: np.ndarray, title: str) -> None:
+def draw_base_image(
+    img: np.ndarray,
+    title: str,
+    spatial: Dict[str, Any],
+) -> None:
+    h, w = img.shape[:2]
+    xlim, ylim = camera_plot_limits(w, h, spatial)
     plt.imshow(img)
+    plt.xlim(*xlim)
+    plt.ylim(ylim[1], ylim[0])
     plt.title(title)
     plt.axis("off")
 
@@ -418,9 +444,10 @@ def save_center_points(
     out_path: Path,
     point_size: float,
     alpha: float,
+    spatial: Dict[str, Any],
 ) -> None:
     plt.figure(figsize=(16, 6))
-    draw_base_image(center_img, "Center frame with GT radar points")
+    draw_base_image(center_img, "Center frame with GT radar points", spatial)
 
     if len(center_points["x_pix"]) > 0:
         plt.scatter(
@@ -446,11 +473,13 @@ def save_time_colored(
     radius: int,
     point_size: float,
     alpha: float,
+    spatial: Dict[str, Any],
 ) -> None:
     plt.figure(figsize=(16, 6))
     draw_base_image(
         center_img,
         f"Temporal accumulation, colored by relative frame index, center={center_idx}",
+        spatial,
     )
 
     if len(df) > 0:
@@ -483,11 +512,13 @@ def save_alpha_fade(
     point_size: float,
     alpha: float,
     alpha_min: float,
+    spatial: Dict[str, Any],
 ) -> None:
     plt.figure(figsize=(16, 6))
     draw_base_image(
         center_img,
         f"Temporal accumulation, alpha fades with distance from center, center={center_idx}",
+        spatial,
     )
 
     if len(df) > 0:
@@ -521,9 +552,10 @@ def save_depth(
     alpha: float,
     vmin: float,
     vmax: float,
+    spatial: Dict[str, Any],
 ) -> None:
     plt.figure(figsize=(16, 6))
-    draw_base_image(center_img, "Temporal accumulation, colored by GT depth")
+    draw_base_image(center_img, "Temporal accumulation, colored by GT depth", spatial)
 
     if len(df) > 0:
         sc = plt.scatter(
@@ -554,9 +586,10 @@ def save_velocity(
     alpha: float,
     vmin: float,
     vmax: float,
+    spatial: Dict[str, Any],
 ) -> None:
     plt.figure(figsize=(16, 6))
-    draw_base_image(center_img, "Temporal accumulation, colored by GT radial velocity")
+    draw_base_image(center_img, "Temporal accumulation, colored by GT radial velocity", spatial)
 
     if len(df) > 0:
         sc = plt.scatter(
@@ -579,11 +612,127 @@ def save_velocity(
     plt.close()
 
 
+def save_rcs(
+    center_img: np.ndarray,
+    df: pd.DataFrame,
+    out_path: Path,
+    point_size: float,
+    alpha: float,
+    vmin: float | None,
+    vmax: float | None,
+    spatial: Dict[str, Any],
+) -> None:
+    plt.figure(figsize=(16, 6))
+    draw_base_image(center_img, "Temporal accumulation, colored by GT RCS", spatial)
+
+    if len(df) > 0:
+        sc = plt.scatter(
+            df["x_pix"],
+            df["y_pix"],
+            s=point_size,
+            c=df["rcs"],
+            cmap="viridis",
+            vmin=vmin,
+            vmax=vmax,
+            alpha=alpha,
+            edgecolors="black",
+            linewidths=0.10,
+        )
+        cbar = plt.colorbar(sc, fraction=0.025, pad=0.02)
+        cbar.set_label("GT RCS")
+
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=160, bbox_inches="tight")
+    plt.close()
+
+
+def save_cartesian_bev_accumulation(
+    df: pd.DataFrame,
+    out_path: Path,
+    point_size: float,
+    alpha: float,
+    depth_vmin: float | None,
+    depth_vmax: float | None,
+    spatial: Dict[str, Any],
+) -> None:
+    lateral = df["lateral"].to_numpy(dtype=float) if len(df) else np.empty((0,))
+    forward = df["forward"].to_numpy(dtype=float) if len(df) else np.empty((0,))
+    mask = cartesian_domain_mask(lateral, forward, spatial)
+    xlim, ylim = cartesian_plot_limits(lateral, forward, spatial)
+
+    fig, ax = plt.subplots(figsize=(9, 9))
+    ax.set_facecolor("black")
+    ax.set_xlim(xlim[1], xlim[0])
+    ax.set_ylim(*ylim)
+    ax.set_aspect("equal", adjustable="box")
+    ax.grid(True, alpha=0.18)
+    ax.set_xlabel("lateral position [m]")
+    ax.set_ylabel("forward position [m]")
+    ax.set_title("Temporal accumulation in Cartesian BEV, no ego-motion compensation")
+    ax.scatter([0.0], [0.0], marker="^", s=90, c="white", edgecolors="black")
+
+    if np.any(mask):
+        rows = df.loc[mask]
+        sc = ax.scatter(
+            rows["lateral"], rows["forward"], s=point_size,
+            c=rows["range"], cmap="turbo", vmin=depth_vmin, vmax=depth_vmax,
+            alpha=alpha, edgecolors="white", linewidths=0.20,
+        )
+        cbar = fig.colorbar(sc, ax=ax, fraction=0.04, pad=0.02)
+        cbar.set_label("GT range [m]")
+    else:
+        ax.text(0.5, 0.5, "No points inside configured Cartesian domain",
+                transform=ax.transAxes, ha="center", va="center", color="white")
+
+    fig.savefig(out_path, dpi=160, bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_polar_accumulation(
+    df: pd.DataFrame,
+    out_path: Path,
+    point_size: float,
+    alpha: float,
+    depth_vmin: float | None,
+    depth_vmax: float | None,
+    spatial: Dict[str, Any],
+) -> None:
+    range_m = df["range"].to_numpy(dtype=float) if len(df) else np.empty((0,))
+    azimuth = df["azimuth_deg"].to_numpy(dtype=float) if len(df) else np.empty((0,))
+    mask = polar_domain_mask(range_m, azimuth, spatial)
+    xlim, ylim = polar_plot_limits(azimuth, range_m, spatial)
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+    ax.set_xlim(xlim[1], xlim[0])
+    ax.set_ylim(*ylim)
+    ax.grid(True, alpha=0.30)
+    ax.set_xlabel("azimuth [deg]")
+    ax.set_ylabel("range [m]")
+    ax.set_title("Temporal accumulation in polar domain, no ego-motion compensation")
+
+    if np.any(mask):
+        rows = df.loc[mask]
+        sc = ax.scatter(
+            rows["azimuth_deg"], rows["range"], s=point_size,
+            c=rows["range"], cmap="turbo", vmin=depth_vmin, vmax=depth_vmax,
+            alpha=alpha, edgecolors="black", linewidths=0.20,
+        )
+        cbar = fig.colorbar(sc, ax=ax, fraction=0.04, pad=0.02)
+        cbar.set_label("GT range [m]")
+    else:
+        ax.text(0.5, 0.5, "No points inside configured polar domain",
+                transform=ax.transAxes, ha="center", va="center")
+
+    fig.savefig(out_path, dpi=160, bbox_inches="tight")
+    plt.close(fig)
+
+
 def make_summary(
     args: argparse.Namespace,
     needed_indices: List[int],
     samples: Dict[int, Dict[str, Any]],
     accumulated_df: pd.DataFrame,
+    spatial: Dict[str, Any],
 ) -> Dict[str, Any]:
     per_frame = []
 
@@ -611,9 +760,15 @@ def make_summary(
             "mean": float(accumulated_df["velocity"].mean()),
             "max": float(accumulated_df["velocity"].max()),
         }
+        rcs_stats = {
+            "min": float(accumulated_df["rcs"].min()),
+            "mean": float(accumulated_df["rcs"].mean()),
+            "max": float(accumulated_df["rcs"].max()),
+        }
     else:
         depth_stats = {"min": None, "mean": None, "max": None}
         velocity_stats = {"min": None, "mean": None, "max": None}
+        rcs_stats = {"min": None, "mean": None, "max": None}
 
     return {
         "config": str(args.config),
@@ -625,6 +780,22 @@ def make_summary(
         "num_loaded_frames": int(len(samples)),
         "num_accumulated_points": int(len(accumulated_df)),
         "point_size": float(args.point_size),
+        "ppp_eda_spatial": spatial,
+        "camera_domain_points": int(np.sum(camera_domain_mask(
+            accumulated_df["x_pix"].to_numpy(dtype=float),
+            accumulated_df["y_pix"].to_numpy(dtype=float),
+            spatial,
+        ))) if len(accumulated_df) else 0,
+        "cartesian_bev_domain_points": int(np.sum(cartesian_domain_mask(
+            accumulated_df["lateral"].to_numpy(dtype=float),
+            accumulated_df["forward"].to_numpy(dtype=float),
+            spatial,
+        ))) if len(accumulated_df) else 0,
+        "polar_domain_points": int(np.sum(polar_domain_mask(
+            accumulated_df["range"].to_numpy(dtype=float),
+            accumulated_df["azimuth_deg"].to_numpy(dtype=float),
+            spatial,
+        ))) if len(accumulated_df) else 0,
         "image_space_accumulation": True,
         "ego_motion_compensated": False,
         "note": (
@@ -633,6 +804,7 @@ def make_summary(
         ),
         "depth_stats": depth_stats,
         "velocity_stats": velocity_stats,
+        "rcs_stats": rcs_stats,
         "per_frame": per_frame,
     }
 
@@ -663,8 +835,9 @@ def main() -> None:
     print(f"Needed idx:   {needed_indices}")
     print(f"Output dir:   {out_dir}")
 
-    dataloader = build_dataloader(args.config, args.dataloader)
-    samples = load_window_samples(dataloader, needed_indices)
+    cfg, dataloader = build_dataloader(args.config, args.dataloader)
+    spatial = resolve_spatial_config_from_cfg(cfg)
+    samples = load_window_samples(dataloader, needed_indices, spatial)
 
     center_sample = samples[args.center_eda_idx]
     center_img = center_sample["img"]
@@ -676,53 +849,106 @@ def main() -> None:
         radius=args.radius,
     )
 
+    center_camera_mask = camera_domain_mask(
+        center_points["x_pix"], center_points["y_pix"], spatial
+    )
+    center_points_camera = {
+        key: value[center_camera_mask] if isinstance(value, np.ndarray) and len(value) == len(center_camera_mask) else value
+        for key, value in center_points.items()
+    }
+    if len(accumulated_df):
+        accumulated_camera_mask = camera_domain_mask(
+            accumulated_df["x_pix"].to_numpy(dtype=float),
+            accumulated_df["y_pix"].to_numpy(dtype=float),
+            spatial,
+        )
+        accumulated_camera_df = accumulated_df.loc[accumulated_camera_mask].copy()
+    else:
+        accumulated_camera_df = accumulated_df.copy()
+
     save_center_points(
         center_img=center_img,
-        center_points=center_points,
+        center_points=center_points_camera,
         out_path=out_dir / "center_frame_points.png",
         point_size=args.point_size,
         alpha=args.alpha,
+        spatial=spatial,
     )
 
     save_time_colored(
         center_img=center_img,
-        df=accumulated_df,
+        df=accumulated_camera_df,
         out_path=out_dir / "accumulated_points_time_colored.png",
         center_idx=args.center_eda_idx,
         radius=args.radius,
         point_size=args.point_size,
         alpha=args.alpha,
+        spatial=spatial,
     )
 
     save_alpha_fade(
         center_img=center_img,
-        df=accumulated_df,
+        df=accumulated_camera_df,
         out_path=out_dir / "accumulated_points_alpha_fade.png",
         center_idx=args.center_eda_idx,
         radius=args.radius,
         point_size=args.point_size,
         alpha=args.alpha,
         alpha_min=args.alpha_min,
+        spatial=spatial,
     )
 
     save_depth(
         center_img=center_img,
-        df=accumulated_df,
+        df=accumulated_camera_df,
         out_path=out_dir / "accumulated_depth.png",
         point_size=args.point_size,
         alpha=args.alpha,
         vmin=args.depth_vmin,
         vmax=args.depth_vmax,
+        spatial=spatial,
     )
 
     save_velocity(
         center_img=center_img,
-        df=accumulated_df,
+        df=accumulated_camera_df,
         out_path=out_dir / "accumulated_velocity.png",
         point_size=args.point_size,
         alpha=args.alpha,
         vmin=args.velocity_vmin,
         vmax=args.velocity_vmax,
+        spatial=spatial,
+    )
+
+    save_rcs(
+        center_img=center_img,
+        df=accumulated_camera_df,
+        out_path=out_dir / "accumulated_rcs.png",
+        point_size=args.point_size,
+        alpha=args.alpha,
+        vmin=args.rcs_vmin,
+        vmax=args.rcs_vmax,
+        spatial=spatial,
+    )
+
+    save_cartesian_bev_accumulation(
+        df=accumulated_df,
+        out_path=out_dir / "accumulated_cartesian_bev.png",
+        point_size=args.point_size,
+        alpha=args.alpha,
+        depth_vmin=args.depth_vmin,
+        depth_vmax=args.depth_vmax,
+        spatial=spatial,
+    )
+
+    save_polar_accumulation(
+        df=accumulated_df,
+        out_path=out_dir / "accumulated_polar.png",
+        point_size=args.point_size,
+        alpha=args.alpha,
+        depth_vmin=args.depth_vmin,
+        depth_vmax=args.depth_vmax,
+        spatial=spatial,
     )
 
     if args.save_csv:
@@ -733,6 +959,7 @@ def main() -> None:
         needed_indices=needed_indices,
         samples=samples,
         accumulated_df=accumulated_df,
+        spatial=spatial,
     )
 
     with open(out_dir / "temporal_accumulation_summary.json", "w", encoding="utf-8") as f:

@@ -12,4 +12,21 @@ sbatch build_mmcv_full_jupiter.sbatch
 watch -n 1 'squeue -p booster -u "$USER"' 
 source activate_jupiter.sh 
 
- 
+
+TEST SUCCESS:
+
+ python - <<'PY'
+import torch
+import torchvision
+import timm
+import mmcv
+import mmcv.ops
+import mmengine
+
+print("torch:", torch.__version__)
+print("torchvision:", torchvision.__version__)
+print("timm:", timm.__version__)
+print("mmcv:", mmcv.__version__)
+print("mmengine:", mmengine.__version__)
+print("Environment complete")
+PY
