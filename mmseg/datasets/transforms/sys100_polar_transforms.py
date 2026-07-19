@@ -56,7 +56,6 @@ class LoadSys100PolarSample(BaseTransform):
             strict=strict,
         )
 
-        self.default_doppler = 20.0
         self.fovs = tuple(float(v) for v in fovs)
         self.ds = (
             AsyncPrefetchedDatasetWrapper(base_dataset=base_dataset, **prefetch_dict)
@@ -114,8 +113,13 @@ class LoadSys100PolarSample(BaseTransform):
         results['radar_points_meta'] = sample['radar_points_meta'].detach().cpu().float()
         results['rad2cam'] = sample['rad2cam'].detach().cpu().float()
         results['real_hw'] = sample['real_hw'].detach().cpu().float()
-        results['dopplerRange'] = sample.get('dopplerRange', self.default_doppler)
         results['fovs'] = self.fovs
+        if 'dopplerRange' not in sample:
+            raise KeyError(
+                'SYS100 sample lacks dopplerRange, which is required '
+                'for Doppler-periodic velocity supervision.'
+            )
+        results['dopplerRange'] = sample['dopplerRange']
 
         for key in ('prefetch_unseen', 'prefetch_unseen_count', 'prefetch_idle_time'):
             if key in sample:
@@ -195,6 +199,13 @@ class PPPPackPolarInputs(BaseTransform):
             raise TypeError(f'Unsupported image type: {type(image)}')
         image = image.contiguous().float()
 
+        doppler_period = results['dopplerRange']
+
+        if hasattr(doppler_period, 'item'):
+            doppler_period = float(doppler_period.item())
+        else:
+            doppler_period = float(doppler_period)
+
         polar = results['radar_points_polar'].contiguous().float()
         xy = results['radar_points_xy'].contiguous().float()
         meta = results['radar_points_meta'].contiguous().float()
@@ -216,6 +227,7 @@ class PPPPackPolarInputs(BaseTransform):
                 rad2cam=rad2cam,
                 real_hw=real_hw,
                 fovs=tuple(results['fovs']),
+                doppler_period=doppler_period,
             )
         )
         if 'idx' in results:

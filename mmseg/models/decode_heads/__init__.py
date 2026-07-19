@@ -48,6 +48,11 @@ from .ppp_mark_vit_patch_rearrange_multitask_twodepth_head import PPPMarkViTPatc
 from .ppp_mark_vit_patch_rearrange_head_disparity_depth import PPPMarkViTPatchRearrangeDisparityDepthHead
 from .ppp_mark_unet_depth_loss_head import PPPMarkUNetDepthLossHead
 from .ppp_polar_liif_ppp_head import PolarLIIFPPPHead
+from .ppp_finals_polar_liif_ppp_head import PPPfinalsPolarLIIFPPPHead
+from .ppp_finals_unet_depth_loss_head import PPPfinalsUNetDepthLossHead
+from .ppp_finals_uper_head import PPPfinalsUperHead
+from .ppp_finals_vit_patch_rearrange_head_polarBEV import PPPPolarViTPatchRearrangeHead
+from .ppp_finals_vit_patch_rearrange_head import PPPfinalsViTPatchRearrangeHead
 
 __all__ = [
     'FCNHead', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',
@@ -62,5 +67,6 @@ __all__ = [
     'PPPMarkUNetHead', 'PPPMarkViTUpsampleHead', 'PPPMarkViTPatchRearrangeHead',
     'PPPMarkViTPatchRearrangeMultiTaskHead', 'PPPMarkViTPatchRearrangeMultiTaskTwoDepthHead',
     'PPPMarkViTPatchRearrangeDisparityDepthHead', 'PPPMarkUNetDepthLossHead',
-    'PolarLIIFPPPHead'
+    'PolarLIIFPPPHead', 'PPPfinalsPolarLIIFPPPHead', 'PPPfinalsUperHead', 'PPPPolarViTPatchRearrangeHead',
+    'PPPfinalsViTPatchRearrangeHead', 'PPPfinalsUNetDepthLossHead'
 ]

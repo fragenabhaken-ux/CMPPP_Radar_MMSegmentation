@@ -147,27 +147,16 @@ class BuildPPPHeatmap(BaseTransform):
 
     Note: several inner steps deliberately reuse Jonas' code and conventions.
 
-    TODO: The loss for depth was much larger than vel! That must be caused by the different clipping!
-    Also, after Doppler folding, many velocities may concentrate near 0 (depends on traffic scene). 
-    A distribution concentrated near 0 tends to yield smaller residuals early in training than depth.
-    Normalize?
-    gt[..., 1] = depth / self.clip_depth[1] # or 150
-    gt[..., 2] = vel / max(abs(self.clip_vel[0]), abs(self.clip_vel[1])) # or 10
-
     """
     def __init__(
         self,
         thres=0.05,
         rel_x_centre=0.491,
         rel_y_centre=0.4370,
-        clip_vel=(-10.0, 10.0),
-        clip_depth=(0.0, 150.0),
     ):
         self.thres = float(thres)
         self.rel_x_centre = float(rel_x_centre)
         self.rel_y_centre = float(rel_y_centre)
-        self.clip_vel = clip_vel
-        self.clip_depth = clip_depth
 
     def transform(self, results: dict) -> dict:
         img = results["img"]
@@ -199,7 +188,6 @@ class BuildPPPHeatmap(BaseTransform):
         doppler = float(doppler.item() if hasattr(doppler, "item") else doppler)
 
         # velocity definition like SYS100 (sys100dataset.py Zeile 987)
-        # Note: I clip the vel and depth further down.
         vel = clusters[:, 5] - clusters[:, 6]
         vel -= doppler * np.floor(vel / doppler + 0.5)
 
@@ -254,10 +242,6 @@ class BuildPPPHeatmap(BaseTransform):
 
         depth = depth[valid]
         vel = vel[valid]
-
-        # optional clipping to keep scale sane
-        depth = np.clip(depth, self.clip_depth[0], self.clip_depth[1])
-        vel = np.clip(vel, self.clip_vel[0], self.clip_vel[1])
 
         # write sparse targets
         gt[y_pix, x_pix, 0] = 1.0 # TODO: If multiple radar points project to the same pixel, we still store only a single “1”. We are modeling occupied pixels, not points. (???)

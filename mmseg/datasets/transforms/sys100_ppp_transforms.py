@@ -224,9 +224,9 @@ class BuildPPPHeatmap(BaseTransform):
       0: intensity (1 at projected points)
       1: depth
       2: velocity
-
+      3: RCS
     Output:
-      results["gt_seg_map"] : HWC float32 with 3 channels
+      results["gt_seg_map"] : HWC float32 with 4 channels
     """
 
     def __init__(
@@ -234,15 +234,11 @@ class BuildPPPHeatmap(BaseTransform):
         thres: float = 0.05,
         rel_x_centre: float = 0.491,
         rel_y_centre: float = 0.4370,
-        clip_vel: Tuple[float, float] = (-10.0, 10.0),
-        clip_depth: Tuple[float, float] = (0.0, 150.0),
         debug_checks: bool = False,
     ):
         self.thres = float(thres)
         self.rel_x_centre = float(rel_x_centre)
         self.rel_y_centre = float(rel_y_centre)
-        self.clip_vel = clip_vel
-        self.clip_depth = clip_depth
         self.debug_checks = debug_checks
         self._cam_cache: Dict[Tuple[Any, ...], PinholeCamera] = {}
 
@@ -299,7 +295,7 @@ class BuildPPPHeatmap(BaseTransform):
                 f"Expected clusters shape (N,>=7), got {clusters.shape}"
             )
 
-        gt = np.zeros((H, W, 3), dtype=np.float32)
+        gt = np.zeros((H, W, 4), dtype=np.float32)
 
         if len(clusters) == 0:
             results["gt_seg_map"] = gt
@@ -313,6 +309,7 @@ class BuildPPPHeatmap(BaseTransform):
         vel -= doppler * np.floor(vel / doppler + 0.5)
 
         depth = clusters[:, 0]
+        rcs = clusters[:, 4]
 
         # radar -> camera coordinates
         rad2cam = _to_numpy(results["rad2cam"])  # [3, 4]
@@ -337,13 +334,14 @@ class BuildPPPHeatmap(BaseTransform):
 
         x_pix = x_pix[valid]
         y_pix = y_pix[valid]
-        depth = np.clip(depth[valid], self.clip_depth[0], self.clip_depth[1])
-        vel = np.clip(vel[valid], self.clip_vel[0], self.clip_vel[1])
+        depth = depth[valid]
+        vel = vel[valid]
+        rcs = rcs[valid]
 
         gt[y_pix, x_pix, 0] = 1.0
         gt[y_pix, x_pix, 1] = depth
         gt[y_pix, x_pix, 2] = vel
-
+        gt[y_pix, x_pix, 3] = rcs
         if self.debug_checks:
             occ = gt[..., 0]
             assert np.all((occ == 0) | (occ == 1))
@@ -477,6 +475,11 @@ class PPPPackSegInputs(BaseTransform):
             )
         )
 
+        if "dopplerRange" in results:
+            metainfo["doppler_period"] = _to_float_scalar(
+                results["dopplerRange"]
+            )
+            
         if "rad2cam" in results:
             metainfo["rad2cam"] = (
                 _to_numpy(results["rad2cam"])

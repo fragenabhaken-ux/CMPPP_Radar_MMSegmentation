@@ -55,6 +55,7 @@ class PPPLossMMD(BaseMetric):
         pred_channel=0,
         gt_channel=0,
         use_logits=True,
+        cell_measure=None,
         prefix="ppp",
         verbose_logging=True,
         **kwargs,
@@ -73,6 +74,9 @@ class PPPLossMMD(BaseMetric):
         self.pred_channel = int(pred_channel)
         self.gt_channel = int(gt_channel)
         self.use_logits = bool(use_logits)
+        self.cell_measure = (
+            None if cell_measure is None else float(cell_measure)
+        )
         self.verbose_logging = bool(verbose_logging)
 
     def _get_tensor(self, sample, key):
@@ -104,9 +108,12 @@ class PPPLossMMD(BaseMetric):
             if self.use_logits:
                 pred_grid = torch.exp(pred_grid)
 
-            # Divide by measure for future integrals to be properly normalized; 
-            # this doesn't change the optimal sigma since it's a constant scaling factor
-            pred_grid = pred_grid / pixel_scale
+            if self.cell_measure is None:
+                # Existing camera-domain behavior.
+                pred_grid = pred_grid / pixel_scale
+            else:
+                # Physical cell mass for polar intensity defined w.r.t. dr dtheta.
+                pred_grid = pred_grid * self.cell_measure
 
             gt_support = gt[self.gt_channel]
 
