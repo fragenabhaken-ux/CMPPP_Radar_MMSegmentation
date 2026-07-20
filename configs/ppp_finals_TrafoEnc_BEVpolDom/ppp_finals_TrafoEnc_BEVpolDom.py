@@ -16,7 +16,7 @@ custom_imports = dict(
         'mmseg.datasets.transforms.sys100_polar_transforms',
         'mmseg.datasets.transforms.sys100_polar_grid_transforms',
         'mmseg.evaluation.metrics.ppp_metrics_loss_mmd',
-        'mmseg.engine.hooks.ppp_mark_vis_hook_light',
+        'mmseg.engine.hooks.ppp_polar_dense_vis_hook',
         'mmseg.engine.hooks.prefetch_stats_hook',
     ],
     allow_failed_imports=False
@@ -354,17 +354,45 @@ default_hooks = dict(
 
 custom_hooks = [
     dict(
-        type='PPPMarkVisHookLight',
+        type='PPPPolarDenseVisHook',
+
         train_interval=1000,
         max_samples_train=1,
         max_samples_val=5,
         max_samples_test=10,
+
         img_mean=data_rbg_mean,
         img_std=data_rbg_std,
-        gamma=0.2,
-        sim_block_size=8,
-        sim_block_placement='weighted',
-        point_size=28,
+
+        r_min=r_min,
+        r_max=r_max,
+        theta_min=theta_min,
+        theta_max=theta_max,
+
+        # Show the complete polar wedge in Cartesian BEV.
+        bev_y_min=-r_max,
+        bev_y_max=r_max,
+
+        gamma=0.3,
+
+        point_size=12.0,
+        point_color='cyan',
+        point_edge_color='black',
+        point_edge_width=0.35,
+
+        velocity_mode='signed',
+        velocity_link='cube',
+        velocity_vmin=-11.0,
+        velocity_vmax=11.0,
+        velocity_cmap='coolwarm',
+
+        rcs_link='cube',
+        rcs_vmin=-50.0,
+        rcs_vmax=20.0,
+        rcs_cmap='viridis',
+
+        dpi=100,
+        figsize=(18, 24),
     ),
     dict(type='PrefetchStatsHook'),
 ]

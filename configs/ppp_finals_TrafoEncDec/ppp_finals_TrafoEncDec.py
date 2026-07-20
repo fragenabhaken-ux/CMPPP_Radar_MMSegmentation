@@ -15,7 +15,7 @@ custom_imports = dict(
         'mmseg.models.losses.polar_point_ppp_loss',
         'mmseg.datasets.sys100_ppp_heatmap_dataset',
         'mmseg.datasets.transforms.sys100_polar_transforms',
-        'mmseg.engine.hooks.ppp_polar_liif_vis_hook',
+        'mmseg.engine.hooks.ppp_polar_liif_wvel_wrcs_vis_hook',
         'mmseg.engine.hooks.prefetch_stats_hook',
         'mmseg.evaluation.metrics.polar_ppp_metric',
     ],
@@ -385,3 +385,48 @@ default_hooks = dict(
     ),
     sampler_seed=dict(type='DistSamplerSeedHook'),
 )
+
+custom_hooks = [
+    dict(
+        type='PPPPolarLIIFVisWVelWRcsHook',
+
+        train_interval=100,
+        max_samples_train=1,
+        max_samples_val=10,
+        max_samples_test=1,
+
+        img_mean=data_rbg_mean,
+        img_std=data_rbg_std,
+
+        r_min=r_min,
+        r_max=r_max,
+        theta_min=theta_min,
+        theta_max=theta_max,
+
+        bev_y_min=-85.0,
+        bev_y_max=85.0,
+
+        gamma=0.3,
+
+        point_size=12.0,
+        point_color='cyan',
+        point_edge_color='black',
+        point_edge_width=0.35,
+
+        velocity_mode='signed',
+        velocity_grid_is_raw=True,
+        velocity_vmin=-11.0,
+        velocity_vmax=11.0,
+        velocity_cmap='coolwarm',
+
+        rcs_grid_is_raw=True,
+        rcs_link='cube',
+        rcs_vmin=-50.0,
+        rcs_vmax=20.0,
+        rcs_cmap='viridis',
+
+        dpi=100,
+        figsize=(18, 24),
+    ),
+    dict(type='PrefetchStatsHook'),
+]
