@@ -96,10 +96,9 @@ DATA_PATH_VAL = os.environ.get(
 
 dataset_type = 'Sys100PPPHeatmapDataset'
 
-batch_size_train = 45
-# decrease batch size in val/test, because the GPU memory constraints on full sized images
-batch_size_test = 20
-batch_size_val = 20
+batch_size_train = 100
+batch_size_test = 50
+batch_size_val = 50
 
 #### Train dataloader #####
 
@@ -147,7 +146,7 @@ train_dataloader = dict(
     )
 )
 
-num_samples_val = 80
+num_samples_val = 200
 
 val_dataloader = dict(
     batch_size=batch_size_val,
@@ -190,7 +189,7 @@ val_dataloader = dict(
     )
 )
 
-num_samples_test = 80
+num_samples_test = 200
 
 test_dataloader = dict(
     batch_size=batch_size_test,

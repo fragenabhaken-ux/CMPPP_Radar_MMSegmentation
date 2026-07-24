@@ -38,11 +38,11 @@ theta_max = theta_half_fov
 latent_grid_shape = (64, 64)
 quadrature_grid_shape = (256, 256)
 
-batch_size_train = 6
-batch_size_val = 6
-batch_size_test = 6
-num_samples_val = 96
-num_samples_test = 96
+batch_size_train = 14
+batch_size_val = 14
+batch_size_test = 14
+num_samples_val = 112
+num_samples_test = 112
 
 data_preprocessor = dict(
     type='PolarPPPDataPreProcessor',
@@ -108,8 +108,8 @@ model = dict(
         liif_num_layers=5,
         use_feature_unfold=True,
         query_chunk_size=32768,
-        ppp_weight=1.0,
-        velocity_weight=1.0,
+        ppp_weight=100.0,
+        velocity_weight=10.0,
         rcs_weight=1.0,
         velocity_mode='signed',
         loss_ppp=dict(
@@ -271,9 +271,9 @@ val_evaluator = dict(
 
     # Cartesian BEV raster used only by the evaluation metric.
     bev_x_min=0.0,
-    bev_x_max=150.0,
-    bev_y_min=-85.0,
-    bev_y_max=85.0,
+    bev_x_max=170.0,
+    bev_y_min=-150.0,
+    bev_y_max=150.0,
     bev_resolution=0.5,
 
     # Same optimal-sigma score type as the old PPPLossMMD.
@@ -300,9 +300,9 @@ test_evaluator = dict(
     theta_max=theta_max,
 
     bev_x_min=0.0,
-    bev_x_max=150.0,
-    bev_y_min=-85.0,
-    bev_y_max=85.0,
+    bev_x_max=170.0,
+    bev_y_min=-150.0,
+    bev_y_max=150.0,
     bev_resolution=0.5,
 
     score_type='loglik',
@@ -316,25 +316,6 @@ test_evaluator = dict(
     verbose_logging=False,
     prefix='test',
 )
-
-custom_hooks = [
-    dict(
-        type='PPPPolarLIIFVisHook',
-        train_interval=100,
-        max_samples_train=1,
-        max_samples_val=10,
-        max_samples_test=1,
-        img_mean=data_rbg_mean,
-        img_std=data_rbg_std,
-        gamma=0.3,
-        r_min=r_min,
-        r_max=r_max,
-        theta_min=theta_min,
-        theta_max=theta_max,
-        point_size=12,
-    ),
-    dict(type='PrefetchStatsHook'),
-]
 
 visualizer = dict(
     type='Visualizer',
@@ -405,15 +386,15 @@ custom_hooks = [
         theta_min=theta_min,
         theta_max=theta_max,
 
-        bev_y_min=-85.0,
-        bev_y_max=85.0,
+        bev_y_min=-150.0,
+        bev_y_max=150.0,
 
         intensity_gamma=0.3,
 
         point_size=12.0,
         point_color='cyan',
         point_edge_color='black',
-        point_edge_width=0.45,
+        point_edge_width=0.35,
 
         velocity_mode='signed',
         velocity_grid_is_raw=True,

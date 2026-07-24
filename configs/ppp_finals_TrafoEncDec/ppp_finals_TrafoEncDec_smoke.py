@@ -37,11 +37,11 @@ theta_max = theta_half_fov
 latent_grid_shape = (64, 64)
 quadrature_grid_shape = (256, 256)
 
-batch_size_train = 12
-batch_size_val = 12
-batch_size_test = 12
-num_samples_val = 96
-num_samples_test = 96
+batch_size_train = 14
+batch_size_val = 14
+batch_size_test = 14
+num_samples_val = 112
+num_samples_test = 112
 
 data_preprocessor = dict(
     type='PolarPPPDataPreProcessor',
@@ -346,7 +346,7 @@ param_scheduler = [
     )
 ]
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=15000, val_interval=3000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=15000, val_interval=1000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -357,7 +357,7 @@ default_hooks = dict(
     checkpoint=dict(
         type='CheckpointHook',
         by_epoch=False,
-        interval=550,
+        interval=1000,
         max_keep_ckpts=3,
         save_best='ppp/optimal_score',
         rule='greater',

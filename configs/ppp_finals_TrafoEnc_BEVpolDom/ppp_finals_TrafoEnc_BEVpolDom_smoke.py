@@ -35,8 +35,9 @@ fovs_wo_fisheyeart = (105, 48.4)
 
 r_min = 0.0
 r_max = 170.0
-theta_min = -math.radians(fovs_wo_fisheyeart[0] / 2.0)
-theta_max = math.radians(fovs_wo_fisheyeart[0] / 2.0)
+theta_half_fov = math.radians(fovs_wo_fisheyeart[0] / 2.0)
+theta_min = -theta_half_fov
+theta_max = theta_half_fov
 
 data_preprocessor = dict(
     type='PolarPPPDataPreProcessor',
@@ -150,9 +151,9 @@ DATA_PATH_VAL = os.environ.get(
 
 dataset_type = 'Sys100PPPHeatmapDataset'
 
-batch_size_train = 14
-batch_size_test = 14
-batch_size_val = 14
+batch_size_train = 20
+batch_size_test = 20
+batch_size_val = 20
 
 train_dataloader = dict(
     batch_size=batch_size_train,
@@ -203,7 +204,7 @@ train_dataloader = dict(
     )
 )
 
-num_samples_val = 112
+num_samples_val = 80
 
 val_dataloader = dict(
     batch_size=batch_size_val,
@@ -248,7 +249,7 @@ val_dataloader = dict(
     )
 )
 
-num_samples_test = 112
+num_samples_test = 80
 
 test_dataloader = dict(
     batch_size=batch_size_test,
