@@ -61,6 +61,11 @@ from mmengine.registry import init_default_scope
 from mmengine.runner import Runner
 from mmengine.utils import import_modules_from_strings
 
+from ppp_eda_attribute_limits import (
+    DEPTH_DISPLAY_RANGE,
+    RCS_DISPLAY_RANGE,
+    VELOCITY_DISPLAY_RANGE,
+)
 from ppp_eda_geometry import (
     camera_domain_mask,
     camera_plot_limits,
@@ -144,32 +149,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--depth-vmin",
         type=float,
-        default=0.0,
+        default=DEPTH_DISPLAY_RANGE[0],
         help="Depth color minimum.",
     )
     parser.add_argument(
         "--depth-vmax",
         type=float,
-        default=150.0,
+        default=DEPTH_DISPLAY_RANGE[1],
         help="Depth color maximum.",
     )
     parser.add_argument(
         "--velocity-vmax",
         type=float,
-        default=10.0,
+        default=max(abs(VELOCITY_DISPLAY_RANGE[0]), abs(VELOCITY_DISPLAY_RANGE[1])),
         help="Velocity color range is [-velocity_vmax, +velocity_vmax].",
     )
     parser.add_argument(
         "--rcs-vmin",
         type=float,
-        default=None,
-        help="Optional fixed RCS color minimum. Default: automatic per image.",
+        default=RCS_DISPLAY_RANGE[0],
+        help="Fixed RCS color minimum.",
     )
     parser.add_argument(
         "--rcs-vmax",
         type=float,
-        default=None,
-        help="Optional fixed RCS color maximum. Default: automatic per image.",
+        default=RCS_DISPLAY_RANGE[1],
+        help="Fixed RCS color maximum.",
     )
     parser.add_argument(
         "--overwrite",
@@ -480,7 +485,7 @@ def save_velocity_overlay(
         )
 
         cbar = fig.colorbar(sc, ax=ax, fraction=0.025, pad=0.01)
-        cbar.set_label("GT radial velocity")
+        cbar.set_label("GT radial velocity [m s$^{-1}$]")
     else:
         ax.text(
             0.5,
@@ -528,7 +533,7 @@ def save_rcs_overlay(
         )
 
         cbar = fig.colorbar(sc, ax=ax, fraction=0.025, pad=0.01)
-        cbar.set_label("GT RCS")
+        cbar.set_label("GT RCS [dBsm]")
     else:
         ax.text(
             0.5,

@@ -820,7 +820,7 @@ class PPPfinalsPolarLIIFPPPHead(BaseDecodeHead):
             loss_velocity = zero
 
         if self.rcs_weight > 0.0 and points_all.shape[0] > 0:
-            pred_rcs = torch.exp(point_out[:, 2])
+            pred_rcs = point_out[:, 2] ** 3
             loss_rcs_point = F.l1_loss(
                 pred_rcs,
                 rcs_all,

@@ -55,6 +55,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from ppp_eda_attribute_limits import (
+    DEPTH_DISPLAY_RANGE,
+    DOPPLER_RANGE_DISPLAY_RANGE,
+    RANGE_GATE_LENGTH_DISPLAY_RANGE,
+    RCS_DISPLAY_RANGE,
+    VELOCITY_DISPLAY_RANGE,
+    VELOCITY_MEASURED_RELATIVE_DISPLAY_RANGE,
+    VELOCITY_EXPECTED_STATIC_DISPLAY_RANGE,
+    VELOCITY_COMPENSATED_PRE_WRAP_DISPLAY_RANGE,
+    EGO_LONGITUDINAL_VELOCITY_DISPLAY_RANGE,
+    EGO_YAW_RATE_DISPLAY_RANGE,
+)
 from ppp_eda_geometry import (
     camera_domain_mask,
     camera_plot_limits,
@@ -133,6 +145,28 @@ def parse_args() -> argparse.Namespace:
             "Use 1.0 to disable."
         ),
     )
+    parser.add_argument("--depth-min", type=float, default=DEPTH_DISPLAY_RANGE[0])
+    parser.add_argument("--depth-max", type=float, default=DEPTH_DISPLAY_RANGE[1])
+    parser.add_argument("--velocity-min", type=float, default=VELOCITY_DISPLAY_RANGE[0])
+    parser.add_argument("--velocity-max", type=float, default=VELOCITY_DISPLAY_RANGE[1])
+    parser.add_argument("--rcs-min", type=float, default=RCS_DISPLAY_RANGE[0])
+    parser.add_argument("--rcs-max", type=float, default=RCS_DISPLAY_RANGE[1])
+    parser.add_argument(
+        "--range-gate-length-min", type=float,
+        default=RANGE_GATE_LENGTH_DISPLAY_RANGE[0],
+    )
+    parser.add_argument(
+        "--range-gate-length-max", type=float,
+        default=RANGE_GATE_LENGTH_DISPLAY_RANGE[1],
+    )
+    parser.add_argument(
+        "--doppler-range-min", type=float,
+        default=DOPPLER_RANGE_DISPLAY_RANGE[0],
+    )
+    parser.add_argument(
+        "--doppler-range-max", type=float,
+        default=DOPPLER_RANGE_DISPLAY_RANGE[1],
+    )
     parser.add_argument(
         "--overwrite",
         action="store_true",
@@ -182,8 +216,11 @@ def load_scan(scan_dir: Path) -> Tuple[pd.DataFrame, Dict[str, np.ndarray]]:
 
     pts_raw = np.load(points_npz)
     required = [
-        "eda_idx", "x_pix", "y_pix", "depth", "velocity", "rcs",
-        "lateral", "forward", "range", "azimuth_deg", "rgb",
+        "eda_idx", "x_pix", "y_pix", "depth", "velocity",
+        "velocity_compensated_wrapped", "velocity_measured_relative",
+        "velocity_expected_static", "velocity_compensated_pre_wrap",
+        "doppler_wrap_index", "rcs", "range_gate_length", "lateral",
+        "forward", "range", "azimuth_deg", "rgb",
     ]
     missing = [k for k in required if k not in pts_raw.files]
     if missing:
@@ -242,6 +279,13 @@ def make_frame_summary(split_name: str, frames: pd.DataFrame) -> pd.DataFrame:
 
     columns = [
         "point_count",
+        "ego_longitudinal_velocity",
+        "ego_yaw_rate",
+        "doppler_range",
+        "velocity_wrap_count",
+        "velocity_wrap_fraction",
+        "velocity_mean_abs_wrap_index",
+        "velocity_max_abs_wrap_index",
         "brightness_mean",
         "brightness_std",
         "brightness_q01",
@@ -274,13 +318,26 @@ def make_point_summary(split_name: str, points: Dict[str, np.ndarray]) -> pd.Dat
     depth = points["depth"].astype(float)
     velocity = points["velocity"].astype(float)
     abs_velocity = np.abs(velocity)
+    velocity_measured_relative = points["velocity_measured_relative"].astype(float)
+    velocity_expected_static = points["velocity_expected_static"].astype(float)
+    velocity_compensated_pre_wrap = points[
+        "velocity_compensated_pre_wrap"
+    ].astype(float)
+    doppler_wrap_index = points["doppler_wrap_index"].astype(float)
     rcs = points["rcs"].astype(float)
+    range_gate_length = points["range_gate_length"].astype(float)
 
     for name, arr in [
         ("depth", depth),
         ("velocity", velocity),
+        ("velocity_compensated_wrapped", velocity),
         ("abs_velocity", abs_velocity),
+        ("velocity_measured_relative", velocity_measured_relative),
+        ("velocity_expected_static", velocity_expected_static),
+        ("velocity_compensated_pre_wrap", velocity_compensated_pre_wrap),
+        ("doppler_wrap_index", doppler_wrap_index),
         ("rcs", rcs),
+        ("range_gate_length", range_gate_length),
     ]:
         row = {
             "split": split_name,
@@ -439,6 +496,7 @@ def common_hist_edges(
     bins: int,
     clip_quantile: float = 1.0,
     symmetric: bool = False,
+    value_range: Tuple[float | None, float | None] | None = None,
 ) -> np.ndarray:
     a = finite_array(a)
     b = finite_array(b)
@@ -446,6 +504,14 @@ def common_hist_edges(
 
     if len(both) == 0:
         return np.linspace(0.0, 1.0, bins + 1)
+
+    if value_range is not None:
+        lo, hi = value_range
+        lo = float(np.quantile(both, 0.01)) if lo is None else float(lo)
+        hi = float(np.quantile(both, 0.99)) if hi is None else float(hi)
+        if not np.isfinite(lo) or not np.isfinite(hi) or lo >= hi:
+            raise ValueError(f"Invalid histogram display range: {(lo, hi)}")
+        return np.linspace(lo, hi, bins + 1)
 
     if symmetric:
         max_abs = float(np.max(np.abs(both)))
@@ -478,6 +544,7 @@ def plot_hist_compare(
     symmetric: bool = False,
     density: bool = True,
     log_y: bool = False,
+    value_range: Tuple[float | None, float | None] | None = None,
 ) -> None:
     train_values = finite_array(train_values)
     val_values = finite_array(val_values)
@@ -488,28 +555,46 @@ def plot_hist_compare(
         bins=bins,
         clip_quantile=clip_quantile,
         symmetric=symmetric,
+        value_range=value_range,
     )
 
     plt.figure(figsize=(10, 6))
 
-    if len(train_values) > 0:
+    lo, hi = float(edges[0]), float(edges[-1])
+    train_inside = train_values[(train_values >= lo) & (train_values <= hi)]
+    val_inside = val_values[(val_values >= lo) & (val_values <= hi)]
+    train_outside = int(len(train_values) - len(train_inside))
+    val_outside = int(len(val_values) - len(val_inside))
+
+    if len(train_inside) > 0:
         plt.hist(
-            train_values,
+            train_inside,
             bins=edges,
             alpha=0.55,
             density=density,
             label="train",
         )
 
-    if len(val_values) > 0:
+    if len(val_inside) > 0:
         plt.hist(
-            val_values,
+            val_inside,
             bins=edges,
             alpha=0.55,
             density=density,
             label="val",
         )
 
+    if train_outside or val_outside:
+        train_frac = train_outside / max(len(train_values), 1)
+        val_frac = val_outside / max(len(val_values), 1)
+        plt.text(
+            0.99, 0.98,
+            f"outside display range: train {train_outside:,} ({train_frac:.2%}), "
+            f"val {val_outside:,} ({val_frac:.2%})",
+            transform=plt.gca().transAxes, ha="right", va="top", fontsize=9,
+        )
+
+    plt.xlim(lo, hi)
     plt.title(title)
     plt.xlabel(xlabel)
     plt.ylabel("Density" if density else "Count")
@@ -641,6 +726,66 @@ def get_radar_point_brightness(points: Dict[str, np.ndarray]) -> np.ndarray:
     return rgb.mean(axis=1)
 
 
+def combined_tail_range(
+    train_values: np.ndarray,
+    val_values: np.ndarray,
+    configured: Tuple[float | None, float | None],
+) -> Tuple[float, float]:
+    train_values = finite_array(train_values).astype(float, copy=False)
+    val_values = finite_array(val_values).astype(float, copy=False)
+    both = np.concatenate([train_values, val_values])
+    if len(both) == 0:
+        return (0.0, 1.0)
+    lo, hi = configured
+    if lo is None:
+        lo = float(np.quantile(both, 0.01))
+    if hi is None:
+        hi = float(np.quantile(both, 0.99))
+    if lo == hi:
+        delta = max(abs(float(lo)) * 0.05, 0.5)
+        lo -= delta
+        hi += delta
+    return float(lo), float(hi)
+
+
+def make_wrap_index_df(
+    train_wrap_index: np.ndarray,
+    val_wrap_index: np.ndarray,
+) -> pd.DataFrame:
+    train = np.asarray(train_wrap_index)
+    val = np.asarray(val_wrap_index)
+    train = train[np.isfinite(train)].astype(int, copy=False)
+    val = val[np.isfinite(val)].astype(int, copy=False)
+    labels = sorted(set(train.tolist()) | set(val.tolist()))
+    train_total = max(len(train), 1)
+    val_total = max(len(val), 1)
+    rows = []
+    for label in labels:
+        train_count = int(np.sum(train == label))
+        val_count = int(np.sum(val == label))
+        rows.append({
+            "bucket": str(int(label)),
+            "train_count": train_count,
+            "val_count": val_count,
+            "train_fraction": float(train_count / train_total),
+            "val_fraction": float(val_count / val_total),
+            "val_minus_train_fraction": float(
+                val_count / val_total - train_count / train_total
+            ),
+        })
+    return pd.DataFrame(rows)
+
+
+def point_frame_values(
+    frames: pd.DataFrame, points: Dict[str, np.ndarray], column: str
+) -> np.ndarray:
+    mapping = pd.Series(
+        frames[column].to_numpy(dtype=float),
+        index=frames["eda_idx"].to_numpy(dtype=int),
+    )
+    return mapping.reindex(points["eda_idx"].astype(int)).to_numpy(dtype=float)
+
+
 def default_out_dir(train_dir: Path, val_dir: Path) -> Path:
     return Path("work_dirs/ppp_eda") / f"compare_{train_dir.name}_vs_{val_dir.name}"
 
@@ -669,6 +814,20 @@ def main() -> None:
         raise KeyError(f"Missing point_count in {train_dir / 'frames.csv'}")
     if "point_count" not in val_frames.columns:
         raise KeyError(f"Missing point_count in {val_dir / 'frames.csv'}")
+    required_frame_columns = [
+        "eda_idx", "doppler_range", "ego_longitudinal_velocity",
+        "ego_yaw_rate", "velocity_wrap_fraction",
+    ]
+    for split_name, frames, directory in [
+        ("train", train_frames, train_dir),
+        ("val", val_frames, val_dir),
+    ]:
+        missing = [name for name in required_frame_columns if name not in frames.columns]
+        if missing:
+            raise KeyError(
+                f"Missing {missing} in {directory / 'frames.csv'} for {split_name}. "
+                "Rerun the scan with the updated velocity-stage pipeline."
+            )
 
     # -------------------------------------------------------------------------
     # Summary tables
@@ -696,11 +855,16 @@ def main() -> None:
         val_points,
         eps=args.velocity_static_eps,
     )
+    wrap_index_df = make_wrap_index_df(
+        train_points["doppler_wrap_index"],
+        val_points["doppler_wrap_index"],
+    )
 
     frame_summary.to_csv(out_dir / "frame_summary_train_val.csv", index=False)
     point_summary.to_csv(out_dir / "point_summary_train_val.csv", index=False)
     point_count_bucket_df.to_csv(out_dir / "point_count_buckets_train_val.csv", index=False)
     velocity_bucket_df.to_csv(out_dir / "velocity_buckets_train_val.csv", index=False)
+    wrap_index_df.to_csv(out_dir / "doppler_wrap_index_train_val.csv", index=False)
 
     # -------------------------------------------------------------------------
     # Frame-level comparisons
@@ -758,6 +922,39 @@ def main() -> None:
             clip_quantile=1.0,
         )
 
+    ego_velocity_range = combined_tail_range(
+        train_frames["ego_longitudinal_velocity"].to_numpy(dtype=float),
+        val_frames["ego_longitudinal_velocity"].to_numpy(dtype=float),
+        EGO_LONGITUDINAL_VELOCITY_DISPLAY_RANGE,
+    )
+    ego_yaw_rate_range = combined_tail_range(
+        train_frames["ego_yaw_rate"].to_numpy(dtype=float),
+        val_frames["ego_yaw_rate"].to_numpy(dtype=float),
+        EGO_YAW_RATE_DISPLAY_RANGE,
+    )
+    plot_hist_compare(
+        train_frames["ego_longitudinal_velocity"].to_numpy(dtype=float),
+        val_frames["ego_longitudinal_velocity"].to_numpy(dtype=float),
+        out_dir / "ego_longitudinal_velocity_train_vs_val.png",
+        "Ego longitudinal velocity, train vs val",
+        "ego longitudinal velocity [m s$^{-1}$]", args.hist_bins,
+        value_range=ego_velocity_range,
+    )
+    plot_hist_compare(
+        train_frames["ego_yaw_rate"].to_numpy(dtype=float),
+        val_frames["ego_yaw_rate"].to_numpy(dtype=float),
+        out_dir / "ego_yaw_rate_train_vs_val.png",
+        "Ego yaw rate, train vs val", "ego yaw rate", args.hist_bins,
+        value_range=ego_yaw_rate_range,
+    )
+    plot_hist_compare(
+        train_frames["velocity_wrap_fraction"].to_numpy(dtype=float),
+        val_frames["velocity_wrap_fraction"].to_numpy(dtype=float),
+        out_dir / "velocity_wrap_fraction_train_vs_val.png",
+        "Per-frame Doppler-wrap fraction, train vs val",
+        "wrap fraction", args.hist_bins, value_range=(0.0, 1.0),
+    )
+
     # -------------------------------------------------------------------------
     # Point-level comparisons
     # -------------------------------------------------------------------------
@@ -767,9 +964,57 @@ def main() -> None:
 
     train_velocity = train_points["velocity"].astype(float)
     val_velocity = val_points["velocity"].astype(float)
+    train_velocity_measured_relative = train_points[
+        "velocity_measured_relative"
+    ].astype(float)
+    val_velocity_measured_relative = val_points[
+        "velocity_measured_relative"
+    ].astype(float)
+    train_velocity_expected_static = train_points[
+        "velocity_expected_static"
+    ].astype(float)
+    val_velocity_expected_static = val_points[
+        "velocity_expected_static"
+    ].astype(float)
+    train_velocity_compensated_pre_wrap = train_points[
+        "velocity_compensated_pre_wrap"
+    ].astype(float)
+    val_velocity_compensated_pre_wrap = val_points[
+        "velocity_compensated_pre_wrap"
+    ].astype(float)
+    train_doppler_wrap_index = train_points["doppler_wrap_index"].astype(float)
+    val_doppler_wrap_index = val_points["doppler_wrap_index"].astype(float)
+
+    measured_range = combined_tail_range(
+        train_velocity_measured_relative, val_velocity_measured_relative,
+        VELOCITY_MEASURED_RELATIVE_DISPLAY_RANGE,
+    )
+    expected_static_range = combined_tail_range(
+        train_velocity_expected_static, val_velocity_expected_static,
+        VELOCITY_EXPECTED_STATIC_DISPLAY_RANGE,
+    )
+    pre_wrap_range = combined_tail_range(
+        train_velocity_compensated_pre_wrap, val_velocity_compensated_pre_wrap,
+        VELOCITY_COMPENSATED_PRE_WRAP_DISPLAY_RANGE,
+    )
 
     train_rcs = train_points["rcs"].astype(float)
     val_rcs = val_points["rcs"].astype(float)
+
+    train_range_gate_length = train_points["range_gate_length"].astype(float)
+    val_range_gate_length = val_points["range_gate_length"].astype(float)
+
+    train_doppler_range = train_frames["doppler_range"].to_numpy(dtype=float)
+    val_doppler_range = val_frames["doppler_range"].to_numpy(dtype=float)
+
+    range_gate_display_range = combined_tail_range(
+        train_range_gate_length, val_range_gate_length,
+        (args.range_gate_length_min, args.range_gate_length_max),
+    )
+    doppler_display_range = combined_tail_range(
+        train_doppler_range, val_doppler_range,
+        (args.doppler_range_min, args.doppler_range_max),
+    )
 
     plot_hist_compare(
         train_values=train_depth,
@@ -778,7 +1023,7 @@ def main() -> None:
         title="GT depth at radar points, train vs val",
         xlabel="GT depth [m]",
         bins=args.hist_bins,
-        clip_quantile=args.clip_quantile,
+        value_range=(args.depth_min, args.depth_max),
     )
 
     plot_hist_compare(
@@ -786,9 +1031,9 @@ def main() -> None:
         val_values=val_velocity,
         path=out_dir / "velocity_signed_train_vs_val.png",
         title="Signed GT radial velocity, train vs val",
-        xlabel="GT radial velocity",
+        xlabel="GT radial velocity [m s$^{-1}$]",
         bins=args.hist_bins,
-        symmetric=True,
+        value_range=(args.velocity_min, args.velocity_max),
     )
 
     plot_hist_compare(
@@ -796,10 +1041,10 @@ def main() -> None:
         val_values=val_velocity,
         path=out_dir / "velocity_signed_train_vs_val_log_y.png",
         title="Signed GT radial velocity, train vs val, log-y",
-        xlabel="GT radial velocity",
+        xlabel="GT radial velocity [m s$^{-1}$]",
         bins=args.hist_bins,
-        symmetric=True,
         log_y=True,
+        value_range=(args.velocity_min, args.velocity_max),
     )
 
     plot_hist_compare(
@@ -807,9 +1052,9 @@ def main() -> None:
         val_values=np.abs(val_velocity),
         path=out_dir / "velocity_abs_train_vs_val.png",
         title="Absolute GT radial velocity, train vs val",
-        xlabel="abs(GT radial velocity)",
+        xlabel="abs(GT radial velocity) [m s$^{-1}$]",
         bins=args.hist_bins,
-        clip_quantile=args.clip_quantile,
+        value_range=(0.0, max(abs(args.velocity_min), abs(args.velocity_max))),
     )
 
     plot_hist_compare(
@@ -817,10 +1062,70 @@ def main() -> None:
         val_values=np.abs(val_velocity),
         path=out_dir / "velocity_abs_train_vs_val_log_y.png",
         title="Absolute GT radial velocity, train vs val, log-y",
-        xlabel="abs(GT radial velocity)",
+        xlabel="abs(GT radial velocity) [m s$^{-1}$]",
         bins=args.hist_bins,
-        clip_quantile=args.clip_quantile,
         log_y=True,
+        value_range=(0.0, max(abs(args.velocity_min), abs(args.velocity_max))),
+    )
+
+    for train_values, val_values, stem, title, xlabel, display_range in [
+        (
+            train_velocity_measured_relative, val_velocity_measured_relative,
+            "velocity_measured_relative",
+            "Measured relative radial velocity, train vs val",
+            "measured relative radial velocity [m s$^{-1}$]", measured_range,
+        ),
+        (
+            train_velocity_expected_static, val_velocity_expected_static,
+            "velocity_expected_static",
+            "Expected static radial velocity, train vs val",
+            "expected static radial velocity [m s$^{-1}$]", expected_static_range,
+        ),
+        (
+            train_velocity_compensated_pre_wrap,
+            val_velocity_compensated_pre_wrap,
+            "velocity_compensated_pre_wrap",
+            "Compensated velocity before Doppler folding, train vs val",
+            "compensated velocity before wrapping [m s$^{-1}$]", pre_wrap_range,
+        ),
+    ]:
+        plot_hist_compare(
+            train_values, val_values, out_dir / f"{stem}_train_vs_val.png",
+            title, xlabel, args.hist_bins, value_range=display_range,
+        )
+        plot_hist_compare(
+            train_values, val_values,
+            out_dir / f"{stem}_train_vs_val_log_y.png",
+            f"{title}, log-y", xlabel, args.hist_bins, log_y=True,
+            value_range=display_range,
+        )
+
+    plot_grouped_bucket_bar(
+        df=wrap_index_df,
+        path=out_dir / "doppler_wrap_index_train_vs_val.png",
+        title="Doppler wrap-index distribution, train vs val",
+    )
+
+    train_point_doppler = point_frame_values(
+        train_frames, train_points, "doppler_range"
+    )
+    val_point_doppler = point_frame_values(val_frames, val_points, "doppler_range")
+    train_normalized_wrapped = np.divide(
+        train_velocity, train_point_doppler,
+        out=np.full_like(train_velocity, np.nan),
+        where=np.isfinite(train_point_doppler) & (train_point_doppler > 0.0),
+    )
+    val_normalized_wrapped = np.divide(
+        val_velocity, val_point_doppler,
+        out=np.full_like(val_velocity, np.nan),
+        where=np.isfinite(val_point_doppler) & (val_point_doppler > 0.0),
+    )
+    plot_hist_compare(
+        train_normalized_wrapped, val_normalized_wrapped,
+        out_dir / "velocity_wrapped_over_doppler_range_train_vs_val.png",
+        "Wrapped target normalized by Doppler range, train vs val",
+        "wrapped velocity / dopplerRange", args.hist_bins,
+        value_range=(-0.5, 0.5),
     )
 
     plot_grouped_bucket_bar(
@@ -834,9 +1139,9 @@ def main() -> None:
         val_values=val_rcs,
         path=out_dir / "rcs_train_vs_val.png",
         title="GT RCS, train vs val",
-        xlabel="GT RCS",
+        xlabel="GT RCS [dBsm]",
         bins=args.hist_bins,
-        clip_quantile=1.0,
+        value_range=(args.rcs_min, args.rcs_max),
     )
 
     plot_hist_compare(
@@ -844,10 +1149,30 @@ def main() -> None:
         val_values=val_rcs,
         path=out_dir / "rcs_train_vs_val_log_y.png",
         title="GT RCS, train vs val, log-y",
-        xlabel="GT RCS",
+        xlabel="GT RCS [dBsm]",
         bins=args.hist_bins,
-        clip_quantile=1.0,
         log_y=True,
+        value_range=(args.rcs_min, args.rcs_max),
+    )
+
+    plot_hist_compare(
+        train_values=train_range_gate_length,
+        val_values=val_range_gate_length,
+        path=out_dir / "range_gate_length_train_vs_val.png",
+        title="Range-gate length, train vs val",
+        xlabel="rangeGateLength [m]",
+        bins=args.hist_bins,
+        value_range=range_gate_display_range,
+    )
+
+    plot_hist_compare(
+        train_values=train_doppler_range,
+        val_values=val_doppler_range,
+        path=out_dir / "doppler_range_train_vs_val.png",
+        title="Frame-level Doppler ambiguity range, train vs val",
+        xlabel="dopplerRange [m s$^{-1}$]",
+        bins=args.hist_bins,
+        value_range=doppler_display_range,
     )
 
     plot_hist_compare(
@@ -956,17 +1281,44 @@ def main() -> None:
         "image_height": int(args.image_height),
         "image_width": int(args.image_width),
         "ppp_eda_spatial": spatial,
+        "attribute_display_ranges": {
+            "depth": [args.depth_min, args.depth_max],
+            "velocity": [args.velocity_min, args.velocity_max],
+            "velocity_measured_relative": list(measured_range),
+            "velocity_expected_static": list(expected_static_range),
+            "velocity_compensated_pre_wrap": list(pre_wrap_range),
+            "ego_longitudinal_velocity": list(ego_velocity_range),
+            "ego_yaw_rate": list(ego_yaw_rate_range),
+            "rcs": [args.rcs_min, args.rcs_max],
+            "range_gate_length": list(range_gate_display_range),
+            "doppler_range": list(doppler_display_range),
+        },
         "train_camera_domain_points": int(np.sum(camera_domain_mask(train_points["x_pix"], train_points["y_pix"], spatial))),
         "val_camera_domain_points": int(np.sum(camera_domain_mask(val_points["x_pix"], val_points["y_pix"], spatial))),
         "train_cartesian_bev_domain_points": int(np.sum(cartesian_domain_mask(train_points["lateral"], train_points["forward"], spatial))),
         "val_cartesian_bev_domain_points": int(np.sum(cartesian_domain_mask(val_points["lateral"], val_points["forward"], spatial))),
         "train_polar_domain_points": int(np.sum(polar_domain_mask(train_points["range"], train_points["azimuth_deg"], spatial))),
         "val_polar_domain_points": int(np.sum(polar_domain_mask(val_points["range"], val_points["azimuth_deg"], spatial))),
+        "wrap_fractions": {
+            "train_points": float(np.mean(train_doppler_wrap_index != 0)) if len(train_doppler_wrap_index) else 0.0,
+            "val_points": float(np.mean(val_doppler_wrap_index != 0)) if len(val_doppler_wrap_index) else 0.0,
+        },
+        "normalized_wrapped_interval_check": {
+            "train_outside_count": int(np.sum(
+                np.isfinite(train_normalized_wrapped)
+                & ((train_normalized_wrapped < -0.5) | (train_normalized_wrapped >= 0.5))
+            )),
+            "val_outside_count": int(np.sum(
+                np.isfinite(val_normalized_wrapped)
+                & ((val_normalized_wrapped < -0.5) | (val_normalized_wrapped >= 0.5))
+            )),
+        },
         "outputs": {
             "frame_summary": str(out_dir / "frame_summary_train_val.csv"),
             "point_summary": str(out_dir / "point_summary_train_val.csv"),
             "point_count_buckets": str(out_dir / "point_count_buckets_train_val.csv"),
             "velocity_buckets": str(out_dir / "velocity_buckets_train_val.csv"),
+            "doppler_wrap_index": str(out_dir / "doppler_wrap_index_train_val.csv"),
         },
     }
 

@@ -51,17 +51,17 @@ ppp_eda_spatial = dict(
     ),
 
     cartesian_bev=dict(
-        lateral_min=None,
-        lateral_max=None,
-        forward_min=None,
-        forward_max=None,
+        lateral_min=-50.0,
+        lateral_max=50.0,
+        forward_min=0.0,
+        forward_max=170.0,
     ),
 
     polar=dict(
-        range_min=None,
-        range_max=None,
-        azimuth_min_deg=None,
-        azimuth_max_deg=None,
+        range_min=0.0,
+        range_max=170.0,
+        azimuth_min_deg=-52.5,
+        azimuth_max_deg=52.5,
     ),
 )
 
@@ -170,6 +170,7 @@ def make_eda_pipeline(
             thres=0.05,
             rel_x_centre=0.491,
             rel_y_centre=0.4370,
+            return_auxiliary_attributes=True,
         ),
     ]
 

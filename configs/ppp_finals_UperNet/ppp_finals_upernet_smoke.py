@@ -1,11 +1,10 @@
 _base_ = [
     '../_base_/default_runtime.py',
-    '../_base_/schedules/schedule_40k.py'
 ]
 
 custom_imports = dict(
     imports=[
-        'mmseg.models.decode_heads.ppp_finals_unet_head',
+        'mmseg.models.decode_heads.ppp_finals_uper_head',
         'mmseg.datasets.sys100_ppp_heatmap_dataset',
         'mmseg.datasets.transforms.sys100_ppp_transforms',
         'mmseg.evaluation.metrics.ppp_metrics_loss_mmd',
@@ -37,41 +36,38 @@ model = dict(
     data_preprocessor=data_preprocessor,
     pretrained=None,
     backbone=dict(
-        type='UNet',
-        in_channels=3,
-        base_channels=64,
-        num_stages=5,
-        strides=(1, 1, 1, 1, 1),
-        enc_num_convs=(2, 2, 2, 2, 2),
-        dec_num_convs=(2, 2, 2, 2),
-        downsamples=(True, True, True, True),
-        enc_dilations=(1, 1, 1, 1, 1),
-        dec_dilations=(1, 1, 1, 1),
-        with_cp=False,
-        conv_cfg=None,
+        type='ResNetV1c',
+        depth=50,
+        num_stages=4,
+        out_indices=(0, 1, 2, 3),
+        strides=(1, 2, 2, 2),
+        dilations=(1, 1, 1, 1),
         norm_cfg=dict(type='BN', requires_grad=True),
-        act_cfg=dict(type='ReLU'),
-        upsample_cfg=dict(type='InterpConv'),
         norm_eval=False,
+        style='pytorch',
+        contract_dilation=True,
+        init_cfg=dict(
+            type='Pretrained',
+            checkpoint=(
+                '/e/project1/nxtaim-1/huber7/pretrained/'
+                'resnet50_v1c-2cccc1ad.pth'
+            ),
+        ),
     ),
     decode_head=dict(
-        type='PPPfinalsUNetDepthLossHead',
-        in_channels=64,
-        in_index=4,
-        channels=64,
-        num_convs=1,
+        type='PPPfinalsUperHead',
+        in_channels=(256, 512, 1024, 2048),
+        in_index=(0, 1, 2, 3),
+        input_transform='multiple_select',
+        channels=512,
         dropout_ratio=0.1,
+        pool_scales=(1, 2, 3, 6),
         num_classes=4,
-
         ppp_weight=1.0,
         depth_weight=10.0,
-        velocity_weight=1.0,
+        velocity_weight=10.0,
         rcs_weight=1.0,
         velocity_mode='signed',
-
-        depth_loss_type='log', # 'disparity'
-        depth_eps=1e-3,
-
         loss_ppp=dict(
             type='PPPLoss',
             out_img_size=out_img_size,
@@ -100,9 +96,12 @@ DATA_PATH_VAL = os.environ.get(
 
 dataset_type = 'Sys100PPPHeatmapDataset'
 
-batch_size_train = 75
-batch_size_test = 25
-batch_size_val = 25
+batch_size_train = 45
+# decrease batch size in val/test, because the GPU memory constraints on full sized images
+batch_size_test = 20
+batch_size_val = 20
+
+#### Train dataloader #####
 
 train_dataloader = dict(
     batch_size=batch_size_train,
@@ -148,7 +147,7 @@ train_dataloader = dict(
     )
 )
 
-num_samples_val = 96
+num_samples_val = 80
 
 val_dataloader = dict(
     batch_size=batch_size_val,
@@ -191,7 +190,7 @@ val_dataloader = dict(
     )
 )
 
-num_samples_test = 96
+num_samples_test = 80
 
 test_dataloader = dict(
     batch_size=batch_size_test,
@@ -237,15 +236,13 @@ test_dataloader = dict(
 optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
-        _delete_=True,
         type='AdamW',
-        lr=1e-2,
+        lr=1e-3,
         weight_decay=0.01,
         betas=(0.9, 0.999)
     ),
     clip_grad=dict(
-        _delete_=True,
-        max_norm=1.0,
+        max_norm=1.0, # t 2
         norm_type=2
     )
 )
@@ -256,28 +253,29 @@ param_scheduler = [
         start_factor=1e-4,
         end_factor=1,
         begin=0,
-        end=5000,
+        end=300,
         by_epoch=False
     ),
     dict(
         type='LinearLR',
         start_factor=1,
         end_factor=1e-1,
-        begin=5001,
-        end=25000,
+        begin=301,
+        end=600,
         by_epoch=False
     ),
     dict(
         type='LinearLR',
         start_factor=1,
         end_factor=1e-1,
-        begin=25001,
-        end=50000,
+        begin=601,
+        end=1000,
         by_epoch=False
     )
 ]
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=50000, val_interval=2000)
+# train_cfg = dict(type='IterBasedTrainLoop', max_iters=30000, val_interval=10000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=1000, val_interval=1000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -286,32 +284,52 @@ test_evaluator = dict(type='PPPLossMMD', out_img_size=out_img_size)
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
-    logger=dict(type='LoggerHook', interval=5),
+    logger=dict(type='LoggerHook', interval=10, log_metric_by_epoch=False),
+    param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(
         type='CheckpointHook',
         by_epoch=False,
-        interval=2000,
+        interval=1000,
         max_keep_ckpts=5,
         save_best='ppp/optimal_score',
         rule='greater'
     ),
+    sampler_seed=dict(type='DistSamplerSeedHook'),
 )
 
 custom_hooks = [
     dict(
         type='PPPMarkVisHookLight',
+
         train_interval=1000,
         max_samples_train=1,
         max_samples_val=10,
         max_samples_test=10,
+
         img_mean=data_rbg_mean,
         img_std=data_rbg_std,
+
         gamma=0.2,
+
         sim_block_size=8,
         sim_block_placement='weighted',
         point_size=28,
+
+        depth_vmin=0.0,
+        depth_vmax=170.0,
+
+        vel_vmin=-11.0,
+        vel_vmax=11.0,
+
+        rcs_vmin=-50.0,
+        rcs_vmax=20.0,
+        rcs_cmap='viridis',
+        rcs_link='cube',
+
+        figsize=(14, 38),
+        dpi=90,
     ),
-    dict(type='PrefetchStatsHook')
+    dict(type='PrefetchStatsHook'),
 ]
 
 visualizer = dict(

@@ -7,7 +7,7 @@ The visualizations include:
 - Simulated point clouds sampled from the predicted PPP intensity
   (via thinning and block-based approximation)
 - Predicted intensity heatmap (λ) and gamma-adjusted version (λ^γ)
-- Optional depth and velocity predictions
+- Optional depth, velocity, and RCS predictions
 
 The goal is to assess:
 - Spatial alignment between prediction and GT
@@ -17,7 +17,6 @@ The goal is to assess:
 Outputs are written to the configured visualization backends
 (e.g. local files and TensorBoard).
 """
-
 
 import numpy as np
 import torch
@@ -151,11 +150,15 @@ class PPPMarkVisHookLight(Hook):
         img_mean=None,
         img_std=None,
         dpi=90,
-        figsize=(14, 34),
+        figsize=(14, 38),
         depth_vmin=None,
         depth_vmax=None,
         vel_vmin=None,
         vel_vmax=None,
+        rcs_vmin=None,
+        rcs_vmax=None,
+        rcs_cmap="viridis",
+        rcs_link="cube",
         gamma=0.9,
         sim_block_size=8,
         sim_block_placement="weighted",
@@ -176,6 +179,11 @@ class PPPMarkVisHookLight(Hook):
         self.vel_vmin = vel_vmin
         self.vel_vmax = vel_vmax
 
+        self.rcs_vmin = rcs_vmin
+        self.rcs_vmax = rcs_vmax
+        self.rcs_cmap = str(rcs_cmap)
+        self.rcs_link = str(rcs_link).lower()
+
         self.gamma = float(gamma)
         self.sim_block_size = int(sim_block_size)
         self.sim_block_placement = str(sim_block_placement)
@@ -192,11 +200,12 @@ class PPPMarkVisHookLight(Hook):
     # Reset img output counter for val and test before next iteration
     def before_val_epoch(self, runner):
         self._written_in_run["val"] = 0
+
     def before_test_epoch(self, runner):
         self._written_in_run["test"] = 0
 
     def after_train_iter(self, runner, batch_idx, data_batch=None, outputs=None):
-        # Only run on rank 0 in distributed training. Without this Each GPU would execute the hook
+        # Only run on rank 0 in distributed training. Without this each GPU would execute the hook
         # → duplicate images × #GPUs
         if not is_main_process():
             return
@@ -306,13 +315,23 @@ class PPPMarkVisHookLight(Hook):
 
     @staticmethod
     def _label(ax, text):
-        ax.text(-0.015, 0.5, text, transform=ax.transAxes, rotation=90,
-                fontsize=13, va="center", ha="center")
+        ax.text(
+            -0.015,
+            0.5,
+            text,
+            transform=ax.transAxes,
+            rotation=90,
+            fontsize=13,
+            va="center",
+            ha="center",
+        )
 
     @staticmethod
     def _textbox(ax, text):
         ax.text(
-            0.02, 0.98, text,
+            0.02,
+            0.98,
+            text,
             transform=ax.transAxes,
             fontsize=11,
             color="white",
@@ -339,21 +358,36 @@ class PPPMarkVisHookLight(Hook):
         self._label(ax, ylabel)
         self._textbox(ax, f"N={n}")
 
+    def _decode_rcs(self, raw_rcs: torch.Tensor) -> np.ndarray:
+        if self.rcs_link == "identity":
+            rcs = raw_rcs
+        elif self.rcs_link == "cube":
+            rcs = raw_rcs ** 3
+        elif self.rcs_link == "linear_cube":
+            rcs = raw_rcs + raw_rcs ** 3
+        else:
+            raise ValueError(
+                f"Unsupported rcs_link={self.rcs_link!r}. "
+                "Use 'identity', 'cube', or 'linear_cube'."
+            )
+        return rcs.detach().cpu().numpy()
+
     def _visualize_sample(self, runner, step, phase, img_tensor, pred, sample, iter_seed, sample_idx, velocity_mode):
         gt = sample.gt_sem_seg.data.to(pred.device)[0]
 
         lam = torch.exp(pred[0]).detach().cpu().numpy()
         depth = torch.exp(pred[1]).detach().cpu().numpy() if pred.size(0) > 1 else None
 
+        # Current channel convention:
+        # 0: log intensity
+        # 1: depth
+        # 2: velocity
+        # 3: RCS
+        raw_vel = pred[2] if pred.size(0) > 2 else None
+        raw_rcs = pred[3] if pred.size(0) > 3 else None
+
         vel = None
         vel_label = "Pred vel [m/s]"
-        if pred.size(0) == 4:
-            raw_vel = pred[3]
-        elif pred.size(0) > 2:
-            raw_vel = pred[2]
-        else:
-            raw_vel = None
-
         if raw_vel is not None:
             if velocity_mode == "signed":
                 vel = (raw_vel ** 3).detach().cpu().numpy()
@@ -362,6 +396,10 @@ class PPPMarkVisHookLight(Hook):
                 vel_label = "Pred |vel| [m/s]"
             else:
                 raise RuntimeError(f"Unsupported velocity_mode={velocity_mode!r}")
+
+        rcs = None
+        if raw_rcs is not None:
+            rcs = self._decode_rcs(raw_rcs)
 
         gt_mask = gt.detach().cpu().numpy()
         img = self._denorm_img(img_tensor.detach().cpu().numpy())
@@ -396,7 +434,7 @@ class PPPMarkVisHookLight(Hook):
 
         fig = Figure(figsize=self.figsize, dpi=self.dpi)
         FigureCanvasAgg(fig)
-        axs = fig.subplots(9, 1)
+        axs = fig.subplots(10, 1)
         fig.subplots_adjust(left=0.025, right=0.99, top=0.97, bottom=0.01, hspace=0.08)
         fig.suptitle(f"{phase} | {video} | frame {frame_str} | idx {gidx_str}", fontsize=14)
 
@@ -414,19 +452,45 @@ class PPPMarkVisHookLight(Hook):
 
         if depth is not None:
             self._imshow(
-                axs[7], depth, "Pred depth [m]",
-                cmap="viridis", vmin=self.depth_vmin, vmax=self.depth_vmax, fig=fig, cbar=True
+                axs[7],
+                depth,
+                "Pred depth [m]",
+                cmap="viridis",
+                vmin=self.depth_vmin,
+                vmax=self.depth_vmax,
+                fig=fig,
+                cbar=True,
             )
         else:
             axs[7].axis("off")
 
         if vel is not None:
             self._imshow(
-                axs[8], vel, vel_label,
-                cmap="coolwarm", vmin=self.vel_vmin, vmax=self.vel_vmax, fig=fig, cbar=True
+                axs[8],
+                vel,
+                vel_label,
+                cmap="coolwarm",
+                vmin=self.vel_vmin,
+                vmax=self.vel_vmax,
+                fig=fig,
+                cbar=True,
             )
         else:
             axs[8].axis("off")
+
+        if rcs is not None:
+            self._imshow(
+                axs[9],
+                rcs,
+                "Pred RCS",
+                cmap=self.rcs_cmap,
+                vmin=self.rcs_vmin,
+                vmax=self.rcs_vmax,
+                fig=fig,
+                cbar=True,
+            )
+        else:
+            axs[9].axis("off")
 
         tag = f"ppp_vis/{phase}/{video}_f{frame_str}_idx{gidx_str}_sample{sample_idx}"
         runner.visualizer.add_image(tag, fig_to_rgb(fig), step=step)

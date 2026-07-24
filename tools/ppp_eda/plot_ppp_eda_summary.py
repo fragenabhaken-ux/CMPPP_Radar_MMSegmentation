@@ -52,6 +52,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from ppp_eda_attribute_limits import (
+    DEPTH_DISPLAY_RANGE,
+    DOPPLER_RANGE_DISPLAY_RANGE,
+    RANGE_GATE_LENGTH_DISPLAY_RANGE,
+    RCS_DISPLAY_RANGE,
+    VELOCITY_DISPLAY_RANGE,
+    VELOCITY_MEASURED_RELATIVE_DISPLAY_RANGE,
+    VELOCITY_EXPECTED_STATIC_DISPLAY_RANGE,
+    VELOCITY_COMPENSATED_PRE_WRAP_DISPLAY_RANGE,
+    EGO_LONGITUDINAL_VELOCITY_DISPLAY_RANGE,
+    EGO_YAW_RATE_DISPLAY_RANGE,
+)
 from ppp_eda_geometry import (
     camera_domain_mask,
     camera_plot_limits,
@@ -131,6 +143,32 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.5,
         help="Velocity threshold for near-static bucket.",
+    )
+    parser.add_argument("--depth-min", type=float, default=DEPTH_DISPLAY_RANGE[0])
+    parser.add_argument("--depth-max", type=float, default=DEPTH_DISPLAY_RANGE[1])
+    parser.add_argument("--velocity-min", type=float, default=VELOCITY_DISPLAY_RANGE[0])
+    parser.add_argument("--velocity-max", type=float, default=VELOCITY_DISPLAY_RANGE[1])
+    parser.add_argument("--rcs-min", type=float, default=RCS_DISPLAY_RANGE[0])
+    parser.add_argument("--rcs-max", type=float, default=RCS_DISPLAY_RANGE[1])
+    parser.add_argument(
+        "--range-gate-length-min",
+        type=float,
+        default=RANGE_GATE_LENGTH_DISPLAY_RANGE[0],
+    )
+    parser.add_argument(
+        "--range-gate-length-max",
+        type=float,
+        default=RANGE_GATE_LENGTH_DISPLAY_RANGE[1],
+    )
+    parser.add_argument(
+        "--doppler-range-min",
+        type=float,
+        default=DOPPLER_RANGE_DISPLAY_RANGE[0],
+    )
+    parser.add_argument(
+        "--doppler-range-max",
+        type=float,
+        default=DOPPLER_RANGE_DISPLAY_RANGE[1],
     )
     parser.add_argument(
         "--overwrite",
@@ -217,6 +255,13 @@ def make_summary_frame_stats(frames: pd.DataFrame) -> pd.DataFrame:
 
     columns = [
         "point_count",
+        "ego_longitudinal_velocity",
+        "ego_yaw_rate",
+        "doppler_range",
+        "velocity_wrap_count",
+        "velocity_wrap_fraction",
+        "velocity_mean_abs_wrap_index",
+        "velocity_max_abs_wrap_index",
         "brightness_mean",
         "brightness_std",
         "brightness_q01",
@@ -244,7 +289,17 @@ def make_summary_frame_stats(frames: pd.DataFrame) -> pd.DataFrame:
 def make_summary_point_stats(points: Dict[str, np.ndarray]) -> pd.DataFrame:
     rows = []
 
-    for name in ["depth", "velocity", "rcs"]:
+    for name in [
+        "depth",
+        "velocity",
+        "velocity_compensated_wrapped",
+        "velocity_measured_relative",
+        "velocity_expected_static",
+        "velocity_compensated_pre_wrap",
+        "doppler_wrap_index",
+        "rcs",
+        "range_gate_length",
+    ]:
         if name in points:
             stats = quantile_dict(points[name].astype(float), prefix=name)
             row = {"variable": name}
@@ -276,6 +331,45 @@ def make_summary_point_stats(points: Dict[str, np.ndarray]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _resolved_hist_range(
+    values: np.ndarray,
+    value_range: Tuple[float | None, float | None] | None,
+    lower_quantile: float = 0.01,
+    upper_quantile: float = 0.99,
+) -> Tuple[float, float] | None:
+    """Resolve fixed plot limits from explicit bounds or empirical tail quantiles."""
+    if value_range is None:
+        return None
+
+    lo, hi = value_range
+    finite = finite_array(values).astype(float, copy=False)
+    if len(finite) == 0 and lo is None and hi is None:
+        return None
+
+    if lo is None:
+        lo = float(np.quantile(finite, lower_quantile)) if len(finite) else 0.0
+    if hi is None:
+        hi = float(np.quantile(finite, upper_quantile)) if len(finite) else float(lo) + 1.0
+    if not np.isfinite(lo) or not np.isfinite(hi):
+        return None
+    if lo == hi:
+        delta = max(abs(float(lo)) * 0.05, 0.5)
+        lo -= delta
+        hi += delta
+    if lo > hi:
+        lo, hi = hi, lo
+    return float(lo), float(hi)
+
+
+def empirical_tail_range(
+    values: np.ndarray,
+    configured: Tuple[float | None, float | None],
+) -> Tuple[float, float]:
+    resolved = _resolved_hist_range(values, configured)
+    if resolved is None:
+        return (0.0, 1.0)
+    return resolved
+
 def plot_hist(
     values: np.ndarray,
     path: Path,
@@ -283,8 +377,10 @@ def plot_hist(
     xlabel: str,
     bins: int | Iterable[float] = 80,
     log_y: bool = False,
+    value_range: Tuple[float | None, float | None] | None = None,
 ) -> None:
-    values = finite_array(values)
+    values = finite_array(values).astype(float, copy=False)
+    resolved_range = _resolved_hist_range(values, value_range)
 
     plt.figure(figsize=(10, 6))
 
@@ -296,10 +392,38 @@ def plot_hist(
         save_fig(path)
         return
 
-    plt.hist(values, bins=bins)
+    plotted = values
+    outside_count = 0
+    hist_bins = bins
+    if resolved_range is not None:
+        lo, hi = resolved_range
+        inside = (values >= lo) & (values <= hi)
+        outside_count = int(np.sum(~inside))
+        plotted = values[inside]
+        if isinstance(bins, int):
+            hist_bins = np.linspace(lo, hi, bins + 1)
+        plt.xlim(lo, hi)
+
+    if len(plotted) > 0:
+        plt.hist(plotted, bins=hist_bins)
+    else:
+        plt.text(0.5, 0.5, "No values inside display range", ha="center", va="center", transform=plt.gca().transAxes)
+
     plt.title(title)
     plt.xlabel(xlabel)
     plt.ylabel("Count")
+
+    if outside_count > 0:
+        fraction = outside_count / len(values)
+        plt.text(
+            0.99,
+            0.98,
+            f"outside display range: {outside_count:,} ({fraction:.2%})",
+            transform=plt.gca().transAxes,
+            ha="right",
+            va="top",
+            fontsize=9,
+        )
 
     if log_y:
         plt.yscale("log")
@@ -403,6 +527,131 @@ def sample_for_scatter(
     idx.sort()
 
     return [a[idx] for a in arrays]
+
+
+def plot_hexbin_xy(
+    x_values: np.ndarray,
+    y_values: np.ndarray,
+    path: Path,
+    title: str,
+    xlabel: str,
+    ylabel: str,
+    x_range: Tuple[float, float] | None = None,
+    y_range: Tuple[float, float] | None = None,
+    identity_line: bool = False,
+) -> None:
+    x_values = np.asarray(x_values, dtype=float)
+    y_values = np.asarray(y_values, dtype=float)
+    mask = np.isfinite(x_values) & np.isfinite(y_values)
+    x_values = x_values[mask]
+    y_values = y_values[mask]
+
+    plt.figure(figsize=(9, 7))
+    if len(x_values) == 0:
+        plt.text(0.5, 0.5, "No finite values", ha="center", va="center")
+    else:
+        hb = plt.hexbin(x_values, y_values, gridsize=100, bins="log", mincnt=1)
+        plt.colorbar(hb, label="log10(count)")
+        if identity_line:
+            lo = max(
+                np.min(x_values) if x_range is None else x_range[0],
+                np.min(y_values) if y_range is None else y_range[0],
+            )
+            hi = min(
+                np.max(x_values) if x_range is None else x_range[1],
+                np.max(y_values) if y_range is None else y_range[1],
+            )
+            if lo < hi:
+                plt.plot([lo, hi], [lo, hi], linestyle="--", linewidth=1.0)
+    if x_range is not None:
+        plt.xlim(*x_range)
+    if y_range is not None:
+        plt.ylim(*y_range)
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    save_fig(path)
+
+
+def plot_pre_wrap_vs_wrapped(
+    pre_wrap: np.ndarray,
+    wrapped: np.ndarray,
+    wrap_index: np.ndarray,
+    path: Path,
+    max_points: int,
+    seed: int,
+    x_range: Tuple[float, float],
+    y_range: Tuple[float, float],
+) -> None:
+    pre_wrap = np.asarray(pre_wrap, dtype=float)
+    wrapped = np.asarray(wrapped, dtype=float)
+    wrap_index = np.asarray(wrap_index, dtype=float)
+    mask = np.isfinite(pre_wrap) & np.isfinite(wrapped) & np.isfinite(wrap_index)
+    pre_wrap, wrapped, wrap_index = [
+        arr[mask] for arr in (pre_wrap, wrapped, wrap_index)
+    ]
+    pre_wrap, wrapped, wrap_index = sample_for_scatter(
+        [pre_wrap, wrapped, wrap_index], max_points=max_points, seed=seed
+    )
+
+    plt.figure(figsize=(10, 7))
+    if len(pre_wrap) == 0:
+        plt.text(0.5, 0.5, "No finite values", ha="center", va="center")
+    else:
+        sc = plt.scatter(
+            pre_wrap, wrapped, c=wrap_index, s=3, alpha=0.25, cmap="coolwarm"
+        )
+        plt.colorbar(sc, label="Doppler wrap index")
+        lo = max(x_range[0], y_range[0])
+        hi = min(x_range[1], y_range[1])
+        if lo < hi:
+            plt.plot([lo, hi], [lo, hi], linestyle="--", linewidth=1.0)
+    plt.xlim(*x_range)
+    plt.ylim(*y_range)
+    plt.title("Compensated velocity before and after Doppler folding")
+    plt.xlabel("compensated velocity before wrapping [m s$^{-1}$]")
+    plt.ylabel("wrapped compensated target [m s$^{-1}$]")
+    save_fig(path)
+
+
+def plot_wrap_index_distribution(wrap_index: np.ndarray, path: Path) -> None:
+    values = np.asarray(wrap_index)
+    values = values[np.isfinite(values)].astype(int, copy=False)
+    if len(values) == 0:
+        labels, counts = [], []
+    else:
+        unique, raw_counts = np.unique(values, return_counts=True)
+        labels = [str(int(value)) for value in unique]
+        counts = [int(value) for value in raw_counts]
+    plot_bar(
+        labels=labels,
+        counts=counts,
+        path=path,
+        title="Doppler wrap-index distribution",
+        ylabel="Number of projected radar points",
+    )
+
+
+def plot_frame_xy(
+    x_values: np.ndarray,
+    y_values: np.ndarray,
+    path: Path,
+    title: str,
+    xlabel: str,
+    ylabel: str,
+) -> None:
+    x_values = np.asarray(x_values, dtype=float)
+    y_values = np.asarray(y_values, dtype=float)
+    mask = np.isfinite(x_values) & np.isfinite(y_values)
+    plt.figure(figsize=(9, 7))
+    if not np.any(mask):
+        plt.text(0.5, 0.5, "No finite values", ha="center", va="center")
+    else:
+        plt.scatter(x_values[mask], y_values[mask], s=8, alpha=0.25)
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    save_fig(path)
 
 
 def plot_spatial_density(
@@ -552,6 +801,7 @@ def plot_depth_vs_y(
     path: Path,
     max_scatter_points: int,
     seed: int,
+    depth_range: Tuple[float, float],
 ) -> None:
     y_pix = y_pix.astype(float)
     depth = depth.astype(float)
@@ -576,6 +826,7 @@ def plot_depth_vs_y(
     plt.title("GT depth vs vertical image position")
     plt.xlabel("y pixel")
     plt.ylabel("GT depth [m]")
+    plt.ylim(*depth_range)
 
     save_fig(path)
 
@@ -586,6 +837,8 @@ def plot_velocity_vs_depth(
     path: Path,
     max_scatter_points: int,
     seed: int,
+    depth_range: Tuple[float, float],
+    velocity_range: Tuple[float, float],
 ) -> None:
     depth = depth.astype(float)
     velocity = velocity.astype(float)
@@ -609,7 +862,9 @@ def plot_velocity_vs_depth(
 
     plt.title("GT velocity vs GT depth")
     plt.xlabel("GT depth [m]")
-    plt.ylabel("GT radial velocity")
+    plt.ylabel("GT radial velocity [m s$^{-1}$]")
+    plt.xlim(*depth_range)
+    plt.ylim(*velocity_range)
 
     save_fig(path)
 
@@ -620,6 +875,8 @@ def plot_rcs_vs_depth(
     path: Path,
     max_scatter_points: int,
     seed: int,
+    depth_range: Tuple[float, float],
+    rcs_range: Tuple[float, float],
 ) -> None:
     depth = depth.astype(float)
     rcs = rcs.astype(float)
@@ -643,7 +900,9 @@ def plot_rcs_vs_depth(
 
     plt.title("GT RCS vs GT depth")
     plt.xlabel("GT depth [m]")
-    plt.ylabel("GT RCS")
+    plt.ylabel("GT RCS [dBsm]")
+    plt.xlim(*depth_range)
+    plt.ylim(*rcs_range)
 
     save_fig(path)
 
@@ -677,8 +936,11 @@ def load_points(npz_path: Path) -> Dict[str, np.ndarray]:
     pts = np.load(npz_path)
 
     required = [
-        "eda_idx", "x_pix", "y_pix", "depth", "velocity", "rcs",
-        "lateral", "forward", "range", "azimuth_deg", "rgb",
+        "eda_idx", "x_pix", "y_pix", "depth", "velocity",
+        "velocity_compensated_wrapped", "velocity_measured_relative",
+        "velocity_expected_static", "velocity_compensated_pre_wrap",
+        "doppler_wrap_index", "rcs", "range_gate_length", "lateral",
+        "forward", "range", "azimuth_deg", "rgb",
     ]
     missing = [k for k in required if k not in pts.files]
     if missing:
@@ -712,6 +974,20 @@ def main() -> None:
 
     if "point_count" not in frames.columns:
         raise KeyError("frames.csv must contain column 'point_count'.")
+    required_frame_columns = [
+        "doppler_range",
+        "ego_longitudinal_velocity",
+        "ego_yaw_rate",
+        "velocity_wrap_fraction",
+    ]
+    missing_frame_columns = [
+        name for name in required_frame_columns if name not in frames.columns
+    ]
+    if missing_frame_columns:
+        raise KeyError(
+            f"frames.csv is missing {missing_frame_columns}. Rerun scan_ppp_eda.py "
+            "with the updated velocity-stage EDA pipeline."
+        )
 
     point_count = frames["point_count"].to_numpy(dtype=float)
 
@@ -774,14 +1050,73 @@ def main() -> None:
             bins=80,
         )
 
+    ego_velocity = frames["ego_longitudinal_velocity"].to_numpy(dtype=float)
+    ego_yaw_rate = frames["ego_yaw_rate"].to_numpy(dtype=float)
+    velocity_wrap_fraction = frames["velocity_wrap_fraction"].to_numpy(dtype=float)
+    ego_velocity_range = empirical_tail_range(
+        ego_velocity, EGO_LONGITUDINAL_VELOCITY_DISPLAY_RANGE
+    )
+    ego_yaw_rate_range = empirical_tail_range(
+        ego_yaw_rate, EGO_YAW_RATE_DISPLAY_RANGE
+    )
+
+    plot_hist(
+        ego_velocity, out_dir / "ego_longitudinal_velocity_hist.png",
+        "Frame-level ego longitudinal velocity distribution",
+        "ego longitudinal velocity [m s$^{-1}$]", bins=80,
+        value_range=ego_velocity_range,
+    )
+    plot_hist(
+        ego_yaw_rate, out_dir / "ego_yaw_rate_hist.png",
+        "Frame-level ego yaw-rate distribution",
+        "ego yaw rate", bins=80, value_range=ego_yaw_rate_range,
+    )
+    plot_hist(
+        velocity_wrap_fraction, out_dir / "velocity_wrap_fraction_hist.png",
+        "Fraction of projected points changed by Doppler folding per frame",
+        "wrap fraction", bins=50, value_range=(0.0, 1.0),
+    )
+    plot_frame_xy(
+        ego_velocity, velocity_wrap_fraction,
+        out_dir / "wrap_fraction_vs_ego_velocity.png",
+        "Doppler-wrap fraction versus ego speed",
+        "ego longitudinal velocity [m s$^{-1}$]", "wrap fraction",
+    )
+
     # -------------------------------------------------------------------------
     # Point-level plots
     # -------------------------------------------------------------------------
 
     depth = points["depth"].astype(float)
     velocity = points["velocity"].astype(float)
+    velocity_measured_relative = points["velocity_measured_relative"].astype(float)
+    velocity_expected_static = points["velocity_expected_static"].astype(float)
+    velocity_compensated_pre_wrap = points[
+        "velocity_compensated_pre_wrap"
+    ].astype(float)
+    doppler_wrap_index = points["doppler_wrap_index"].astype(float)
     abs_velocity = np.abs(velocity)
     rcs = points["rcs"].astype(float)
+    range_gate_length = points["range_gate_length"].astype(float)
+    doppler_range = frames["doppler_range"].to_numpy(dtype=float)
+
+    measured_range = empirical_tail_range(
+        velocity_measured_relative, VELOCITY_MEASURED_RELATIVE_DISPLAY_RANGE
+    )
+    expected_static_range = empirical_tail_range(
+        velocity_expected_static, VELOCITY_EXPECTED_STATIC_DISPLAY_RANGE
+    )
+    pre_wrap_range = empirical_tail_range(
+        velocity_compensated_pre_wrap,
+        VELOCITY_COMPENSATED_PRE_WRAP_DISPLAY_RANGE,
+    )
+    range_gate_display_range = empirical_tail_range(
+        range_gate_length,
+        (args.range_gate_length_min, args.range_gate_length_max),
+    )
+    doppler_display_range = empirical_tail_range(
+        doppler_range, (args.doppler_range_min, args.doppler_range_max)
+    )
 
     plot_hist(
         values=depth,
@@ -789,57 +1124,171 @@ def main() -> None:
         title="GT depth distribution at projected radar points",
         xlabel="GT depth [m]",
         bins=100,
+        value_range=(args.depth_min, args.depth_max),
     )
 
     plot_hist(
         values=velocity,
         path=out_dir / "velocity_signed_hist.png",
         title="Signed GT radial velocity distribution",
-        xlabel="GT radial velocity",
+        xlabel="GT radial velocity [m s$^{-1}$]",
         bins=100,
+        value_range=(args.velocity_min, args.velocity_max),
     )
 
     plot_hist(
         values=abs_velocity,
         path=out_dir / "velocity_abs_hist.png",
         title="Absolute GT radial velocity distribution",
-        xlabel="abs(GT radial velocity)",
+        xlabel="abs(GT radial velocity) [m s$^{-1}$]",
         bins=100,
+        value_range=(0.0, max(abs(args.velocity_min), abs(args.velocity_max))),
     )
 
     plot_hist(
-    values=velocity,
-    path=out_dir / "velocity_signed_hist_log_y.png",
-    title="Signed GT radial velocity distribution, log-y",
-    xlabel="GT radial velocity",
-    bins=100,
-    log_y=True,
+        values=velocity,
+        path=out_dir / "velocity_signed_hist_log_y.png",
+        title="Signed GT radial velocity distribution, log-y",
+        xlabel="GT radial velocity [m s$^{-1}$]",
+        bins=100,
+        log_y=True,
+        value_range=(args.velocity_min, args.velocity_max),
     )
 
     plot_hist(
         values=abs_velocity,
         path=out_dir / "velocity_abs_hist_log_y.png",
         title="Absolute GT radial velocity distribution, log-y",
-        xlabel="abs(GT radial velocity)",
+        xlabel="abs(GT radial velocity) [m s$^{-1}$]",
         bins=100,
         log_y=True,
+        value_range=(0.0, max(abs(args.velocity_min), abs(args.velocity_max))),
+    )
+
+    for values, stem, title, xlabel, display_range in [
+        (
+            velocity_measured_relative,
+            "velocity_measured_relative",
+            "Measured relative radial velocity distribution",
+            "measured relative radial velocity [m s$^{-1}$]",
+            measured_range,
+        ),
+        (
+            velocity_expected_static,
+            "velocity_expected_static",
+            "Expected static radial velocity distribution",
+            "expected static radial velocity [m s$^{-1}$]",
+            expected_static_range,
+        ),
+        (
+            velocity_compensated_pre_wrap,
+            "velocity_compensated_pre_wrap",
+            "Ego-motion-compensated velocity before Doppler folding",
+            "compensated velocity before wrapping [m s$^{-1}$]",
+            pre_wrap_range,
+        ),
+    ]:
+        plot_hist(
+            values, out_dir / f"{stem}_hist.png", title, xlabel, bins=100,
+            value_range=display_range,
+        )
+        plot_hist(
+            values, out_dir / f"{stem}_hist_log_y.png",
+            f"{title}, log-y", xlabel, bins=100, log_y=True,
+            value_range=display_range,
+        )
+
+    plot_wrap_index_distribution(
+        doppler_wrap_index, out_dir / "doppler_wrap_index_bar.png"
+    )
+    plot_hexbin_xy(
+        velocity_measured_relative, velocity_expected_static,
+        out_dir / "velocity_measured_vs_expected_static.png",
+        "Measured versus expected-static radial velocity",
+        "measured relative radial velocity [m s$^{-1}$]",
+        "expected static radial velocity [m s$^{-1}$]",
+        x_range=measured_range, y_range=expected_static_range,
+        identity_line=True,
+    )
+    plot_pre_wrap_vs_wrapped(
+        velocity_compensated_pre_wrap, velocity, doppler_wrap_index,
+        out_dir / "velocity_pre_wrap_vs_wrapped.png",
+        max_points=args.max_scatter_points, seed=args.random_seed,
+        x_range=pre_wrap_range,
+        y_range=(args.velocity_min, args.velocity_max),
+    )
+    plot_hexbin_xy(
+        points["azimuth_deg"], velocity_expected_static,
+        out_dir / "velocity_expected_static_vs_azimuth.png",
+        "Expected static radial velocity versus azimuth",
+        "azimuth [deg]", "expected static radial velocity [m s$^{-1}$]",
+        y_range=expected_static_range,
+    )
+
+    frame_doppler = pd.Series(
+        frames["doppler_range"].to_numpy(dtype=float),
+        index=frames["eda_idx"].to_numpy(dtype=int),
+    )
+    point_doppler = frame_doppler.reindex(
+        points["eda_idx"].astype(int)
+    ).to_numpy(dtype=float)
+    valid_doppler = np.isfinite(point_doppler) & (point_doppler > 0.0)
+    normalized_pre_wrap = np.full_like(velocity_compensated_pre_wrap, np.nan)
+    normalized_wrapped = np.full_like(velocity, np.nan)
+    normalized_pre_wrap[valid_doppler] = (
+        velocity_compensated_pre_wrap[valid_doppler]
+        / point_doppler[valid_doppler]
+    )
+    normalized_wrapped[valid_doppler] = (
+        velocity[valid_doppler] / point_doppler[valid_doppler]
+    )
+    plot_hist(
+        normalized_pre_wrap, out_dir / "velocity_pre_wrap_over_doppler_range.png",
+        "Compensated pre-wrap velocity normalized by Doppler range",
+        "pre-wrap velocity / dopplerRange", bins=100,
+        value_range=empirical_tail_range(normalized_pre_wrap, (None, None)),
+    )
+    plot_hist(
+        normalized_wrapped, out_dir / "velocity_wrapped_over_doppler_range.png",
+        "Wrapped target normalized by Doppler range",
+        "wrapped velocity / dopplerRange", bins=100, value_range=(-0.5, 0.5),
     )
 
     plot_hist(
         values=rcs,
         path=out_dir / "rcs_hist.png",
         title="GT RCS distribution at projected radar points",
-        xlabel="GT RCS",
+        xlabel="GT RCS [dBsm]",
         bins=100,
+        value_range=(args.rcs_min, args.rcs_max),
     )
 
     plot_hist(
         values=rcs,
         path=out_dir / "rcs_hist_log_y.png",
         title="GT RCS distribution at projected radar points, log-y",
-        xlabel="GT RCS",
+        xlabel="GT RCS [dBsm]",
         bins=100,
         log_y=True,
+        value_range=(args.rcs_min, args.rcs_max),
+    )
+
+    plot_hist(
+        values=range_gate_length,
+        path=out_dir / "range_gate_length_hist.png",
+        title="Range-gate length distribution at projected radar points",
+        xlabel="rangeGateLength [m]",
+        bins=100,
+        value_range=range_gate_display_range,
+    )
+
+    plot_hist(
+        values=doppler_range,
+        path=out_dir / "doppler_range_hist.png",
+        title="Frame-level Doppler ambiguity-range distribution",
+        xlabel="dopplerRange [m s$^{-1}$]",
+        bins=80,
+        value_range=doppler_display_range,
     )
 
     labels, counts = velocity_buckets(velocity, eps=args.velocity_static_eps)
@@ -886,6 +1335,7 @@ def main() -> None:
         path=out_dir / "depth_vs_y_pix.png",
         max_scatter_points=args.max_scatter_points,
         seed=args.random_seed,
+        depth_range=(args.depth_min, args.depth_max),
     )
 
     plot_velocity_vs_depth(
@@ -894,6 +1344,8 @@ def main() -> None:
         path=out_dir / "velocity_vs_depth.png",
         max_scatter_points=args.max_scatter_points,
         seed=args.random_seed,
+        depth_range=(args.depth_min, args.depth_max),
+        velocity_range=(args.velocity_min, args.velocity_max),
     )
 
     plot_rcs_vs_depth(
@@ -902,6 +1354,8 @@ def main() -> None:
         path=out_dir / "rcs_vs_depth.png",
         max_scatter_points=args.max_scatter_points,
         seed=args.random_seed,
+        depth_range=(args.depth_min, args.depth_max),
+        rcs_range=(args.rcs_min, args.rcs_max),
     )
 
     plot_rgb_at_radar_points(
@@ -926,6 +1380,18 @@ def main() -> None:
         "image_height": int(args.image_height),
         "image_width": int(args.image_width),
         "ppp_eda_spatial": spatial,
+        "attribute_display_ranges": {
+            "depth": [args.depth_min, args.depth_max],
+            "velocity": [args.velocity_min, args.velocity_max],
+            "velocity_measured_relative": list(measured_range),
+            "velocity_expected_static": list(expected_static_range),
+            "velocity_compensated_pre_wrap": list(pre_wrap_range),
+            "ego_longitudinal_velocity": list(ego_velocity_range),
+            "ego_yaw_rate": list(ego_yaw_rate_range),
+            "rcs": [args.rcs_min, args.rcs_max],
+            "range_gate_length": list(range_gate_display_range),
+            "doppler_range": list(doppler_display_range),
+        },
         "camera_domain_points": int(np.sum(camera_domain_mask(points["x_pix"], points["y_pix"], spatial))),
         "cartesian_bev_domain_points": int(np.sum(cartesian_domain_mask(points["lateral"], points["forward"], spatial))),
         "polar_domain_points": int(np.sum(polar_domain_mask(points["range"], points["azimuth_deg"], spatial))),
@@ -936,6 +1402,25 @@ def main() -> None:
         "velocity_buckets": {
             label: int(count)
             for label, count in zip(labels_v, counts_v)
+        },
+        "doppler_wrap_fraction_points": float(
+            np.mean(doppler_wrap_index != 0) if len(doppler_wrap_index) else 0.0
+        ),
+        "doppler_wrap_index_counts": {
+            str(int(value)): int(count)
+            for value, count in zip(
+                *np.unique(doppler_wrap_index.astype(int), return_counts=True)
+            )
+        },
+        "wrapped_normalized_interval_check": {
+            "min": float(np.nanmin(normalized_wrapped)) if np.any(np.isfinite(normalized_wrapped)) else None,
+            "max": float(np.nanmax(normalized_wrapped)) if np.any(np.isfinite(normalized_wrapped)) else None,
+            "outside_half_period_count": int(
+                np.sum(
+                    np.isfinite(normalized_wrapped)
+                    & ((normalized_wrapped < -0.5) | (normalized_wrapped >= 0.5))
+                )
+            ),
         },
         "summary_frames_csv": str(summary_frames_path),
         "summary_points_csv": str(summary_points_path),

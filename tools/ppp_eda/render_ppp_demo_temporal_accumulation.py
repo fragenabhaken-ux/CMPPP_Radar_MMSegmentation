@@ -34,6 +34,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from ppp_eda_attribute_limits import (
+    DEPTH_DISPLAY_RANGE,
+    RCS_DISPLAY_RANGE,
+    VELOCITY_DISPLAY_RANGE,
+)
 from ppp_eda_geometry import (
     camera_domain_mask,
     camera_plot_limits,
@@ -107,38 +112,38 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--depth-vmin",
         type=float,
-        default=0.0,
+        default=DEPTH_DISPLAY_RANGE[0],
         help="Depth colorbar minimum.",
     )
     parser.add_argument(
         "--depth-vmax",
         type=float,
-        default=150.0,
+        default=DEPTH_DISPLAY_RANGE[1],
         help="Depth colorbar maximum.",
     )
     parser.add_argument(
         "--velocity-vmin",
         type=float,
-        default=-10.0,
+        default=VELOCITY_DISPLAY_RANGE[0],
         help="Velocity colorbar minimum.",
     )
     parser.add_argument(
         "--velocity-vmax",
         type=float,
-        default=10.0,
+        default=VELOCITY_DISPLAY_RANGE[1],
         help="Velocity colorbar maximum.",
     )
     parser.add_argument(
         "--rcs-vmin",
         type=float,
-        default=None,
-        help="Optional fixed RCS colorbar minimum. Default: automatic.",
+        default=RCS_DISPLAY_RANGE[0],
+        help="Fixed RCS colorbar minimum.",
     )
     parser.add_argument(
         "--rcs-vmax",
         type=float,
-        default=None,
-        help="Optional fixed RCS colorbar maximum. Default: automatic.",
+        default=RCS_DISPLAY_RANGE[1],
+        help="Fixed RCS colorbar maximum.",
     )
     parser.add_argument(
         "--save-csv",
@@ -605,7 +610,7 @@ def save_velocity(
             linewidths=0.10,
         )
         cbar = plt.colorbar(sc, fraction=0.025, pad=0.02)
-        cbar.set_label("GT radial velocity")
+        cbar.set_label("GT radial velocity [m s$^{-1}$]")
 
     plt.tight_layout()
     plt.savefig(out_path, dpi=160, bbox_inches="tight")
@@ -639,7 +644,7 @@ def save_rcs(
             linewidths=0.10,
         )
         cbar = plt.colorbar(sc, fraction=0.025, pad=0.02)
-        cbar.set_label("GT RCS")
+        cbar.set_label("GT RCS [dBsm]")
 
     plt.tight_layout()
     plt.savefig(out_path, dpi=160, bbox_inches="tight")

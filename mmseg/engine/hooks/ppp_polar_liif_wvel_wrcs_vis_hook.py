@@ -294,7 +294,7 @@ class PPPPolarLIIFVisWVelWRcsHook(Hook):
 
         if not isinstance(preds, dict):
             raise TypeError(
-                "PPPPolarLIIFVisHook expects decode_head output to be a "
+                "PPPPolarLIIFVisWVelWRcsHook expects decode_head output to be a "
                 "dictionary."
             )
 

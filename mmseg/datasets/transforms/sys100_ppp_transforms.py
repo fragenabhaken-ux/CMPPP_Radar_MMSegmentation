@@ -82,6 +82,8 @@ class LoadSys100Sample(BaseTransform):
       results["rad2cam"]              : torch.Tensor [3, 4]
       results["real_hw"]              : torch.Tensor [2]
       results["dopplerRange"]         : scalar-like
+      results["ego_longitudinal_velocity"] : scalar-like vehicle speed
+      results["ego_yaw_rate"]         : scalar-like vehicle yaw rate
       results["radar_normalisation"]  : per-channel radar scaling
       results["fovs"]                 : (hFov, vFov)
 
@@ -207,6 +209,8 @@ class LoadSys100Sample(BaseTransform):
         results["rad2cam"] = sample["rad2cam"]
         results["real_hw"] = sample["real_hw"]
         results["dopplerRange"] = sample.get("dopplerRange", self.default_doppler)
+        results["ego_longitudinal_velocity"] = sample.get("velocity", np.nan)
+        results["ego_yaw_rate"] = sample.get("yaw_rate", np.nan)
         results["radar_normalisation"] = self.radar_normalisation
         results["fovs"] = self.fovs
         if "prefetch_unseen" in sample:
@@ -227,6 +231,13 @@ class BuildPPPHeatmap(BaseTransform):
       3: RCS
     Output:
       results["gt_seg_map"] : HWC float32 with 4 channels
+
+    When ``return_auxiliary_attributes=True`` (intended for EDA only), also:
+      results["range_gate_length_map"] : HW float32 aligned with gt_seg_map
+      results["velocity_measured_relative_map"] : raw measured radial velocity
+      results["velocity_expected_static_map"] : expected static radial velocity
+      results["velocity_compensated_pre_wrap_map"] : compensated residual before wrapping
+      results["doppler_wrap_index_map"] : integer Doppler-period shift applied
     """
 
     def __init__(
@@ -235,11 +246,13 @@ class BuildPPPHeatmap(BaseTransform):
         rel_x_centre: float = 0.491,
         rel_y_centre: float = 0.4370,
         debug_checks: bool = False,
+        return_auxiliary_attributes: bool = False,
     ):
         self.thres = float(thres)
         self.rel_x_centre = float(rel_x_centre)
         self.rel_y_centre = float(rel_y_centre)
         self.debug_checks = debug_checks
+        self.return_auxiliary_attributes = bool(return_auxiliary_attributes)
         self._cam_cache: Dict[Tuple[Any, ...], PinholeCamera] = {}
 
     def _get_pinhole_cam(
@@ -296,19 +309,40 @@ class BuildPPPHeatmap(BaseTransform):
             )
 
         gt = np.zeros((H, W, 4), dtype=np.float32)
+        auxiliary_maps = None
+        if self.return_auxiliary_attributes:
+            auxiliary_maps = {
+                "range_gate_length_map": np.zeros((H, W), dtype=np.float32),
+                "velocity_measured_relative_map": np.zeros((H, W), dtype=np.float32),
+                "velocity_expected_static_map": np.zeros((H, W), dtype=np.float32),
+                "velocity_compensated_pre_wrap_map": np.zeros((H, W), dtype=np.float32),
+                "doppler_wrap_index_map": np.zeros((H, W), dtype=np.float32),
+            }
 
         if len(clusters) == 0:
             results["gt_seg_map"] = gt
+            if auxiliary_maps is not None:
+                results.update(auxiliary_maps)
             results["seg_fields"] = ["gt_seg_map"]
             return results
 
         doppler = _to_float_scalar(results["dopplerRange"])
+        if not np.isfinite(doppler) or doppler <= 0.0:
+            raise ValueError(f"dopplerRange must be finite and positive, got {doppler!r}.")
 
-        # Velocity definition like SYS100 (fold into Doppler ambiguity range).
-        vel = clusters[:, 5] - clusters[:, 6]
-        vel -= doppler * np.floor(vel / doppler + 0.5)
+        # Preserve every stage of the target-velocity construction.
+        velocity_measured_relative = clusters[:, 5]
+        velocity_expected_static = clusters[:, 6]
+        velocity_compensated_pre_wrap = (
+            velocity_measured_relative - velocity_expected_static
+        )
+        doppler_wrap_index = np.floor(
+            velocity_compensated_pre_wrap / doppler + 0.5
+        )
+        vel = velocity_compensated_pre_wrap - doppler * doppler_wrap_index
 
         depth = clusters[:, 0]
+        range_gate_length = clusters[:, 2]
         rcs = clusters[:, 4]
 
         # radar -> camera coordinates
@@ -329,12 +363,19 @@ class BuildPPPHeatmap(BaseTransform):
         valid = (x_pix >= 0) & (x_pix < W) & (y_pix >= 0) & (y_pix < H)
         if not np.any(valid):
             results["gt_seg_map"] = gt
+            if auxiliary_maps is not None:
+                results.update(auxiliary_maps)
             results["seg_fields"] = ["gt_seg_map"]
             return results
 
         x_pix = x_pix[valid]
         y_pix = y_pix[valid]
         depth = depth[valid]
+        range_gate_length = range_gate_length[valid]
+        velocity_measured_relative = velocity_measured_relative[valid]
+        velocity_expected_static = velocity_expected_static[valid]
+        velocity_compensated_pre_wrap = velocity_compensated_pre_wrap[valid]
+        doppler_wrap_index = doppler_wrap_index[valid]
         vel = vel[valid]
         rcs = rcs[valid]
 
@@ -342,6 +383,21 @@ class BuildPPPHeatmap(BaseTransform):
         gt[y_pix, x_pix, 1] = depth
         gt[y_pix, x_pix, 2] = vel
         gt[y_pix, x_pix, 3] = rcs
+        if auxiliary_maps is not None:
+            # Use the identical projected-pixel assignment as the target map.
+            # When multiple detections project to one pixel, numpy assignment
+            # gives every auxiliary map the same surviving detection as gt.
+            auxiliary_maps["range_gate_length_map"][y_pix, x_pix] = range_gate_length
+            auxiliary_maps["velocity_measured_relative_map"][y_pix, x_pix] = (
+                velocity_measured_relative
+            )
+            auxiliary_maps["velocity_expected_static_map"][y_pix, x_pix] = (
+                velocity_expected_static
+            )
+            auxiliary_maps["velocity_compensated_pre_wrap_map"][y_pix, x_pix] = (
+                velocity_compensated_pre_wrap
+            )
+            auxiliary_maps["doppler_wrap_index_map"][y_pix, x_pix] = doppler_wrap_index
         if self.debug_checks:
             occ = gt[..., 0]
             assert np.all((occ == 0) | (occ == 1))
@@ -349,6 +405,8 @@ class BuildPPPHeatmap(BaseTransform):
             assert np.all(gt[..., 2][occ == 0] == 0)
 
         results["gt_seg_map"] = gt
+        if auxiliary_maps is not None:
+            results.update(auxiliary_maps)
         results["seg_fields"] = ["gt_seg_map"]
         return results
 
@@ -478,6 +536,16 @@ class PPPPackSegInputs(BaseTransform):
         if "dopplerRange" in results:
             metainfo["doppler_period"] = _to_float_scalar(
                 results["dopplerRange"]
+            )
+
+        if "ego_longitudinal_velocity" in results:
+            metainfo["ego_longitudinal_velocity"] = _to_float_scalar(
+                results["ego_longitudinal_velocity"]
+            )
+
+        if "ego_yaw_rate" in results:
+            metainfo["ego_yaw_rate"] = _to_float_scalar(
+                results["ego_yaw_rate"]
             )
             
         if "rad2cam" in results:

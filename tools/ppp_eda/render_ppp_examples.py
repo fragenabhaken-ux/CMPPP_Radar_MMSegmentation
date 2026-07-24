@@ -43,6 +43,11 @@ from mmengine.registry import init_default_scope
 from mmengine.runner import Runner
 from mmengine.utils import import_modules_from_strings
 
+from ppp_eda_attribute_limits import (
+    DEPTH_DISPLAY_RANGE,
+    RCS_DISPLAY_RANGE,
+    VELOCITY_DISPLAY_RANGE,
+)
 from ppp_eda_geometry import (
     camera_domain_mask,
     camera_plot_limits,
@@ -134,32 +139,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--depth-vmin",
         type=float,
-        default=0.0,
+        default=DEPTH_DISPLAY_RANGE[0],
         help="Depth color minimum.",
     )
     parser.add_argument(
         "--depth-vmax",
         type=float,
-        default=150.0,
+        default=DEPTH_DISPLAY_RANGE[1],
         help="Depth color maximum.",
     )
     parser.add_argument(
         "--velocity-vmax",
         type=float,
-        default=10.0,
+        default=max(abs(VELOCITY_DISPLAY_RANGE[0]), abs(VELOCITY_DISPLAY_RANGE[1])),
         help="Velocity color range is [-velocity_vmax, +velocity_vmax].",
     )
     parser.add_argument(
         "--rcs-vmin",
         type=float,
-        default=None,
-        help="Optional fixed RCS color minimum. Default: automatic per image.",
+        default=RCS_DISPLAY_RANGE[0],
+        help="Fixed RCS color minimum.",
     )
     parser.add_argument(
         "--rcs-vmax",
         type=float,
-        default=None,
-        help="Optional fixed RCS color maximum. Default: automatic per image.",
+        default=RCS_DISPLAY_RANGE[1],
+        help="Fixed RCS color maximum.",
     )
     parser.add_argument(
         "--skip-verification",
@@ -682,7 +687,10 @@ def save_velocity_overlay(
     alpha: float,
     fig_width: float,
     dpi: int,
+    velocity_vmin: float,
     velocity_vmax: float,
+    value_key: str,
+    colorbar_label: str,
     spatial: Dict[str, Any],
 ) -> None:
     fig, ax = make_figure(img01, title=title, fig_width=fig_width, spatial=spatial)
@@ -692,9 +700,9 @@ def save_velocity_overlay(
             points["x"],
             points["y"],
             s=point_size,
-            c=points["velocity"],
+            c=points[value_key],
             cmap="coolwarm",
-            vmin=-velocity_vmax,
+            vmin=velocity_vmin,
             vmax=velocity_vmax,
             alpha=alpha,
             edgecolors="black",
@@ -702,7 +710,7 @@ def save_velocity_overlay(
         )
 
         cbar = fig.colorbar(sc, ax=ax, fraction=0.025, pad=0.01)
-        cbar.set_label("GT radial velocity")
+        cbar.set_label(colorbar_label)
     else:
         ax.text(
             0.5,
@@ -750,7 +758,7 @@ def save_rcs_overlay(
         )
 
         cbar = fig.colorbar(sc, ax=ax, fraction=0.025, pad=0.01)
-        cbar.set_label("GT RCS")
+        cbar.set_label("GT RCS [dBsm]")
     else:
         ax.text(
             0.5,
@@ -849,6 +857,35 @@ def save_polar_domain(
     plt.close(fig)
 
 
+def resolve_velocity_stage_ranges(point_values_npz: Path) -> Dict[str, Tuple[float, float]]:
+    pts = np.load(point_values_npz)
+    fields = [
+        "velocity_measured_relative",
+        "velocity_expected_static",
+        "velocity_compensated_pre_wrap",
+    ]
+    missing = [name for name in fields if name not in pts.files]
+    if missing:
+        raise KeyError(
+            f"{point_values_npz} is missing {missing}. Rerun the scan with the "
+            "updated velocity-stage EDA pipeline."
+        )
+    out: Dict[str, Tuple[float, float]] = {}
+    for name in fields:
+        values = pts[name].astype(float)
+        values = values[np.isfinite(values)]
+        if len(values) == 0:
+            out[name] = (-1.0, 1.0)
+            continue
+        lo, hi = np.quantile(values, [0.01, 0.99])
+        if lo == hi:
+            delta = max(abs(float(lo)) * 0.05, 0.5)
+            lo -= delta
+            hi += delta
+        out[name] = (float(lo), float(hi))
+    return out
+
+
 def render_one_selection(
     img01: np.ndarray,
     gt: np.ndarray,
@@ -860,6 +897,7 @@ def render_one_selection(
     frame_row: Dict[str, Any] | None,
     args: argparse.Namespace,
     spatial: Dict[str, Any],
+    velocity_stage_ranges: Dict[str, Tuple[float, float]],
 ) -> None:
     safe_category = sanitize_filename_part(category)
     category_dir = out_dir / safe_category
@@ -908,14 +946,61 @@ def render_one_selection(
         img01=img01,
         points=camera_points,
         out_path=category_dir / f"{base}_velocity.png",
-        title=build_title(category, rank, eda_idx, frame_row, "velocity"),
+        title=build_title(
+            category, rank, eda_idx, frame_row, "wrapped compensated velocity"
+        ),
         point_size=args.point_size,
         alpha=args.alpha,
         fig_width=args.fig_width,
         dpi=args.dpi,
+        velocity_vmin=-args.velocity_vmax,
         velocity_vmax=args.velocity_vmax,
+        value_key="velocity",
+        colorbar_label="wrapped compensated velocity [m s$^{-1}$]",
         spatial=spatial,
     )
+
+    velocity_stage_specs = [
+        (
+            "velocity_measured_relative",
+            "measured relative velocity",
+            "measured relative radial velocity [m s$^{-1}$]",
+        ),
+        (
+            "velocity_expected_static",
+            "expected static velocity",
+            "expected static radial velocity [m s$^{-1}$]",
+        ),
+        (
+            "velocity_compensated_pre_wrap",
+            "compensated velocity before wrapping",
+            "compensated velocity before wrapping [m s$^{-1}$]",
+        ),
+    ]
+    for value_key, title_suffix, label in velocity_stage_specs:
+        if value_key not in camera_points:
+            raise KeyError(
+                f"Sample lacks {value_key!r}. Use the updated BuildPPPHeatmap "
+                "with return_auxiliary_attributes=True."
+            )
+        vmin, vmax = velocity_stage_ranges[value_key]
+        save_velocity_overlay(
+            img01=img01,
+            points=camera_points,
+            out_path=category_dir / f"{base}_{value_key}.png",
+            title=build_title(
+                category, rank, eda_idx, frame_row, title_suffix
+            ),
+            point_size=args.point_size,
+            alpha=args.alpha,
+            fig_width=args.fig_width,
+            dpi=args.dpi,
+            velocity_vmin=vmin,
+            velocity_vmax=vmax,
+            value_key=value_key,
+            colorbar_label=label,
+            spatial=spatial,
+        )
 
     save_rcs_overlay(
         img01=img01,
@@ -971,6 +1056,7 @@ def main() -> None:
         else scan_dir / "frames.csv"
     )
     out_dir = Path(args.out_dir) if args.out_dir is not None else scan_dir / "examples"
+    point_values_npz = scan_dir / "point_values.npz"
 
     if not selected_json.exists():
         raise FileNotFoundError(f"Missing selected_examples.json: {selected_json}")
@@ -978,7 +1064,11 @@ def main() -> None:
     if not frames_csv.exists():
         raise FileNotFoundError(f"Missing frames.csv: {frames_csv}")
 
+    if not point_values_npz.exists():
+        raise FileNotFoundError(f"Missing point_values.npz: {point_values_npz}")
+
     prepare_out_dir(out_dir, overwrite=args.overwrite)
+    velocity_stage_ranges = resolve_velocity_stage_ranges(point_values_npz)
 
     selected = load_selected_examples(
         selected_json=selected_json,
@@ -1063,6 +1153,7 @@ def main() -> None:
                         frame_row=frame_row,
                         args=args,
                         spatial=spatial,
+                        velocity_stage_ranges=velocity_stage_ranges,
                     )
                     rendered += 1
 
@@ -1095,8 +1186,19 @@ def main() -> None:
         "rcs_vmin": args.rcs_vmin,
         "rcs_vmax": args.rcs_vmax,
         "ppp_eda_spatial": spatial,
+        "velocity_stage_ranges_q01_q99": {
+            key: list(value) for key, value in velocity_stage_ranges.items()
+        },
         "outputs_per_selected_example": [
-            "points", "depth", "velocity", "rcs", "cartesian_bev", "polar"
+            "points",
+            "depth",
+            "velocity",
+            "velocity_measured_relative",
+            "velocity_expected_static",
+            "velocity_compensated_pre_wrap",
+            "rcs",
+            "cartesian_bev",
+            "polar",
         ],
         "num_categories": int(len(selected)),
         "num_unique_eda_indices": int(len(wanted_eda_indices)),

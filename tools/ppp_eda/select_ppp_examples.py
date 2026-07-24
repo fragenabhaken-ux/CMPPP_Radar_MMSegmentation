@@ -24,6 +24,10 @@ Categories:
     mostly_static
     high_rcs
     low_rcs
+    high_ego_speed
+    high_abs_yaw_rate
+    high_wrap_fraction
+    high_mean_abs_expected_static_velocity
 
 Depth is still computed for selected_examples.csv, but it is no longer used
 as a selection category.
@@ -167,57 +171,59 @@ def filter_and_rank(
 def load_point_stats(point_values_npz: Path) -> pd.DataFrame:
     pts = np.load(point_values_npz)
 
-    required = ["eda_idx", "depth", "velocity", "rcs"]
-    for key in required:
-        if key not in pts.files:
-            raise KeyError(
-                f"{point_values_npz} does not contain array {key!r}. "
-                f"Available arrays: {pts.files}"
-            )
-
-    eda_idx = pts["eda_idx"].astype(np.int32)
-    depth = pts["depth"].astype(np.float32)
-    velocity = pts["velocity"].astype(np.float32)
-    rcs = pts["rcs"].astype(np.float32)
-
-    if len(eda_idx) == 0:
-        return pd.DataFrame(
-            columns=[
-                "eda_idx",
-                "depth_count",
-                "depth_min",
-                "depth_q05",
-                "depth_q50",
-                "depth_q95",
-                "depth_max",
-                "depth_mean",
-                "velocity_mean",
-                "velocity_abs_mean",
-                "velocity_abs_max",
-                "velocity_q05",
-                "velocity_q50",
-                "velocity_q95",
-                "velocity_pos_fraction_eps_0_5",
-                "velocity_neg_fraction_eps_0_5",
-                "velocity_near_zero_fraction_eps_0_5",
-                "rcs_min",
-                "rcs_q05",
-                "rcs_q50",
-                "rcs_q95",
-                "rcs_max",
-                "rcs_mean",
-            ]
+    required = [
+        "eda_idx",
+        "depth",
+        "velocity",
+        "velocity_measured_relative",
+        "velocity_expected_static",
+        "velocity_compensated_pre_wrap",
+        "doppler_wrap_index",
+        "rcs",
+        "range_gate_length",
+    ]
+    missing = [key for key in required if key not in pts.files]
+    if missing:
+        raise KeyError(
+            f"{point_values_npz} is missing arrays {missing}. "
+            f"Available arrays: {pts.files}. Rerun scan_ppp_eda.py with the "
+            "updated velocity-stage transform."
         )
 
     point_df = pd.DataFrame(
         {
-            "eda_idx": eda_idx,
-            "depth": depth,
-            "velocity": velocity,
-            "rcs": rcs,
+            "eda_idx": pts["eda_idx"].astype(np.int32),
+            "depth": pts["depth"].astype(np.float32),
+            "velocity": pts["velocity"].astype(np.float32),
+            "velocity_measured_relative": pts[
+                "velocity_measured_relative"
+            ].astype(np.float32),
+            "velocity_expected_static": pts[
+                "velocity_expected_static"
+            ].astype(np.float32),
+            "velocity_compensated_pre_wrap": pts[
+                "velocity_compensated_pre_wrap"
+            ].astype(np.float32),
+            "doppler_wrap_index": pts["doppler_wrap_index"].astype(np.int16),
+            "rcs": pts["rcs"].astype(np.float32),
+            "range_gate_length": pts["range_gate_length"].astype(np.float32),
         }
     )
-    point_df["abs_velocity"] = point_df["velocity"].abs()
+
+    if len(point_df) == 0:
+        return pd.DataFrame(columns=["eda_idx"])
+
+    for name in [
+        "velocity",
+        "velocity_measured_relative",
+        "velocity_expected_static",
+        "velocity_compensated_pre_wrap",
+    ]:
+        point_df[f"abs_{name}"] = point_df[name].abs()
+    point_df["doppler_wrapped"] = (
+        point_df["doppler_wrap_index"] != 0
+    ).astype(np.float32)
+    point_df["abs_doppler_wrap_index"] = point_df["doppler_wrap_index"].abs()
 
     grouped = point_df.groupby("eda_idx", sort=False)
 
@@ -229,19 +235,45 @@ def load_point_stats(point_values_npz: Path) -> pd.DataFrame:
         velocity_mean=("velocity", "mean"),
         velocity_abs_mean=("abs_velocity", "mean"),
         velocity_abs_max=("abs_velocity", "max"),
+        velocity_measured_relative_mean=("velocity_measured_relative", "mean"),
+        velocity_measured_relative_abs_mean=(
+            "abs_velocity_measured_relative", "mean"
+        ),
+        velocity_expected_static_mean=("velocity_expected_static", "mean"),
+        velocity_expected_static_abs_mean=(
+            "abs_velocity_expected_static", "mean"
+        ),
+        velocity_compensated_pre_wrap_mean=(
+            "velocity_compensated_pre_wrap", "mean"
+        ),
+        velocity_compensated_pre_wrap_abs_mean=(
+            "abs_velocity_compensated_pre_wrap", "mean"
+        ),
+        doppler_wrap_fraction=("doppler_wrapped", "mean"),
+        doppler_wrap_count=("doppler_wrapped", "sum"),
+        doppler_wrap_abs_mean=("abs_doppler_wrap_index", "mean"),
+        doppler_wrap_abs_max=("abs_doppler_wrap_index", "max"),
         rcs_min=("rcs", "min"),
         rcs_max=("rcs", "max"),
         rcs_mean=("rcs", "mean"),
+        range_gate_length_min=("range_gate_length", "min"),
+        range_gate_length_max=("range_gate_length", "max"),
+        range_gate_length_mean=("range_gate_length", "mean"),
     )
 
-    depth_q = grouped["depth"].quantile([0.05, 0.50, 0.95]).unstack()
-    depth_q.columns = ["depth_q05", "depth_q50", "depth_q95"]
-
-    velocity_q = grouped["velocity"].quantile([0.05, 0.50, 0.95]).unstack()
-    velocity_q.columns = ["velocity_q05", "velocity_q50", "velocity_q95"]
-
-    rcs_q = grouped["rcs"].quantile([0.05, 0.50, 0.95]).unstack()
-    rcs_q.columns = ["rcs_q05", "rcs_q50", "rcs_q95"]
+    quantile_columns = [
+        "depth",
+        "velocity",
+        "velocity_measured_relative",
+        "velocity_expected_static",
+        "velocity_compensated_pre_wrap",
+        "rcs",
+        "range_gate_length",
+    ]
+    for name in quantile_columns:
+        q = grouped[name].quantile([0.05, 0.50, 0.95]).unstack()
+        q.columns = [f"{name}_q05", f"{name}_q50", f"{name}_q95"]
+        stats = stats.join(q)
 
     eps = 0.5
     velocity_flags = point_df.assign(
@@ -254,11 +286,7 @@ def load_point_stats(point_values_npz: Path) -> pd.DataFrame:
         velocity_near_zero_fraction_eps_0_5=("vel_zero", "mean"),
     )
 
-    out = stats.join(depth_q).join(velocity_q).join(rcs_q).join(velocity_flags)
-    out = out.reset_index()
-
-    return out
-
+    return stats.join(velocity_flags).reset_index()
 
 def build_selected_examples(
     df: pd.DataFrame,
@@ -356,6 +384,36 @@ def build_selected_examples(
         min_points=min_points_for_rcs_stats,
     )
 
+    selected["high_ego_speed"] = top_n(
+        df,
+        column="ego_longitudinal_velocity",
+        n=n,
+        ascending=False,
+    )
+
+    selected["high_abs_yaw_rate"] = top_n(
+        df,
+        column="abs_ego_yaw_rate",
+        n=n,
+        ascending=False,
+    )
+
+    selected["high_wrap_fraction"] = top_n(
+        df,
+        column="doppler_wrap_fraction",
+        n=n,
+        ascending=False,
+        min_points=min_points_for_velocity_stats,
+    )
+
+    selected["high_mean_abs_expected_static_velocity"] = top_n(
+        df,
+        column="velocity_expected_static_abs_mean",
+        n=n,
+        ascending=False,
+        min_points=min_points_for_velocity_stats,
+    )
+
     return selected
 
 
@@ -398,6 +456,12 @@ def build_selected_csv(df: pd.DataFrame, selected: Dict[str, List[int]]) -> pd.D
         "video_path",
         "video_frame_idx",
         "point_count",
+        "ego_longitudinal_velocity",
+        "ego_yaw_rate",
+        "abs_ego_yaw_rate",
+        "doppler_range",
+        "velocity_wrap_fraction",
+        "velocity_wrap_count",
         "brightness_mean",
         "brightness_std",
         "contrast_q95_minus_q05",
@@ -414,12 +478,37 @@ def build_selected_csv(df: pd.DataFrame, selected: Dict[str, List[int]]) -> pd.D
         "velocity_pos_fraction_eps_0_5",
         "velocity_neg_fraction_eps_0_5",
         "velocity_near_zero_fraction_eps_0_5",
+        "velocity_measured_relative_mean",
+        "velocity_measured_relative_abs_mean",
+        "velocity_measured_relative_q05",
+        "velocity_measured_relative_q50",
+        "velocity_measured_relative_q95",
+        "velocity_expected_static_mean",
+        "velocity_expected_static_abs_mean",
+        "velocity_expected_static_q05",
+        "velocity_expected_static_q50",
+        "velocity_expected_static_q95",
+        "velocity_compensated_pre_wrap_mean",
+        "velocity_compensated_pre_wrap_abs_mean",
+        "velocity_compensated_pre_wrap_q05",
+        "velocity_compensated_pre_wrap_q50",
+        "velocity_compensated_pre_wrap_q95",
+        "doppler_wrap_fraction",
+        "doppler_wrap_count",
+        "doppler_wrap_abs_mean",
+        "doppler_wrap_abs_max",
         "rcs_mean",
         "rcs_min",
         "rcs_max",
         "rcs_q05",
         "rcs_q50",
         "rcs_q95",
+        "range_gate_length_mean",
+        "range_gate_length_min",
+        "range_gate_length_max",
+        "range_gate_length_q05",
+        "range_gate_length_q50",
+        "range_gate_length_q95",
     ]
 
     cols = [c for c in first_cols if c in out.columns]
@@ -450,6 +539,8 @@ def main() -> None:
     maybe_prepare_output(out_csv, overwrite=args.overwrite)
 
     frames = pd.read_csv(frames_csv)
+    if "ego_yaw_rate" in frames.columns:
+        frames["abs_ego_yaw_rate"] = frames["ego_yaw_rate"].abs()
     point_stats = load_point_stats(point_values_npz)
 
     if "eda_idx" not in frames.columns:

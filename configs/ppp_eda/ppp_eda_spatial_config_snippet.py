@@ -14,11 +14,11 @@ ppp_eda_spatial = dict(
         lateral_min=-50.0,
         lateral_max=50.0,
         forward_min=0.0,
-        forward_max=150.0,
+        forward_max=170.0,
     ),
     polar=dict(
         range_min=0.0,
-        range_max=150.0,
+        range_max=170.0,
         azimuth_min_deg=-52.5,
         azimuth_max_deg=52.5,
     ),

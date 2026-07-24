@@ -1,36 +1,17 @@
-Complete PPP EDA implementation with RCS and spatial-domain evaluation
-
-configs/ppp_eda/ppp_eda.py
-  Full updated EDA config with ppp_eda_spatial.
-
-tools/ppp_eda/ppp_eda_geometry.py
-  Shared optional-domain configuration, image-to-BEV back-projection,
-  Cartesian/polar conversion, masks, and automatic plot limits.
-
-tools/ppp_eda/scan_ppp_eda.py
-  Exports camera points, depth, velocity, RCS, Cartesian BEV coordinates,
-  and polar coordinates.
-
-tools/ppp_eda/render_ppp_examples.py
-  Keeps camera overlays and adds Cartesian BEV and polar target plots.
-
-tools/ppp_eda/plot_ppp_eda_summary.py
-  Adds Cartesian and polar density summaries.
-
-tools/ppp_eda/compare_ppp_eda_splits.py
-  Adds train-validation Cartesian and polar density comparisons.
-
-tools/ppp_eda/render_ppp_demo_sequence.py
-  Adds Cartesian and polar outputs for the demo sequence.
-
-tools/ppp_eda/render_ppp_demo_temporal_accumulation.py
-  Adds Cartesian and polar temporal accumulation outputs.
-
-tools/ppp_eda/select_ppp_examples.py
-  Includes RCS frame statistics and high_rcs/low_rcs categories.
-
+README.md
+INSTALLATION.md
+MANIFEST.txt
+ppp_eda.py
+ppp_eda_spatial_config_snippet.py
 mmseg/datasets/transforms/sys100_ppp_transforms.py
-  Four-channel camera target: occupancy, depth, velocity, RCS.
-
-tests/test_ppp_eda_geometry.py
-  Geometry and optional-limit tests.
+tools/ppp_eda/README.md
+tools/ppp_eda/compare_ppp_eda_splits.py
+tools/ppp_eda/plot_ppp_eda_summary.py
+tools/ppp_eda/ppp_eda_attribute_limits.py
+tools/ppp_eda/ppp_eda_geometry.py
+tools/ppp_eda/render_ppp_demo_sequence.py
+tools/ppp_eda/render_ppp_demo_temporal_accumulation.py
+tools/ppp_eda/render_ppp_examples.py
+tools/ppp_eda/scan_ppp_eda.py
+tools/ppp_eda/select_ppp_examples.py
+VALIDATION.md

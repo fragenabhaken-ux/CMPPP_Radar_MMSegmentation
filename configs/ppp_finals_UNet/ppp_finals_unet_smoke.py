@@ -4,12 +4,7 @@ _base_ = [
 
 custom_imports = dict(
     imports=[
-        # New DINOv3 architecture components
-        'mmseg.models.backbones.lora_timm_multilayer_backbone',
-        'mmseg.models.necks.dino_rope_transformer_neck',
-        'mmseg.models.decode_heads.ppp_finals_vit_patch_rearrange_head',
-
-        # Existing project components
+        'mmseg.models.decode_heads.ppp_finals_unet_head',
         'mmseg.datasets.sys100_ppp_heatmap_dataset',
         'mmseg.datasets.transforms.sys100_ppp_transforms',
         'mmseg.evaluation.metrics.ppp_metrics_loss_mmd',
@@ -21,9 +16,8 @@ custom_imports = dict(
 
 import os
 
-crop_size = (544, 1792)
+crop_size = (256, 512)
 out_img_size = (544, 1792)
-
 data_rbg_mean = [0.0, 0.0, 0.0]
 data_rbg_std = [1.0, 1.0, 1.0]
 fovs_wo_fisheyeart = (105, 48.4)
@@ -37,77 +31,54 @@ data_preprocessor = dict(
     size=crop_size
 )
 
-# DINOv3 ViT-S/16:
-# patch grid for crop_size=(544,1792) is approximately 34 x 112.
-# embed_dims for vit_small_patch16_dinov3.lvd1689m is 384.
-dinov3_embed_dims = 384
-
 model = dict(
     type='EncoderDecoder',
     data_preprocessor=data_preprocessor,
-
+    pretrained=None,
     backbone=dict(
-        type='LoRAMultiLayerTIMMBackbone',
-        model_name='vit_small_patch16_dinov3',
-        pretrained=False,
-        checkpoint_path='/e/project1/nxtaim-1/huber7/pretrained/vit_small_patch16_dinov3.lvd1689m/model.safetensors',
+        type='UNet',
         in_channels=3,
-        patch_size=16,
-
-        frozen_base=True,
-        lora_r=16,
-        lora_alpha=32.0,
-        lora_dropout=0.0,
-        target_modules=('attn.qkv', 'attn.proj', 'mlp.fc1', 'mlp.fc2'),
-
-        out_indices=(2, 5, 8, 11),
-        in_feature_channels=384,
-        per_layer_out_channels=128,
-        out_channels=384,
-        apply_output_norm=True,
-        use_fuse_conv=True,
+        base_channels=64,
+        num_stages=5,
+        strides=(1, 1, 1, 1, 1),
+        enc_num_convs=(2, 2, 2, 2, 2),
+        dec_num_convs=(2, 2, 2, 2),
+        downsamples=(True, True, True, True),
+        enc_dilations=(1, 1, 1, 1, 1),
+        dec_dilations=(1, 1, 1, 1),
+        with_cp=False,
+        conv_cfg=None,
+        norm_cfg=dict(type='BN', requires_grad=True),
+        act_cfg=dict(type='ReLU'),
+        upsample_cfg=dict(type='InterpConv'),
+        norm_eval=False,
     ),
-
-    neck=dict(
-        type='DINORoPETransformerNeck',
-        in_channels=384,
-        embed_dims=384,
-        in_index=0,
-        num_layers=12,
-        num_heads=6,
-        mlp_ratio=4.0,
-        attn_dropout=0.0,
-        norm_cfg=dict(type='LN'),
-    ),
-
     decode_head=dict(
-        type='PPPfinalsViTPatchRearrangeHead',
-        in_channels=384,
-        in_index=0,
+        type='PPPfinalsUNetDepthLossHead',
+        in_channels=64,
+        in_index=4,
         channels=64,
+        num_convs=1,
+        dropout_ratio=0.1,
         num_classes=4,
 
-        patch_size=(16, 16),
-        refine_channels=128,
-        num_refine_convs=5,
-        pre_factor=4,
-
-        local_refine_blocks=2,
-        local_refine_norm='gn',
-
         ppp_weight=1.0,
-        depth_weight=1000.0,
-        velocity_weight=1.0,
+        depth_weight=10.0,
+        velocity_weight=10.0,
         rcs_weight=1.0,
         velocity_mode='signed',
-        depth_loss_type='disparity',
+
+        depth_loss_type='log', # 'disparity'
+        depth_eps=1e-3,
+
         loss_ppp=dict(
             type='PPPLoss',
             out_img_size=out_img_size,
             normalize_by_gt_count=True,
         ),
+        norm_cfg=dict(type='BN', requires_grad=True),
+        align_corners=False,
     ),
-
     auxiliary_head=None,
     train_cfg=dict(),
     test_cfg=dict(mode='whole'),
@@ -128,9 +99,9 @@ DATA_PATH_VAL = os.environ.get(
 
 dataset_type = 'Sys100PPPHeatmapDataset'
 
-batch_size_train = 14
-batch_size_test = 14
-batch_size_val = 14
+batch_size_train = 75
+batch_size_test = 25
+batch_size_val = 25
 
 train_dataloader = dict(
     batch_size=batch_size_train,
@@ -155,7 +126,7 @@ train_dataloader = dict(
                 prefetch=True,
                 prefetch_dict={
                     "buffer_size": 1024,
-                    "queue_size": 1000,
+                    "queue_size": 120,
                     "priority": 10,
                     "num_prefetch_workers": 4,
                     "wait_till_buffer_has": batch_size_train,
@@ -169,14 +140,14 @@ train_dataloader = dict(
                 rel_x_centre=0.491,
                 rel_y_centre=0.4370,
             ),
-            # dict(type='PPPRandomCrop', crop_size=crop_size),
+            dict(type='PPPRandomCrop', crop_size=crop_size),
             dict(type='PPPRandomFlip', prob=0.5, direction='horizontal'),
             dict(type='PPPPackSegInputs'),
         ]
     )
 )
 
-num_samples_val = 112
+num_samples_val = 96
 
 val_dataloader = dict(
     batch_size=batch_size_val,
@@ -200,7 +171,7 @@ val_dataloader = dict(
                 prefetch=True,
                 prefetch_dict={
                     "buffer_size": 500,
-                    "queue_size": 1000,
+                    "queue_size": 120,
                     "priority": 19,
                     "num_prefetch_workers": 4,
                     "wait_till_buffer_has": 100,
@@ -219,7 +190,7 @@ val_dataloader = dict(
     )
 )
 
-num_samples_test = 112
+num_samples_test = 96
 
 test_dataloader = dict(
     batch_size=batch_size_test,
@@ -266,40 +237,45 @@ optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
         type='AdamW',
-        lr=1e-4,
+        lr=1e-2,
         weight_decay=0.01,
         betas=(0.9, 0.999)
     ),
     clip_grad=dict(
-        max_norm=1.0,
+        max_norm=1.0, # t 2
         norm_type=2
     )
 )
 
 param_scheduler = [
-    # 0 to 2500: warmup to 1e-4
     dict(
         type='LinearLR',
         start_factor=1e-4,
-        end_factor=1.0,
+        end_factor=1,
         begin=0,
-        end=2500,
+        end=600,
         by_epoch=False
     ),
-
-    # 2500 to 7500: implicit plateau at 1e-4
-
-    # 7500 to 25000: cosine decay to 1e-5
     dict(
-        type='CosineAnnealingLR',
-        eta_min=1e-5,
-        begin=7500,
-        end=25000,
+        type='LinearLR',
+        start_factor=1,
+        end_factor=1e-1,
+        begin=601,
+        end=1500,
+        by_epoch=False
+    ),
+    dict(
+        type='LinearLR',
+        start_factor=1,
+        end_factor=1e-1,
+        begin=1501,
+        end=3000,
         by_epoch=False
     )
 ]
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=25000, val_interval=1000)
+# train_cfg = dict(type='IterBasedTrainLoop', max_iters=30000, val_interval=10000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=3000, val_interval=1000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -308,7 +284,7 @@ test_evaluator = dict(type='PPPLossMMD', out_img_size=out_img_size)
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
-    logger=dict(type='LoggerHook', interval=1, log_metric_by_epoch=False),
+    logger=dict(type='LoggerHook', interval=5, log_metric_by_epoch=False),
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(
         type='CheckpointHook',
@@ -324,16 +300,34 @@ default_hooks = dict(
 custom_hooks = [
     dict(
         type='PPPMarkVisHookLight',
+
         train_interval=1000,
         max_samples_train=1,
-        max_samples_val=5,
+        max_samples_val=10,
         max_samples_test=10,
+
         img_mean=data_rbg_mean,
         img_std=data_rbg_std,
+
         gamma=0.2,
+
         sim_block_size=8,
         sim_block_placement='weighted',
         point_size=28,
+
+        depth_vmin=0.0,
+        depth_vmax=170.0,
+
+        vel_vmin=-11.0,
+        vel_vmax=11.0,
+
+        rcs_vmin=-50.0,
+        rcs_vmax=20.0,
+        rcs_cmap='viridis',
+        rcs_link='cube',
+
+        figsize=(14, 38),
+        dpi=90,
     ),
     dict(type='PrefetchStatsHook'),
 ]

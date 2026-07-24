@@ -143,28 +143,42 @@ class SegDataPreProcessor(BaseDataPreprocessor):
             
             # PPP GT sanity checks
             for i, sample in enumerate(data_samples):
-                gt = sample.gt_sem_seg.data  # [3, H, W]
+                gt = sample.gt_sem_seg.data  # [4, H, W]
 
-                assert gt.dim() == 3, "GT must be [C,H,W]"
-                assert gt.shape[0] == 3, f"Expected 3 GT channels, got {gt.shape[0]}"
+                assert gt.dim() == 3, (
+                    f"GT must have shape [C, H, W], got {tuple(gt.shape)}"
+                )
+                assert gt.shape[0] == 4, (
+                    "Expected 4 GT channels "
+                    "[intensity, depth, velocity, RCS], "
+                    f"got {gt.shape[0]}"
+                )
 
                 intensity = gt[0]
                 depth = gt[1]
                 vel = gt[2]
+                rcs = gt[3]
 
-                # intensity must be binary
+                # Intensity must be binary.
                 unique_vals = torch.unique(intensity)
                 assert torch.all((unique_vals == 0) | (unique_vals == 1)), (
                     f"Intensity channel not binary: {unique_vals}"
                 )
 
-                n_points = int((intensity == 1).sum())
+                point_mask = intensity == 1
+                empty_mask = intensity == 0
+                n_points = int(point_mask.sum())
 
-                # depth / velocity must be zero where no point exists
-                assert torch.all(depth[intensity == 0] == 0), \
+                # Marks must be zero where no radar detection exists.
+                assert torch.all(depth[empty_mask] == 0), (
                     "Depth non-zero where intensity == 0"
-                assert torch.all(vel[intensity == 0] == 0), \
+                )
+                assert torch.all(vel[empty_mask] == 0), (
                     "Velocity non-zero where intensity == 0"
+                )
+                assert torch.all(rcs[empty_mask] == 0), (
+                    "RCS non-zero where intensity == 0"
+                )
 
                 logger.debug(
                     "SegDataPreProcessor | sample %d | "

@@ -547,6 +547,25 @@ def points_from_gt(
         "rcs": gt[..., 3][mask].astype(np.float64, copy=False),
     }
 
+    auxiliary_fields = {
+        "range_gate_length_map": "range_gate_length",
+        "velocity_measured_relative_map": "velocity_measured_relative",
+        "velocity_expected_static_map": "velocity_expected_static",
+        "velocity_compensated_pre_wrap_map": "velocity_compensated_pre_wrap",
+        "doppler_wrap_index_map": "doppler_wrap_index",
+    }
+    for map_name, point_name in auxiliary_fields.items():
+        if map_name not in sample:
+            continue
+        values = to_numpy(sample[map_name], dtype=np.float64)
+        if values.ndim == 3 and values.shape[0] == 1:
+            values = values[0]
+        if values.shape != mask.shape:
+            raise ValueError(
+                f"{map_name} shape {values.shape} does not match GT shape {mask.shape}."
+            )
+        points[point_name] = values[mask]
+
     rad2cam = get_sample_rad2cam(sample)
     h_fov_deg = get_sample_h_fov_deg(sample, spatial)
     geometry = camera_points_to_spatial(

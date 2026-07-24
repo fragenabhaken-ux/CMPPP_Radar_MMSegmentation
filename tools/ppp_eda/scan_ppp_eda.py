@@ -14,8 +14,14 @@ Scan a PPP EDA dataloader and save:
        x_pix
        y_pix
        depth
-       velocity
+       velocity                                  # wrapped compensated target
+       velocity_compensated_wrapped              # explicit alias of velocity
+       velocity_measured_relative
+       velocity_expected_static
+       velocity_compensated_pre_wrap
+       doppler_wrap_index
        rcs
+       range_gate_length
        lateral
        forward
        range
@@ -217,6 +223,24 @@ def normalize_gt_to_hwc(gt: Any) -> np.ndarray:
     return gt.astype(np.float32, copy=False)
 
 
+def normalize_auxiliary_map(value: Any, name: str, expected_hw: tuple[int, int]) -> np.ndarray:
+    """Convert an auxiliary per-pixel map to unbatched HW float32."""
+    arr = to_numpy(value)
+    if arr.ndim == 3:
+        if arr.shape[0] != 1:
+            raise ValueError(
+                f"{name} has batch dimension {arr.shape[0]}; use EDA batch_size=1."
+            )
+        arr = arr[0]
+    if arr.ndim != 2:
+        raise ValueError(f"Expected {name} to be HW or 1HW, got shape {arr.shape}.")
+    if tuple(arr.shape) != tuple(expected_hw):
+        raise ValueError(
+            f"{name} shape {arr.shape} does not match GT/image shape {expected_hw}."
+        )
+    return arr.astype(np.float32, copy=False)
+
+
 def unpack_batch(batch: Any) -> List[Dict[str, Any]]:
     """
     Handle pseudo_collate output.
@@ -331,7 +355,12 @@ def save_point_values(
     point_y: List[np.ndarray],
     point_depth: List[np.ndarray],
     point_velocity: List[np.ndarray],
+    point_velocity_measured_relative: List[np.ndarray],
+    point_velocity_expected_static: List[np.ndarray],
+    point_velocity_compensated_pre_wrap: List[np.ndarray],
+    point_doppler_wrap_index: List[np.ndarray],
     point_rcs: List[np.ndarray],
+    point_range_gate_length: List[np.ndarray],
     point_lateral: List[np.ndarray],
     point_forward: List[np.ndarray],
     point_range: List[np.ndarray],
@@ -346,7 +375,13 @@ def save_point_values(
             y_pix=np.empty((0,), dtype=np.int16),
             depth=np.empty((0,), dtype=np.float32),
             velocity=np.empty((0,), dtype=np.float32),
+            velocity_compensated_wrapped=np.empty((0,), dtype=np.float32),
+            velocity_measured_relative=np.empty((0,), dtype=np.float32),
+            velocity_expected_static=np.empty((0,), dtype=np.float32),
+            velocity_compensated_pre_wrap=np.empty((0,), dtype=np.float32),
+            doppler_wrap_index=np.empty((0,), dtype=np.int8),
             rcs=np.empty((0,), dtype=np.float32),
+            range_gate_length=np.empty((0,), dtype=np.float32),
             lateral=np.empty((0,), dtype=np.float32),
             forward=np.empty((0,), dtype=np.float32),
             range=np.empty((0,), dtype=np.float32),
@@ -361,7 +396,23 @@ def save_point_values(
         y_pix=np.concatenate(point_y).astype(np.int16, copy=False),
         depth=np.concatenate(point_depth).astype(np.float32, copy=False),
         velocity=np.concatenate(point_velocity).astype(np.float32, copy=False),
+        velocity_compensated_wrapped=np.concatenate(point_velocity).astype(
+            np.float32, copy=False
+        ),
+        velocity_measured_relative=np.concatenate(
+            point_velocity_measured_relative
+        ).astype(np.float32, copy=False),
+        velocity_expected_static=np.concatenate(
+            point_velocity_expected_static
+        ).astype(np.float32, copy=False),
+        velocity_compensated_pre_wrap=np.concatenate(
+            point_velocity_compensated_pre_wrap
+        ).astype(np.float32, copy=False),
+        doppler_wrap_index=np.concatenate(point_doppler_wrap_index).astype(
+            np.int8, copy=False
+        ),
         rcs=np.concatenate(point_rcs).astype(np.float32, copy=False),
+        range_gate_length=np.concatenate(point_range_gate_length).astype(np.float32, copy=False),
         lateral=np.concatenate(point_lateral).astype(np.float32, copy=False),
         forward=np.concatenate(point_forward).astype(np.float32, copy=False),
         range=np.concatenate(point_range).astype(np.float32, copy=False),
@@ -385,7 +436,12 @@ def scan(
     point_y: List[np.ndarray] = []
     point_depth: List[np.ndarray] = []
     point_velocity: List[np.ndarray] = []
+    point_velocity_measured_relative: List[np.ndarray] = []
+    point_velocity_expected_static: List[np.ndarray] = []
+    point_velocity_compensated_pre_wrap: List[np.ndarray] = []
+    point_doppler_wrap_index: List[np.ndarray] = []
     point_rcs: List[np.ndarray] = []
+    point_range_gate_length: List[np.ndarray] = []
     point_lateral: List[np.ndarray] = []
     point_forward: List[np.ndarray] = []
     point_range: List[np.ndarray] = []
@@ -435,6 +491,86 @@ def scan(
             velocity = gt[..., 2][mask]
             rcs = gt[..., 3][mask]
 
+            required_auxiliary_maps = {
+                "range_gate_length_map": "range_gate_length",
+                "velocity_measured_relative_map": "velocity_measured_relative",
+                "velocity_expected_static_map": "velocity_expected_static",
+                "velocity_compensated_pre_wrap_map": "velocity_compensated_pre_wrap",
+                "doppler_wrap_index_map": "doppler_wrap_index",
+            }
+            auxiliary_values: Dict[str, np.ndarray] = {}
+            missing_maps = [
+                name for name in required_auxiliary_maps if name not in sample
+            ]
+            if missing_maps:
+                raise KeyError(
+                    "EDA sample lacks auxiliary maps "
+                    f"{missing_maps}. Set return_auxiliary_attributes=True in "
+                    "BuildPPPHeatmap and use the updated transform before rerunning "
+                    "the scan."
+                )
+            for map_name, value_name in required_auxiliary_maps.items():
+                aux_map = normalize_auxiliary_map(
+                    sample[map_name],
+                    name=map_name,
+                    expected_hw=gt.shape[:2],
+                )
+                auxiliary_values[value_name] = aux_map[mask]
+
+            range_gate_length = auxiliary_values["range_gate_length"]
+            velocity_measured_relative = auxiliary_values[
+                "velocity_measured_relative"
+            ]
+            velocity_expected_static = auxiliary_values[
+                "velocity_expected_static"
+            ]
+            velocity_compensated_pre_wrap = auxiliary_values[
+                "velocity_compensated_pre_wrap"
+            ]
+            doppler_wrap_index = np.rint(
+                auxiliary_values["doppler_wrap_index"]
+            ).astype(np.int8, copy=False)
+
+            doppler_range = float(scalarize(sample.get("dopplerRange", np.nan)))
+            if not np.isfinite(doppler_range) or doppler_range <= 0.0:
+                raise ValueError(
+                    f"Invalid doppler_range={doppler_range!r} at eda_idx={eda_idx}."
+                )
+            reconstructed_wrapped = (
+                velocity_compensated_pre_wrap
+                - doppler_range * doppler_wrap_index.astype(np.float32)
+            )
+            if not np.allclose(
+                reconstructed_wrapped, velocity, rtol=1e-5, atol=1e-5
+            ):
+                max_error = float(
+                    np.max(np.abs(reconstructed_wrapped - velocity))
+                )
+                raise RuntimeError(
+                    "Velocity-stage maps are not aligned with gt_seg_map at "
+                    f"eda_idx={eda_idx}; max error={max_error:.6g}."
+                )
+
+            ego_longitudinal_velocity = float(
+                scalarize(sample.get("ego_longitudinal_velocity", np.nan))
+            )
+            ego_yaw_rate = float(scalarize(sample.get("ego_yaw_rate", np.nan)))
+
+            if point_count > 0:
+                velocity_wrap_count = int(np.count_nonzero(doppler_wrap_index))
+                velocity_wrap_fraction = float(velocity_wrap_count / point_count)
+                velocity_mean_abs_wrap_index = float(
+                    np.mean(np.abs(doppler_wrap_index))
+                )
+                velocity_max_abs_wrap_index = int(
+                    np.max(np.abs(doppler_wrap_index))
+                )
+            else:
+                velocity_wrap_count = 0
+                velocity_wrap_fraction = 0.0
+                velocity_mean_abs_wrap_index = 0.0
+                velocity_max_abs_wrap_index = 0
+
             if point_count > 0:
                 geometry = camera_points_to_spatial(
                     x_pix=x_pix,
@@ -457,7 +593,22 @@ def scan(
                 point_y.append(y_pix.astype(np.int16, copy=False))
                 point_depth.append(depth.astype(np.float32, copy=False))
                 point_velocity.append(velocity.astype(np.float32, copy=False))
+                point_velocity_measured_relative.append(
+                    velocity_measured_relative.astype(np.float32, copy=False)
+                )
+                point_velocity_expected_static.append(
+                    velocity_expected_static.astype(np.float32, copy=False)
+                )
+                point_velocity_compensated_pre_wrap.append(
+                    velocity_compensated_pre_wrap.astype(np.float32, copy=False)
+                )
+                point_doppler_wrap_index.append(
+                    doppler_wrap_index.astype(np.int8, copy=False)
+                )
                 point_rcs.append(rcs.astype(np.float32, copy=False))
+                point_range_gate_length.append(
+                    range_gate_length.astype(np.float32, copy=False)
+                )
                 point_lateral.append(lateral.astype(np.float32, copy=False))
                 point_forward.append(forward.astype(np.float32, copy=False))
                 point_range.append(range_m.astype(np.float32, copy=False))
@@ -496,6 +647,13 @@ def scan(
                 video_frame_idx=get_meta_value(sample, "video_frame_idx", None),
 
                 point_count=point_count,
+                ego_longitudinal_velocity=ego_longitudinal_velocity,
+                ego_yaw_rate=ego_yaw_rate,
+                doppler_range=doppler_range,
+                velocity_wrap_count=velocity_wrap_count,
+                velocity_wrap_fraction=velocity_wrap_fraction,
+                velocity_mean_abs_wrap_index=velocity_mean_abs_wrap_index,
+                velocity_max_abs_wrap_index=velocity_max_abs_wrap_index,
                 geometry_valid_count=geometry_valid_count,
                 camera_domain_point_count=camera_domain_count,
                 cartesian_bev_domain_point_count=cartesian_domain_count,
@@ -529,7 +687,12 @@ def scan(
         y_pix=point_y,
         depth=point_depth,
         velocity=point_velocity,
+        velocity_measured_relative=point_velocity_measured_relative,
+        velocity_expected_static=point_velocity_expected_static,
+        velocity_compensated_pre_wrap=point_velocity_compensated_pre_wrap,
+        doppler_wrap_index=point_doppler_wrap_index,
         rcs=point_rcs,
+        range_gate_length=point_range_gate_length,
         lateral=point_lateral,
         forward=point_forward,
         range=point_range,
@@ -583,7 +746,14 @@ def main() -> None:
         point_y=point_data["y_pix"],
         point_depth=point_data["depth"],
         point_velocity=point_data["velocity"],
+        point_velocity_measured_relative=point_data["velocity_measured_relative"],
+        point_velocity_expected_static=point_data["velocity_expected_static"],
+        point_velocity_compensated_pre_wrap=point_data[
+            "velocity_compensated_pre_wrap"
+        ],
+        point_doppler_wrap_index=point_data["doppler_wrap_index"],
         point_rcs=point_data["rcs"],
+        point_range_gate_length=point_data["range_gate_length"],
         point_lateral=point_data["lateral"],
         point_forward=point_data["forward"],
         point_range=point_data["range"],
