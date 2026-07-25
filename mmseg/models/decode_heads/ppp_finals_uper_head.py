@@ -343,9 +343,14 @@ class PPPfinalsUperHead(BaseDecodeHead):
         mask = gt_int.squeeze(1)
         nbr_points = mask.sum(dim=(1, 2)).clamp_min(1)
 
+        gt_log_depth = torch.log(torch.clamp(gt_depth, min=1e-3))
+        loss_depth_per_pixel = F.l1_loss(
+            raw_depth,
+            gt_log_depth,
+            reduction="none",
+        )
         loss_depth = (
-            (F.l1_loss(pred_depth, gt_depth, reduction="none") * mask)
-            .sum(dim=(1, 2))
+            (loss_depth_per_pixel * mask).sum(dim=(1, 2))
             / nbr_points
         ).mean()
 
