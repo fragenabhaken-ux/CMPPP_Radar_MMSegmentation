@@ -15,7 +15,8 @@ custom_imports = dict(
         'mmseg.models.losses.polar_point_ppp_loss',
         'mmseg.datasets.sys100_ppp_heatmap_dataset',
         'mmseg.datasets.transforms.sys100_polar_transforms',
-        'mmseg.engine.hooks.ppp_polar_liif_wvel_wrcs_vis_hook',
+        'mmseg.engine.hooks.ppp_ploar_liif_wvel_wrcs_demo_vis_hook',
+        'mmseg.engine.hooks.prefetch_stats_hook',
         'mmseg.evaluation.metrics.polar_ppp_metric',
     ],
     allow_failed_imports=False,
@@ -190,7 +191,7 @@ val_dataloader = dict(
     persistent_workers=True,
     pin_memory=True,
     drop_last=False,
-    sampler=dict(type='DefaultSampler', shuffle=False),
+    sampler=dict(type='DefaultSampler', shuffle=False, round_up=False),
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH_VAL,
@@ -228,7 +229,7 @@ test_dataloader = dict(
     persistent_workers=True,
     pin_memory=True,
     drop_last=False,
-    sampler=dict(type='DefaultSampler', shuffle=False),
+    sampler=dict(type='DefaultSampler', shuffle=False, round_up=False),
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH_TEST,
@@ -327,28 +328,36 @@ optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(
         type='AdamW',
-        lr=1e-8,              # maximale LR
+        lr=2e-4,
         weight_decay=0.01,
         betas=(0.9, 0.999)
     ),
     clip_grad=dict(
-        max_norm=1.0,
+        max_norm=1.0, # t 2
         norm_type=2
-    ),
+    )
 )
 
 param_scheduler = [
     dict(
-        type='ExponentialLR',
-        gamma=(1 / 1e-8) ** (1 / 2000),  # (lr_max / lr_min)^(1/T)
+        type='LinearLR',
+        start_factor=1e-4,
+        end_factor=1,
         begin=0,
-        end=2000,
+        end=2200,
+        by_epoch=False
+    ),
+    dict(
+        type='LinearLR',
+        start_factor=1,
+        end_factor=1e-1,
+        begin=2201,
+        end=22000,
         by_epoch=False
     )
 ]
 
-# train_cfg = dict(type='IterBasedTrainLoop', max_iters=140000, val_interval=5000)
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=2000, val_interval=2000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=22000, val_interval=1000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -359,7 +368,7 @@ default_hooks = dict(
     checkpoint=dict(
         type='CheckpointHook',
         by_epoch=False,
-        interval=2000,
+        interval=1000,
         max_keep_ckpts=3,
         save_best='ppp/optimal_score',
         rule='greater',
@@ -369,12 +378,14 @@ default_hooks = dict(
 
 custom_hooks = [
     dict(
-        type='PPPPolarLIIFVisWVelWRcsHook',
+        type='PPPPolarLIIFWVelWRcsDemoVisHook',
 
         train_interval=100,
         max_samples_train=1,
         max_samples_val=10,
         max_samples_test=1,
+
+        out_dir='demo_frames_polar_wvel_rcs',
 
         img_mean=data_rbg_mean,
         img_std=data_rbg_std,
@@ -387,7 +398,7 @@ custom_hooks = [
         bev_y_min=-150.0,
         bev_y_max=150.0,
 
-        gamma=0.3,
+        intensity_gamma=0.3,
 
         point_size=12.0,
         point_color='cyan',
@@ -407,6 +418,9 @@ custom_hooks = [
         rcs_cmap='viridis',
 
         dpi=100,
-        figsize=(18, 24),
+        figsize=(18, 22),
+        image_ext='png',
+        write_all_ranks=False,
     ),
+    dict(type='PrefetchStatsHook'),
 ]

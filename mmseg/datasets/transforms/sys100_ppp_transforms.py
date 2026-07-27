@@ -170,7 +170,7 @@ class LoadSys100Sample(BaseTransform):
         # -------------------------
         video_path = sample.get("video_path", None)
         md = sample.get("meta_data", None)
-
+        s
         frame_in_video = None
         if md is not None:
             md_dtype = getattr(md, "dtype", None)

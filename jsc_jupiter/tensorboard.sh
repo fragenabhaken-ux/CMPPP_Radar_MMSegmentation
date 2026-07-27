@@ -57,7 +57,18 @@ TrafoEnc_CamDom:/e/scratch/nxtaim-1/huber7/work_dirs/1010579_ppp_TrafoEnc_BEVpol
 TrafoEnc_BEVpolDom:/e/scratch/nxtaim-1/huber7/work_dirs/1010580_ppp_TrafoEnc_BEVpolDom/20260722_005045/vis_data/,\
 TrafoEncDec:/e/scratch/nxtaim-1/huber7/work_dirs/1010647_ppp_TrafoEncDec/20260722_024640/vis_data/"\
     --port=12355 serve
-    ;;  
+    ;;
+    8)
+    tensorboard --logdir_spec="\
+UNet:/e/scratch/nxtaim-1/huber7/work_dirs/1041277_ppp_finals_unet_54k/20260725_062756/vis_data/,\
+UNet_woVel:/e/scratch/nxtaim-1/huber7/work_dirs/1041278_ppp_finals_unet_54k_woVel/20260725_062804/vis_data/,\
+UperNet:/e/scratch/nxtaim-1/huber7/work_dirs/1041089_ppp_finals_upernet_47k/20260725_060533/vis_data/,\
+TrafoEnc_CamDom:/e/scratch/nxtaim-1/huber7/work_dirs/1041091_ppp_finals_TrafoEnc_CamDom_24k/20260725_060602/vis_data/,\
+TrafoEnc_BEVpolDom:/e/scratch/nxtaim-1/huber7/work_dirs/1041092_ppp_finals_TrafoEnc_BEVpolDom_20k/20260725_060631/vis_data/,\
+TrafoEncDec:/e/scratch/nxtaim-1/huber7/work_dirs/1041329_ppp_finals_TrafoEncDec_22k/20260725_072222/vis_data/,\
+TrafoEncDec_woVel:/e/scratch/nxtaim-1/huber7/work_dirs/1041328_ppp_finals_TrafoEncDec_22k_woVel/20260725_072209/vis_data/"\
+    --port=12355 serve
+    ;;
   *)
     echo "Invalid option: $choice"
     echo "Usage: $0 [0-9]"
