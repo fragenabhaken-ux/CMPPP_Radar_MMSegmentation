@@ -18,7 +18,7 @@ TrafoEncDec:/e/scratch/nxtaim-1/huber7/work_dirs/1041329_ppp_finals_TrafoEncDec_
     ;;
   2)
     tensorboard --logdir_spec="\
-UperNet:/e/scratch/nxtaim-1/huber7/work_dirs/1041089_ppp_finals_upernet_47k/20260725_060533/vis_data/"\
+UperNet:/e/scratch/nxtaim-1/huber7/work_dirs/1069825_ppp_finals_upernet_run2_21k/20260728_022912/vis_data/"\
     --port=12357 serve
     ;;
     3)
@@ -28,8 +28,8 @@ UperNet:/e/scratch/nxtaim-1/huber7/work_dirs/1041089_ppp_finals_upernet_47k/2026
     ;;
     4)
     tensorboard --logdir_spec="\
-dinov3_LoRA_V3_polarLIIF_5k_inits:/e/scratch/nxtaim-1/huber7/work_dirs/945615_ppp_dinov3_LoRA_V3_polarLIIF_5k_init/20260622_122331/vis_data/,\
-dinov3_LoRA_V3_fullMark_absVel_LRRangeTest:/e/scratch/nxtaim-1/huber7/work_dirs/939979_ppp_dinov3_LoRA_V3_fullMarkAbsVel_5k_LRrangetest/20260621_210435/vis_data/"\
+UperNet_run1:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041089_ppp_finals_upernet_47k/20260725_060533/vis_data/,\ 
+UperNet_run2:/e/scratch/nxtaim-1/huber7/work_dirs/1069825_ppp_finals_upernet_run2_21k/20260728_022912/vis_data/"\
     --port=12355 serve
     ;;  
     5)

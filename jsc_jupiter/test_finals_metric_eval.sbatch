@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ppp_finals_TrafoEnc_CamDom_24k_CamDom_metric_eval
+#SBATCH --job-name=ppp_finals_TrafoEncDec_run2_20k_last_metric_eval
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=booster
 #SBATCH --nodes=1
@@ -59,7 +59,12 @@ echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 # CHECKPOINT=/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041091_ppp_finals_TrafoEnc_CamDom_24k/iter_24000.pth
 
 CONFIG=configs/ppp_finals_TrafoEncDec/ppp_finals_TrafoEncDec_run2_20k_metric_eval.py
-# CHECKPOINT=/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041091_ppp_finals_TrafoEnc_CamDom_24k/iter_24000.pth
+# CHECKPOINT=/e/scratch/nxtaim-1/huber7/work_dirs/1065402_ppp_finals_TrafoEncDec_run2_20k/best_ppp_optimal_score_iter_19000.pth
+CHECKPOINT=/e/scratch/nxtaim-1/huber7/work_dirs/1065402_ppp_finals_TrafoEncDec_run2_20k/iter_20000.pth
+
+# CONFIG=configs/ppp_finals_UperNet/ppp_finals_upernet_run2_21k_metric_eval_CamDom.py
+# CONFIG=configs/ppp_finals_UperNet/ppp_finals_upernet_run2_21k_metric_eval_BEVDom.py
+# CHECKPOINT=/e/scratch/nxtaim-1/huber7/work_dirs/1069825_ppp_finals_upernet_run2_21k/iter_21000.pth
 
 ############################################
 
