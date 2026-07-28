@@ -1,0 +1,16 @@
+README.md
+metric_eval_config.py
+run_metric_eval.py
+check_camera_export.py
+ppp_metric_io_tools.py
+ppp_expected_count_tools.py
+ppp_spatial_likelihood_tools.py
+ppp_mark_metric_tools.py
+ppp_offline_metric_eval.py
+ppp_plotting.py
+requirements.txt
+mmseg_hooks/ppp_finals_CamDom_metric_hook.py
+config_snippets/camera_metric_export_config_snippet.py
+config_snippets/ppp_finals_unet_54k_metric_eval_CamDom_checked.py
+tests/test_camera_metrics.py
+compare_camera_models.ipynb

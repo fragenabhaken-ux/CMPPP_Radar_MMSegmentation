@@ -1,0 +1,12 @@
+{
+  "ALIGNMENT_MODE": "None",
+  "ASCENDING": "False",
+  "EXPECTED_BEV_GEOMETRY": "{'bev_x_min': 0.0, 'bev_x_max': 170.0, 'bev_y_min': -85.0, 'bev_y_max': 85.0, 'bev_height': 256, 'bev_width': 256}",
+  "FAIL_FAST": "True",
+  "H5_DIRS": "{'1068641_ppp_finals_TrafoEnc_BEVpolDom_20k': '/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals/1068641_ppp_finals_TrafoEnc_BEVpolDom_20k_metric_eval/20260727_231606/metric_eval_data_dense_bev_cartesian/test', '1070540_ppp_finals_TrafoEncDec_run2_20k': '/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals/1070540_ppp_finals_TrafoEncDec_run2_20k_metric_eval/20260728_075537/metric_eval_data_dense_bev_cartesian/test'}",
+  "MAX_SAMPLES_PER_MODEL": "None",
+  "METRICS": "{'count': {'enabled': True}, 'likelihood': {'enabled': True, 'sigma_min_m': 0.0, 'sigma_max_m': 20.0, 'positive_sigma_floor_m': 0.01, 'max_iter': 40, 'tol_sigma_m': 0.05, 'eps': 1e-12, 'normalization': 'physical_density', 'check_zero': True}, 'marks': {'enabled': True, 'velocity_mode': 'signed', 'use_circular_velocity': True, 'require_doppler_period': True}, 'radargen': {'enabled': True, 'sampling_methods': ('thinning', 'block'), 'num_draws': 8, 'seed': 20260726, 'block_size': 8, 'block_placement': 'weighted', 'max_sampled_points': None, 'iou_threshold_m': 1.0, 'distance_threshold_m': 1.0, 'rcs_threshold': 8.0, 'velocity_threshold_mps': 2.5, 'use_circular_velocity_matching': True, 'rcs_min': -60.0, 'rcs_max': 10.0, 'velocity_min': -11.0, 'velocity_max': 11.0, 'mmd_n_kernels': 5, 'mmd_multiplier': 2.0, 'mmd_max_points': 2048, 'mmd_negative_tolerance': 1e-10}}",
+  "OUTPUT_DIR": "'./cartesian_bev_metric_results'",
+  "SORT_BY": "'likelihood_optimal_score_mean'",
+  "VERBOSE": "True"
+}
