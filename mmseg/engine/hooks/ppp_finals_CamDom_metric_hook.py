@@ -1,5 +1,5 @@
 """
-PPPMarkMetricEvalExportHook
+PPPMarkMetricEvalHook
 ===========================
 Lightweight hook for generating an offline metric-evaluation dataset for the
 four-channel image-domain marked PPP model.
@@ -74,7 +74,7 @@ from mmseg.registry import HOOKS
 
 
 @HOOKS.register_module()
-class PPPMarkMetricEvalExportHook(Hook):
+class PPPMarkMetricEvalHook(Hook):
     """Export compact HDF5 files for offline marked-PPP evaluation.
 
     Parameters

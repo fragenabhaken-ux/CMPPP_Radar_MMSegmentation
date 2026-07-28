@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=ppp_finals_unet_54k_woVel_woRCS
+#SBATCH --job-name=ppp_finals_upernet_run2_21k
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=booster
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-task=1
 #SBATCH --cpus-per-task=12
-#SBATCH --time=12:00:00
+#SBATCH --time=06:00:00
 #SBATCH --output=logs/%j_%x.out
 #SBATCH --error=logs/%j_%x.err
 #SBATCH --export=NONE
@@ -39,13 +39,15 @@ echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 
 # CONFIG="configs/ppp_finals_UNet/ppp_finals_unet_54k.py"
 # CONFIG="configs/ppp_finals_UNet/ppp_finals_unet_54k_woVel.py"
-CONFIG="configs/ppp_finals_UNet/ppp_finals_unet_54k_woVel_woRCS.py"
+# CONFIG="configs/ppp_finals_UNet/ppp_finals_unet_54k_woVel_woRCS.py"
 # CONFIG="configs/ppp_finals_UperNet/ppp_finals_upernet_47k.py"
 # CONFIG="configs/ppp_finals_TrafoEnc_CamDom/ppp_finals_TrafoEnc_CamDom_24k.py"
 # CONFIG="configs/ppp_finals_TrafoEnc_BEVpolDom/ppp_finals_TrafoEnc_BEVpolDom_20k.py"
 # CONFIG="configs/ppp_finals_TrafoEncDec/ppp_finals_TrafoEncDec_22k.py"
 # CONFIG="configs/ppp_finals_TrafoEncDec/ppp_finals_TrafoEncDec_22k_woVel.py"
 # CONFIG="configs/ppp_finals_TrafoEncDec/ppp_finals_TrafoEncDec_22k_woVel_woRCS.py"
+# CONFIG="configs/ppp_finals_TrafoEncDec/ppp_finals_TrafoEncDec_run2_20k.py"
+CONFIG="configs/ppp_finals_UperNet/ppp_finals_upernet_run2_21k.py"
 
 WORK_DIR="/e/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 

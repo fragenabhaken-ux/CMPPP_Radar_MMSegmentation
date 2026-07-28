@@ -394,8 +394,8 @@ custom_hooks = [
         # Polar prediction domain
         r_min=0.0,
         r_max=170.0,
-        theta_min=-1.5707963267948966,
-        theta_max=1.5707963267948966,
+        theta_min=theta_min,
+        theta_max=theta_max,
 
         # Cartesian evaluation domain
         bev_x_min=0.0,

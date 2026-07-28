@@ -9,7 +9,7 @@ custom_imports = dict(
         'mmseg.datasets.transforms.sys100_ppp_transforms',
         'mmseg.evaluation.metrics.ppp_metrics_loss_mmd',
         'mmseg.engine.hooks.prefetch_stats_hook',
-        'mmseg.engine.hooks.ppp_finals_CamDom_metric_hook',
+        'mmseg.engine.hooks.ppp_demo_camToBev_wvel_wrcs_hook',
     ],
     allow_failed_imports=False
 )
@@ -88,18 +88,36 @@ model = dict(
 # Data pipeline
 # ----------------------------
 
+DATA_PATH_TRAIN = os.environ.get(
+   "SYS100_DATA_PATH",
+   "/e/scratch/nxtaim-1/propietary/aumovio/SYS100_Dataset.csv"
+)
 DATA_PATH_VAL = os.environ.get(
-    "SYS100_DATA_PATH",
-    "/e/scratch/nxtaim-1/propietary/aumovio/"
-    "SYS100_Validation_Dataset.csv"
+   "SYS100_DATA_PATH",
+   "/e/scratch/nxtaim-1/propietary/aumovio/SYS100_Validation_Dataset.csv"
 )
 
-# Fixed pseudo-random subsets used for model comparison.
-# Keep these values identical in every model evaluation config.
-VAL_SUBSET_SEED = 20260725
-TEST_SUBSET_SEED = 20260726
+# Demo sequence
+DEMO_H5_PATH = (
+    "/e/scratch/nxtaim-1/propietary/aumovio/sys100_validation/"
+    "2023.03.02_at_14.16.46/"
+    "2023.03.02_at_14.16.46_camera-radar-mi_5374_radargrids_64.h5"
+)
 
-dataset_type = 'Sys100PPPHeatmapDataset'
+DEMO_CENTER_FRAME = 13678
+DEMO_HALF_WINDOW = 640
+DEMO_FRAME_START = DEMO_CENTER_FRAME - DEMO_HALF_WINDOW  # 13038
+DEMO_FRAME_END = DEMO_CENTER_FRAME + DEMO_HALF_WINDOW    # 14318
+DEMO_FRAME_STRIDE = 4
+
+# Use only one of the two underlying video streams.
+# If the output looks wrong, switch this to "ODD".
+DEMO_VIDEO_NAME_CONTAINS = "EVEN"
+
+# Expected number after choosing one stream.
+DEMO_NUM_FRAMES = (DEMO_FRAME_END - DEMO_FRAME_START) // DEMO_FRAME_STRIDE + 1
+
+dataset_type = 'Sys100PPPHeatmapDatasetDemoVid'
 
 batch_size_train = 75
 batch_size_test = 30
@@ -166,30 +184,18 @@ num_samples_val = 120
 val_dataloader = dict(
     batch_size=batch_size_val,
     num_workers=4,
-    sampler=dict(
-        type='DefaultSampler',
-        shuffle=False,
-    ),
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH_VAL,
         source_is_summary_csv=True,
-
         target_dataset_size=num_samples_val,
-        random_subsampling=True,
-        seed=VAL_SUBSET_SEED,
-
         fovs=fovs_wo_fisheyeart,
         pipeline=[
             dict(
                 type='LoadSys100Sample',
                 sys100_root=DATA_PATH_VAL,
                 source_is_summary_csv=True,
-
                 target_dataset_size=num_samples_val,
-                random_subsampling=True,
-                seed=VAL_SUBSET_SEED,
-
                 out_img_size=out_img_size,
                 undistort=True,
                 fovs=fovs_wo_fisheyeart,
@@ -197,7 +203,7 @@ val_dataloader = dict(
                 prefetch=True,
                 prefetch_dict={
                     "buffer_size": 500,
-                    "queue_size": 1000,
+                    "queue_size": 120,
                     "priority": 19,
                     "num_prefetch_workers": 4,
                     "wait_till_buffer_has": 100,
@@ -221,28 +227,26 @@ num_samples_test = 300
 test_dataloader = dict(
     batch_size=batch_size_test,
     num_workers=4,
-    sampler=dict(
-        type='DefaultSampler',
-        shuffle=False,
-    ),
+    sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
         type=dataset_type,
-        sys100_root=DATA_PATH_VAL,
-        source_is_summary_csv=True,
-        target_dataset_size=num_samples_test,
-        random_subsampling=True,
-        seed=TEST_SUBSET_SEED,
+        sys100_root=DEMO_H5_PATH,
+        source_is_summary_csv=False,
+
+        demo_h5_path=DEMO_H5_PATH,
+        demo_frame_start=DEMO_FRAME_START,
+        demo_frame_end=DEMO_FRAME_END,
+        demo_frame_stride=DEMO_FRAME_STRIDE,
+        demo_use_video_frame_counter=True,
+        demo_video_name_contains=DEMO_VIDEO_NAME_CONTAINS,
 
         fovs=fovs_wo_fisheyeart,
         pipeline=[
             dict(
                 type='LoadSys100Sample',
-                sys100_root=DATA_PATH_VAL,
-                source_is_summary_csv=True,
-                target_dataset_size=num_samples_test,
-                random_subsampling=True,
-                seed=TEST_SUBSET_SEED,
-
+                sys100_root=DEMO_H5_PATH,
+                source_is_summary_csv=False,
+                target_dataset_size=None,
                 out_img_size=out_img_size,
                 undistort=True,
                 fovs=fovs_wo_fisheyeart,
@@ -326,12 +330,12 @@ test_evaluator = dict(
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
-    logger=dict(type='LoggerHook', interval=5, log_metric_by_epoch=False),
+    logger=dict(type='LoggerHook', interval=10, log_metric_by_epoch=False),
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(
         type='CheckpointHook',
         by_epoch=False,
-        interval=1000,
+        interval=5000,
         max_keep_ckpts=5,
         save_best='ppp/optimal_score',
         rule='greater'
@@ -341,15 +345,52 @@ default_hooks = dict(
 
 custom_hooks = [
     dict(
-        type='PrefetchStatsHook',
+        type='PPPDemoCamToBEVWVelWRCSHook',
+
+        max_samples_test=DEMO_NUM_FRAMES,
+        out_dir='demo_bev_frames',
+        write_all_ranks=True,
+
+        # PPP sampling
+        sampling_method='thinning',
+        sim_block_size=8,
+        sim_block_placement='weighted',
+
+        # Figure layout
+        figsize=(24, 15),
+        dpi=100,
+        point_size=28,
+        bev_point_size=28,
+
+        # Intensity heatmaps
+        gamma=0.2,
+        heatmap_cmap='hot',
+
+        # Camera-to-BEV projection
+        h_fov_deg=110.0,
+        principal_x_rel=0.491,
+        lateral_sign=1.0,
+
+        # Square BEV domain
+        bev_forward_max=104.0,
+        bev_lateral_max=52.0,
+        bev_map_height=256,
+        bev_map_width=256,
+
+        # Velocity
+        velocity_vmin=-11.0,
+        velocity_vmax=11.0,
+        velocity_cmap='coolwarm',
+
+        # RCS
+        rcs_link='cube',
+        rcs_vmin=-60.0,
+        rcs_vmax=10.0,
+        rcs_cmap='viridis',
+
+        require_four_channels=True,
     ),
-    dict(
-        type='PPPMarkMetricEvalExportHook',
-        max_samples_test=10000,
-        max_samples_val=0,
-        img_mean=data_rbg_mean,
-        img_std=data_rbg_std
-    ),
+    dict(type='PrefetchStatsHook'),
 ]
 
 visualizer = dict(

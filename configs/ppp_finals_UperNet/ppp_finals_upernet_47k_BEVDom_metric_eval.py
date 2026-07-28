@@ -4,12 +4,12 @@ _base_ = [
 
 custom_imports = dict(
     imports=[
-        'mmseg.models.decode_heads.ppp_mark_unet_head',
+        'mmseg.models.decode_heads.ppp_finals_uper_head',
         'mmseg.datasets.sys100_ppp_heatmap_dataset',
         'mmseg.datasets.transforms.sys100_ppp_transforms',
         'mmseg.evaluation.metrics.ppp_metrics_loss_mmd',
         'mmseg.engine.hooks.prefetch_stats_hook',
-        'mmseg.engine.hooks.ppp_mark_metric_eval_export_hook',
+        'mmseg.engine.hooks.ppp_finals_CamDom_to_BEVDom_metric_hook',
     ],
     allow_failed_imports=False
 )
@@ -18,7 +18,6 @@ import os
 
 crop_size = (256, 512)
 out_img_size = (544, 1792)
-
 data_rbg_mean = [0.0, 0.0, 0.0]
 data_rbg_std = [1.0, 1.0, 1.0]
 fovs_wo_fisheyeart = (105, 48.4)
@@ -32,41 +31,43 @@ data_preprocessor = dict(
     size=crop_size
 )
 
-######################################################################
-
 model = dict(
     type='EncoderDecoder',
     data_preprocessor=data_preprocessor,
     pretrained=None,
     backbone=dict(
-        type='UNet',
-        in_channels=3,
-        base_channels=64,
-        num_stages=5,
-        strides=(1, 1, 1, 1, 1),
-        enc_num_convs=(2, 2, 2, 2, 2),
-        dec_num_convs=(2, 2, 2, 2),
-        downsamples=(True, True, True, True),
-        enc_dilations=(1, 1, 1, 1, 1),
-        dec_dilations=(1, 1, 1, 1),
-        with_cp=False,
-        conv_cfg=None,
+        type='ResNetV1c',
+        depth=50,
+        num_stages=4,
+        out_indices=(0, 1, 2, 3),
+        strides=(1, 2, 2, 2),
+        dilations=(1, 1, 1, 1),
         norm_cfg=dict(type='BN', requires_grad=True),
-        act_cfg=dict(type='ReLU'),
-        upsample_cfg=dict(type='InterpConv'),
         norm_eval=False,
+        style='pytorch',
+        contract_dilation=True,
+        init_cfg=dict(
+            type='Pretrained',
+            checkpoint=(
+                '/e/project1/nxtaim-1/huber7/pretrained/'
+                'resnet50_v1c-2cccc1ad.pth'
+            ),
+        ),
     ),
     decode_head=dict(
-        type='PPPMarkUNetHead',
-        in_channels=64,
-        in_index=4,
-        channels=64,
-        num_convs=1,
+        type='PPPfinalsUperHead',
+        in_channels=(256, 512, 1024, 2048),
+        in_index=(0, 1, 2, 3),
+        input_transform='multiple_select',
+        channels=512,
         dropout_ratio=0.1,
-        num_classes=3,
-        ppp_weight=1,
-        depth_weight=0,
-        velocity_weight=0,
+        pool_scales=(1, 2, 3, 6),
+        num_classes=4,
+        ppp_weight=1.0,
+        depth_weight=10.0,
+        velocity_weight=10.0,
+        rcs_weight=1.0,
+        velocity_mode='signed',
         loss_ppp=dict(
             type='PPPLoss',
             out_img_size=out_img_size,
@@ -84,15 +85,10 @@ model = dict(
 # Data pipeline
 # ----------------------------
 
-# DATA_PATH_TRAIN = os.environ.get(
-#    "SYS100_DATA_PATH",
-#    "/p/data1/nxtaim/proprietary/continental/sys100/SYS100_Dataset.csv"
-# )
-
 DATA_PATH_VAL = os.environ.get(
     "SYS100_DATA_PATH",
-    "/p/data1/nxtaim/proprietary/continental/"
-    "sys100_validation/SYS100_Validation_Dataset.csv"
+    "/e/scratch/nxtaim-1/propietary/aumovio/"
+    "SYS100_Validation_Dataset.csv"
 )
 
 # Fixed pseudo-random subsets used for model comparison.
@@ -102,13 +98,11 @@ TEST_SUBSET_SEED = 20260726
 
 dataset_type = 'Sys100PPPHeatmapDataset'
 
-batch_size_train = 25
-batch_size_test = 10
-batch_size_val = 10
+batch_size_train = 100
+batch_size_test = 50
+batch_size_val = 50
 
-# ----------------------------
-# Train dataloader
-# ----------------------------
+#### Train dataloader #####
 
 # train_dataloader = dict(
 #     batch_size=batch_size_train,
@@ -162,7 +156,7 @@ batch_size_val = 10
 # Validation dataloader
 # ----------------------------
 
-num_samples_val = 80
+num_samples_val = 300
 
 val_dataloader = dict(
     batch_size=batch_size_val,
@@ -186,11 +180,7 @@ val_dataloader = dict(
                 type='LoadSys100Sample',
                 sys100_root=DATA_PATH_VAL,
                 source_is_summary_csv=True,
-
                 target_dataset_size=num_samples_val,
-                random_subsampling=True,
-                seed=VAL_SUBSET_SEED,
-
                 out_img_size=out_img_size,
                 undistort=True,
                 fovs=fovs_wo_fisheyeart,
@@ -198,7 +188,7 @@ val_dataloader = dict(
                 prefetch=True,
                 prefetch_dict={
                     "buffer_size": 500,
-                    "queue_size": 1000,
+                    "queue_size": 120,
                     "priority": 19,
                     "num_prefetch_workers": 4,
                     "wait_till_buffer_has": 100,
@@ -217,46 +207,38 @@ val_dataloader = dict(
     )
 )
 
-# ----------------------------
-# Fixed random test subset
-# ----------------------------
-
-num_samples_test = 80
+num_samples_test = 200
 
 test_dataloader = dict(
     batch_size=batch_size_test,
     num_workers=4,
-    sampler=dict(
-        type='DefaultSampler',
-        shuffle=False,
-    ),
+    sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH_VAL,
         source_is_summary_csv=True,
-
-        # Declares the size of the wrapper dataset.
         target_dataset_size=num_samples_test,
-        random_subsampling=True,
-        seed=TEST_SUBSET_SEED,
-
         fovs=fovs_wo_fisheyeart,
         pipeline=[
             dict(
                 type='LoadSys100Sample',
                 sys100_root=DATA_PATH_VAL,
                 source_is_summary_csv=True,
-
-                # The actual fixed random selection happens here.
                 target_dataset_size=num_samples_test,
-                random_subsampling=True,
-                seed=TEST_SUBSET_SEED,
-
                 out_img_size=out_img_size,
                 undistort=True,
                 fovs=fovs_wo_fisheyeart,
                 strict=False,
-                prefetch=False,
+                prefetch=True,
+                prefetch_dict={
+                    "buffer_size": 500,
+                    "queue_size": 120,
+                    "priority": 19,
+                    "num_prefetch_workers": 4,
+                    "wait_till_buffer_has": 100,
+                    "buffer_fill_pause_threshold": 0.9,
+                    "default_sleep_time": 60,
+                }
             ),
             dict(
                 type='BuildPPPHeatmap',
@@ -269,77 +251,57 @@ test_dataloader = dict(
     )
 )
 
-# ----------------------------
-# Optimizer / schedule
-# ----------------------------
+optim_wrapper = dict(
+    type='OptimWrapper',
+    optimizer=dict(
+        type='AdamW',
+        lr=4e-3,
+        weight_decay=0.01,
+        betas=(0.9, 0.999)
+    ),
+    clip_grad=dict(
+        max_norm=1.0, # t 2
+        norm_type=2
+    )
+)
 
-# optim_wrapper = dict(
-#     type='OptimWrapper',
-#     optimizer=dict(
-#         type='AdamW',
-#         lr=1e-2,
-#         weight_decay=0.01,
-#         betas=(0.9, 0.999)
-#     ),
-#     clip_grad=dict(
-#         max_norm=1.0,
-#         norm_type=2
-#     )
-# )
+param_scheduler = [
+    dict(
+        type='LinearLR',
+        start_factor=1e-4,
+        end_factor=1,
+        begin=0,
+        end=4700,
+        by_epoch=False
+    ),
+    dict(
+        type='LinearLR',
+        start_factor=1,
+        end_factor=1e-1,
+        begin=4701,
+        end=42000,
+        by_epoch=False
+    ),
+    dict(
+        type='LinearLR',
+        start_factor=1,
+        end_factor=1e-1,
+        begin=42001,
+        end=47000,
+        by_epoch=False
+    )
+]
 
-# param_scheduler = [
-#     dict(
-#         type='LinearLR',
-#         start_factor=1e-4,
-#         end_factor=1.0,
-#         begin=0,
-#         end=7000,
-#         by_epoch=False
-#     ),
-#     dict(
-#         type='LinearLR',
-#         start_factor=1.0,
-#         end_factor=1e-1,
-#         begin=7001,
-#         end=70000,
-#         by_epoch=False
-#     ),
-#     dict(
-#         type='LinearLR',
-#         start_factor=1.0,
-#         end_factor=1e-1,
-#         begin=70001,
-#         end=140000,
-#         by_epoch=False
-#     )
-# ]
-
-# train_cfg = dict(
-#     type='IterBasedTrainLoop',
-#     max_iters=140000,
-#     val_interval=5000,
-# )
-
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=47000, val_interval=1000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
-val_evaluator = dict(
-    type='PPPLossMMD',
-    out_img_size=out_img_size,
-)
-
-test_evaluator = dict(
-    type='PPPLossMMD',
-    out_img_size=out_img_size,
-)
+val_evaluator = dict(type='PPPLossMMD', out_img_size=out_img_size)
+test_evaluator = dict(type='PPPLossMMD', out_img_size=out_img_size)
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
-    logger=dict(
-        type='LoggerHook',
-        interval=10,
-        log_metric_by_epoch=False,
-    ),
+    logger=dict(type='LoggerHook', interval=10, log_metric_by_epoch=False),
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(
         type='CheckpointHook',
@@ -347,22 +309,44 @@ default_hooks = dict(
         interval=1000,
         max_keep_ckpts=5,
         save_best='ppp/optimal_score',
-        rule='greater',
+        rule='greater'
     ),
     sampler_seed=dict(type='DistSamplerSeedHook'),
 )
 
 custom_hooks = [
     dict(
-        type='PrefetchStatsHook',
-    ),
-    dict(
-        type='PPPMarkMetricEvalExportHook',
-        max_samples_test=10000,
-        max_samples_val=0,
+        type='PPPMarkVisHookLight',
+
+        train_interval=1000,
+        max_samples_train=1,
+        max_samples_val=10,
+        max_samples_test=10,
+
         img_mean=data_rbg_mean,
         img_std=data_rbg_std,
-    )
+
+        gamma=0.2,
+
+        sim_block_size=8,
+        sim_block_placement='weighted',
+        point_size=28,
+
+        depth_vmin=0.0,
+        depth_vmax=170.0,
+
+        vel_vmin=-11.0,
+        vel_vmax=11.0,
+
+        rcs_vmin=-50.0,
+        rcs_vmax=20.0,
+        rcs_cmap='viridis',
+        rcs_link='cube',
+
+        figsize=(14, 38),
+        dpi=90,
+    ),
+    dict(type='PrefetchStatsHook'),
 ]
 
 visualizer = dict(

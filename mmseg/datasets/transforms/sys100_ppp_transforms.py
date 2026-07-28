@@ -170,13 +170,29 @@ class LoadSys100Sample(BaseTransform):
         # -------------------------
         video_path = sample.get("video_path", None)
         md = sample.get("meta_data", None)
-        s
+        
         frame_in_video = None
         if md is not None:
             md_dtype = getattr(md, "dtype", None)
             md_names = getattr(md_dtype, "names", None)
             if md_names is not None and "VideoFrameCounter" in md_names:
                 frame_in_video = int(md["VideoFrameCounter"])
+
+        # # print sample names (to check for metric smaples, if samples are fixed)
+        # video_name = (
+        #     os.path.basename(video_path)
+        #     if video_path is not None
+        #     else "unknown_video"
+        # )
+
+        # print(
+        #     f"[SYS100 EVAL SAMPLE] "
+        #     f"rank={get_rank()} "
+        #     f"local_idx={idx} "
+        #     f"video={video_name} "
+        #     f"video_frame_idx={frame_in_video}",
+        #     flush=True,
+        # )
 
         metainfo = results.setdefault("metainfo", {})
         metainfo.update(
