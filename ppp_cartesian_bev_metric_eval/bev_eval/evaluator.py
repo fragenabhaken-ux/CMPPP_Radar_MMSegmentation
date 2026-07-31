@@ -390,6 +390,7 @@ def summarize_results(
         "bev_height",
         "bev_width",
         "radargen_sampling_seed",
+        "velocity_gt_abs_min",
     }
     sufficient_stat_suffixes = (
         "_abs_error_sum",
@@ -439,20 +440,33 @@ def summarize_results(
         if "count_squared_error" in group:
             out["count_rmse"] = float(np.sqrt(group["count_squared_error"].mean()))
 
-        for prefix in ("velocity", "rcs"):
+        for prefix in ("velocity", "velocity_nonzero", "rcs"):
             n_col = f"{prefix}_n_points"
             abs_col = f"{prefix}_abs_error_sum"
             sq_col = f"{prefix}_squared_error_sum"
             signed_col = f"{prefix}_signed_error_sum"
-            if all(col in group for col in (n_col, abs_col, sq_col, signed_col)):
+
+            required_columns = (
+                n_col,
+                abs_col,
+                sq_col,
+                signed_col,
+            )
+
+            if all(col in group.columns for col in required_columns):
                 n_points = float(group[n_col].sum())
                 out[f"{prefix}_n_points_total"] = int(n_points)
+
                 if n_points > 0.0:
-                    out[f"{prefix}_mae_global"] = float(group[abs_col].sum() / n_points)
+                    out[f"{prefix}_mae_global"] = float(
+                        group[abs_col].sum() / n_points
+                    )
                     out[f"{prefix}_rmse_global"] = float(
                         np.sqrt(group[sq_col].sum() / n_points)
                     )
-                    out[f"{prefix}_bias_global"] = float(group[signed_col].sum() / n_points)
+                    out[f"{prefix}_bias_global"] = float(
+                        group[signed_col].sum() / n_points
+                    )
                 else:
                     out[f"{prefix}_mae_global"] = np.nan
                     out[f"{prefix}_rmse_global"] = np.nan
@@ -465,6 +479,237 @@ def summarize_results(
         summary = summary.sort_values(sort_by, ascending=ascending).reset_index(drop=True)
     return summary
 
+def bootstrap_summary_confidence_intervals(
+    df_samples: pd.DataFrame,
+    *,
+    metrics: list[str] | tuple[str, ...],
+    num_resamples: int = 5000,
+    confidence_level: float = 0.95,
+    seed: int = 20260731,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Estimate paired bootstrap confidence intervals.
+
+    Samples are resampled with replacement. The same sampled indices are
+    used for every model so that the bootstrap remains paired across models.
+
+    Parameters
+    ----------
+    df_samples:
+        Per-sample evaluation table.
+    metrics:
+        Names of columns produced by ``summarize_results`` for which
+        confidence intervals should be computed.
+    num_resamples:
+        Number of bootstrap repetitions.
+    confidence_level:
+        Confidence level, for example 0.95 for a 95% interval.
+    seed:
+        Random seed for reproducibility.
+
+    Returns
+    -------
+    ci_table:
+        One row per model containing the lower and upper confidence limits.
+    bootstrap_replicates:
+        One row per model and bootstrap repetition.
+    """
+    if num_resamples <= 0:
+        raise ValueError("num_resamples must be positive.")
+
+    if not 0.0 < confidence_level < 1.0:
+        raise ValueError(
+            "confidence_level must lie strictly between 0 and 1."
+        )
+
+    successful = df_samples[
+        df_samples["evaluation_status"] == "ok"
+    ].copy()
+
+    if successful.empty:
+        raise ValueError(
+            "Cannot bootstrap because there are no successful samples."
+        )
+
+    models = successful["model"].drop_duplicates().tolist()
+    if not models:
+        raise ValueError("No models found in df_samples.")
+
+    # Build one sample-UID-indexed table per model.
+    model_tables: dict[str, pd.DataFrame] = {}
+
+    for model in models:
+        table = successful[
+            successful["model"] == model
+        ].copy()
+
+        duplicated = table["sample_uid"].duplicated()
+        if duplicated.any():
+            duplicate_uids = (
+                table.loc[duplicated, "sample_uid"]
+                .astype(str)
+                .tolist()
+            )
+            raise ValueError(
+                f"Model {model!r} contains duplicate sample UIDs: "
+                f"{duplicate_uids[:5]}"
+            )
+
+        model_tables[model] = table.set_index(
+            "sample_uid",
+            drop=False,
+        )
+
+    # Require exactly the same successful samples for all models.
+    reference_model = models[0]
+    reference_uids = sorted(
+        model_tables[reference_model].index.astype(str)
+    )
+    reference_uid_set = set(reference_uids)
+
+    for model in models[1:]:
+        model_uid_set = set(
+            model_tables[model].index.astype(str)
+        )
+
+        if model_uid_set != reference_uid_set:
+            missing = sorted(reference_uid_set - model_uid_set)
+            extra = sorted(model_uid_set - reference_uid_set)
+
+            raise ValueError(
+                "Paired bootstrapping requires identical successful "
+                "sample IDs for every model. "
+                f"Model {model!r}: missing={len(missing)}, "
+                f"extra={len(extra)}, "
+                f"first_missing={missing[:5]}, "
+                f"first_extra={extra[:5]}"
+            )
+
+    # Put all model tables in the same sample order.
+    aligned_tables = {
+        model: model_tables[model].loc[reference_uids].reset_index(
+            drop=True
+        )
+        for model in models
+    }
+
+    # Check that the requested metric names really occur in the model summary.
+    original_summary = summarize_results(
+        successful,
+        sort_by=None,
+    )
+
+    missing_metrics = [
+        metric
+        for metric in metrics
+        if metric not in original_summary.columns
+    ]
+    if missing_metrics:
+        raise KeyError(
+            "The following requested bootstrap metrics are not produced "
+            f"by summarize_results(): {missing_metrics}"
+        )
+
+    rng = np.random.default_rng(seed)
+    num_samples = len(reference_uids)
+
+    replicate_rows: list[dict[str, Any]] = []
+
+    for bootstrap_index in range(num_resamples):
+        # Draw N sample positions from {0, ..., N-1}, with replacement.
+        sampled_positions = rng.integers(
+            low=0,
+            high=num_samples,
+            size=num_samples,
+        )
+
+        # Use the same positions for every model: paired bootstrap.
+        bootstrap_frames = [
+            aligned_tables[model]
+            .iloc[sampled_positions]
+            .copy()
+            for model in models
+        ]
+
+        bootstrap_samples = pd.concat(
+            bootstrap_frames,
+            ignore_index=True,
+        )
+
+        bootstrap_summary = summarize_results(
+            bootstrap_samples,
+            sort_by=None,
+        )
+
+        for _, row in bootstrap_summary.iterrows():
+            replicate: dict[str, Any] = {
+                "bootstrap_index": bootstrap_index,
+                "model": row["model"],
+            }
+
+            for metric in metrics:
+                value = row.get(metric, np.nan)
+                replicate[metric] = (
+                    float(value)
+                    if pd.notna(value)
+                    else np.nan
+                )
+
+            replicate_rows.append(replicate)
+
+    df_replicates = pd.DataFrame(replicate_rows)
+
+    alpha = (1.0 - confidence_level) / 2.0
+    confidence_percent = int(round(confidence_level * 100.0))
+
+    ci_rows: list[dict[str, Any]] = []
+
+    for model, group in df_replicates.groupby(
+        "model",
+        sort=False,
+    ):
+        ci_row: dict[str, Any] = {
+            "model": model,
+        }
+
+        for metric in metrics:
+            values = pd.to_numeric(
+                group[metric],
+                errors="coerce",
+            ).to_numpy(dtype=np.float64)
+
+            finite = values[np.isfinite(values)]
+
+            low_name = (
+                f"{metric}_ci{confidence_percent}_low"
+            )
+            high_name = (
+                f"{metric}_ci{confidence_percent}_high"
+            )
+            se_name = f"{metric}_bootstrap_se"
+            n_name = f"{metric}_bootstrap_n_valid"
+
+            if finite.size == 0:
+                ci_row[low_name] = np.nan
+                ci_row[high_name] = np.nan
+                ci_row[se_name] = np.nan
+                ci_row[n_name] = 0
+            else:
+                ci_row[low_name] = float(
+                    np.quantile(finite, alpha)
+                )
+                ci_row[high_name] = float(
+                    np.quantile(finite, 1.0 - alpha)
+                )
+                ci_row[se_name] = (
+                    float(finite.std(ddof=1))
+                    if finite.size > 1
+                    else np.nan
+                )
+                ci_row[n_name] = int(finite.size)
+
+        ci_rows.append(ci_row)
+
+    return pd.DataFrame(ci_rows), df_replicates
 
 def run_evaluation(
     h5_dirs: dict[str, str],
@@ -474,6 +719,7 @@ def run_evaluation(
     expected_geometry: dict[str, Any] | None = None,
     alignment_mode: str = "strict",
     max_samples_per_model: int | None = None,
+    bootstrap_config: dict[str, Any] | None = None,
     fail_fast: bool = True,
     verbose: bool = True,
     sort_by: str | None = "likelihood_optimal_score_mean",
@@ -497,9 +743,59 @@ def run_evaluation(
         ascending=ascending,
     )
 
+    df_bootstrap_replicates = pd.DataFrame()
+
+    if bootstrap_config and bool(
+        bootstrap_config.get("enabled", True)
+    ):
+        bootstrap_metrics = bootstrap_config.get("metrics")
+
+        if not bootstrap_metrics:
+            raise ValueError(
+                "Bootstrap configuration must define a non-empty "
+                "'metrics' list."
+            )
+
+        df_bootstrap_ci, df_bootstrap_replicates = (
+            bootstrap_summary_confidence_intervals(
+                df_samples,
+                metrics=list(bootstrap_metrics),
+                num_resamples=int(
+                    bootstrap_config.get(
+                        "num_resamples",
+                        5000,
+                    )
+                ),
+                confidence_level=float(
+                    bootstrap_config.get(
+                        "confidence_level",
+                        0.95,
+                    )
+                ),
+                seed=int(
+                    bootstrap_config.get(
+                        "seed",
+                        20260731,
+                    )
+                ),
+            )
+        )
+
+        df_summary = df_summary.merge(
+            df_bootstrap_ci,
+            on="model",
+            how="left",
+            validate="one_to_one",
+        )
+
     df_samples.to_csv(output_path / "sample_metrics.csv", index=False)
     df_summary.to_csv(output_path / "model_summary.csv", index=False)
     df_manifest.to_csv(output_path / "sample_manifest.csv", index=False)
+    if not df_bootstrap_replicates.empty:
+        df_bootstrap_replicates.to_csv(
+            output_path / "bootstrap_replicates.csv",
+            index=False,
+        )
 
     if verbose:
         print("\nModel summary:")
@@ -532,6 +828,7 @@ def run_from_config(
         verbose=bool(_config_attr(cfg, "VERBOSE", True)),
         sort_by=_config_attr(cfg, "SORT_BY", "likelihood_optimal_score_mean"),
         ascending=bool(_config_attr(cfg, "ASCENDING", False)),
+        bootstrap_config=_config_attr(cfg, "BOOTSTRAP", None),
     )
 
     # Save a readable snapshot of user-facing config values.

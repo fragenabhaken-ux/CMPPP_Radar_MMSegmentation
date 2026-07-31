@@ -181,6 +181,20 @@ def _finite_std(series: pd.Series) -> float:
     values = values[np.isfinite(values)]
     return float(values.std(ddof=1)) if values.size > 1 else np.nan
 
+def _finite_population_std(series: pd.Series) -> float:
+    """Population SD over the evaluated samples."""
+    values = pd.to_numeric(
+        series,
+        errors="coerce",
+    ).to_numpy(dtype=float)
+
+    values = values[np.isfinite(values)]
+
+    return (
+        float(values.std(ddof=0))
+        if values.size > 0
+        else np.nan
+    )
 
 def _finite_median(series: pd.Series) -> float:
     values = pd.to_numeric(series, errors="coerce").to_numpy(dtype=float)
@@ -237,12 +251,34 @@ def summarize_results(
         if "expected_count" in group:
             row.update(
                 {
-                    "expected_count_mean": _finite_mean(group["expected_count"]),
-                    "gt_count_mean": _finite_mean(group["gt_count"]),
-                    "count_bias": _finite_mean(group["count_error"]),
-                    "count_mae": _finite_mean(group["count_abs_error"]),
-                    "count_rmse": float(np.sqrt(_finite_mean(group["count_squared_error"]))),
-                    "count_ratio_mean": _finite_mean(group["count_ratio"]),
+                    "expected_count_mean": _finite_mean(
+                        group["expected_count"]
+                    ),
+                    "gt_count_mean": _finite_mean(
+                        group["gt_count"]
+                    ),
+
+                    # Mean and SD of the signed count error.
+                    "count_bias": _finite_mean(
+                        group["count_error"]
+                    ),
+                    "count_error_std": _finite_population_std(
+                        group["count_error"]
+                    ),
+
+                    "count_mae": _finite_mean(
+                        group["count_abs_error"]
+                    ),
+                    "count_rmse": float(
+                        np.sqrt(
+                            _finite_mean(
+                                group["count_squared_error"]
+                            )
+                        )
+                    ),
+                    "count_ratio_mean": _finite_mean(
+                        group["count_ratio"]
+                    ),
                 }
             )
 
@@ -273,6 +309,272 @@ def summarize_results(
         summary = summary.sort_values(sort_by, ascending=ascending).reset_index(drop=True)
     return summary
 
+def bootstrap_summary_confidence_intervals(
+    df_samples: pd.DataFrame,
+    *,
+    metrics: list[str] | tuple[str, ...],
+    num_resamples: int = 5000,
+    confidence_level: float = 0.95,
+    seed: int = 20260731,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Compute paired percentile-bootstrap confidence intervals.
+
+    Evaluation samples are drawn with replacement. The same sampled
+    positions are used for every model in each bootstrap repetition,
+    preserving the paired comparison between models.
+
+    The complete model summary is recomputed for every bootstrap sample.
+    This correctly handles nonlinear or weighted statistics such as count
+    RMSE and global point-weighted mark MAEs.
+    """
+    if num_resamples <= 0:
+        raise ValueError(
+            "num_resamples must be positive."
+        )
+
+    if not 0.0 < confidence_level < 1.0:
+        raise ValueError(
+            "confidence_level must lie strictly between 0 and 1."
+        )
+
+    successful = df_samples[
+        df_samples["evaluation_status"] == "ok"
+    ].copy()
+
+    if successful.empty:
+        raise ValueError(
+            "Cannot bootstrap because no samples were evaluated "
+            "successfully."
+        )
+
+    # Paired bootstrapping requires stable physical-frame identifiers and
+    # exactly the same evaluation samples for every model.
+    validate_sample_alignment(
+        successful,
+        require_stable_uid=True,
+    )
+
+    models = successful[
+        "model"
+    ].drop_duplicates().tolist()
+
+    if not models:
+        raise ValueError(
+            "No models found in df_samples."
+        )
+
+    model_tables: dict[str, pd.DataFrame] = {}
+
+    for model in models:
+        table = successful[
+            successful["model"] == model
+        ].copy()
+
+        table["sample_uid"] = table[
+            "sample_uid"
+        ].astype(str)
+
+        if bool(table["sample_uid"].duplicated().any()):
+            duplicates = table.loc[
+                table["sample_uid"].duplicated(keep=False),
+                "sample_uid",
+            ].tolist()
+
+            raise ValueError(
+                f"Model {model!r} contains duplicate sample UIDs: "
+                f"{duplicates[:5]}"
+            )
+
+        model_tables[model] = table.set_index(
+            "sample_uid",
+            drop=False,
+        )
+
+    reference_model = models[0]
+    reference_uids = sorted(
+        model_tables[reference_model].index.tolist()
+    )
+    reference_uid_set = set(reference_uids)
+
+    for model in models[1:]:
+        model_uid_set = set(
+            model_tables[model].index.tolist()
+        )
+
+        if model_uid_set != reference_uid_set:
+            missing = sorted(
+                reference_uid_set - model_uid_set
+            )
+            extra = sorted(
+                model_uid_set - reference_uid_set
+            )
+
+            raise ValueError(
+                "Paired bootstrapping requires identical samples "
+                "for every model. "
+                f"Model {model!r}: missing={len(missing)}, "
+                f"extra={len(extra)}, "
+                f"first_missing={missing[:5]}, "
+                f"first_extra={extra[:5]}"
+            )
+
+    # Put every model in exactly the same physical-sample order.
+    aligned_tables = {
+        model: (
+            model_tables[model]
+            .loc[reference_uids]
+            .reset_index(drop=True)
+        )
+        for model in models
+    }
+
+    original_summary = summarize_results(
+        successful,
+        sort_by="",
+        ascending=False,
+    )
+
+    missing_metrics = [
+        metric
+        for metric in metrics
+        if metric not in original_summary.columns
+    ]
+
+    if missing_metrics:
+        raise KeyError(
+            "The following requested bootstrap metrics are not "
+            "produced by summarize_results(): "
+            f"{missing_metrics}"
+        )
+
+    rng = np.random.default_rng(seed)
+    num_samples = len(reference_uids)
+
+    replicate_rows: list[dict[str, Any]] = []
+
+    for bootstrap_index in range(num_resamples):
+        # Draw N sample positions from N original samples, with replacement.
+        sampled_positions = rng.integers(
+            low=0,
+            high=num_samples,
+            size=num_samples,
+        )
+
+        # Use the same bootstrap draw for every model.
+        bootstrap_samples = pd.concat(
+            [
+                aligned_tables[model]
+                .iloc[sampled_positions]
+                .copy()
+                for model in models
+            ],
+            ignore_index=True,
+        )
+
+        bootstrap_summary = summarize_results(
+            bootstrap_samples,
+            sort_by="",
+            ascending=False,
+        )
+
+        for _, summary_row in bootstrap_summary.iterrows():
+            replicate: dict[str, Any] = {
+                "bootstrap_index": bootstrap_index,
+                "model": summary_row["model"],
+            }
+
+            for metric in metrics:
+                value = summary_row.get(
+                    metric,
+                    np.nan,
+                )
+
+                replicate[metric] = (
+                    float(value)
+                    if pd.notna(value)
+                    else np.nan
+                )
+
+            replicate_rows.append(replicate)
+
+    df_replicates = pd.DataFrame(
+        replicate_rows
+    )
+
+    alpha = (
+        1.0 - confidence_level
+    ) / 2.0
+
+    confidence_percent = int(
+        round(confidence_level * 100.0)
+    )
+
+    ci_rows: list[dict[str, Any]] = []
+
+    for model, group in df_replicates.groupby(
+        "model",
+        sort=False,
+    ):
+        ci_row: dict[str, Any] = {
+            "model": model,
+        }
+
+        for metric in metrics:
+            values = pd.to_numeric(
+                group[metric],
+                errors="coerce",
+            ).to_numpy(dtype=np.float64)
+
+            finite = values[
+                np.isfinite(values)
+            ]
+
+            low_name = (
+                f"{metric}_ci{confidence_percent}_low"
+            )
+            high_name = (
+                f"{metric}_ci{confidence_percent}_high"
+            )
+            se_name = (
+                f"{metric}_bootstrap_se"
+            )
+            n_name = (
+                f"{metric}_bootstrap_n_valid"
+            )
+
+            if finite.size == 0:
+                ci_row[low_name] = np.nan
+                ci_row[high_name] = np.nan
+                ci_row[se_name] = np.nan
+                ci_row[n_name] = 0
+                continue
+
+            ci_row[low_name] = float(
+                np.quantile(
+                    finite,
+                    alpha,
+                )
+            )
+            ci_row[high_name] = float(
+                np.quantile(
+                    finite,
+                    1.0 - alpha,
+                )
+            )
+            ci_row[se_name] = (
+                float(finite.std(ddof=1))
+                if finite.size > 1
+                else np.nan
+            )
+            ci_row[n_name] = int(
+                finite.size
+            )
+
+        ci_rows.append(ci_row)
+
+    df_ci = pd.DataFrame(ci_rows)
+
+    return df_ci, df_replicates
 
 def run_comparison(
     h5_dirs: dict[str, str],
@@ -286,6 +588,7 @@ def run_comparison(
     verbose: bool = True,
     sort_by: str = "likelihood_optimal_score_mean",
     ascending: bool = False,
+    bootstrap_config: dict[str, Any] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     output_path = Path(output_dir).expanduser().resolve()
     output_path.mkdir(parents=True, exist_ok=True)
@@ -302,16 +605,91 @@ def run_comparison(
 
     df_samples = df_samples.sort_values(["model", "sample_uid"]).reset_index(drop=True)
     df_summary = summarize_results(df_samples, sort_by=sort_by, ascending=ascending)
+    df_bootstrap_ci = pd.DataFrame()
+    df_bootstrap_replicates = pd.DataFrame()
 
+    if bootstrap_config and bool(
+        bootstrap_config.get(
+            "enabled",
+            True,
+        )
+    ):
+        bootstrap_metrics = bootstrap_config.get(
+            "metrics"
+        )
+
+        if not bootstrap_metrics:
+            raise ValueError(
+                "BOOTSTRAP must define a non-empty 'metrics' list."
+            )
+
+        (
+            df_bootstrap_ci,
+            df_bootstrap_replicates,
+        ) = bootstrap_summary_confidence_intervals(
+            df_samples,
+            metrics=list(bootstrap_metrics),
+            num_resamples=int(
+                bootstrap_config.get(
+                    "num_resamples",
+                    5000,
+                )
+            ),
+            confidence_level=float(
+                bootstrap_config.get(
+                    "confidence_level",
+                    0.95,
+                )
+            ),
+            seed=int(
+                bootstrap_config.get(
+                    "seed",
+                    20260731,
+                )
+            ),
+        )
+
+        df_summary = df_summary.merge(
+            df_bootstrap_ci,
+            on="model",
+            how="left",
+            validate="one_to_one",
+        )
+    
     samples_path = output_path / "sample_metrics.csv"
     summary_path = output_path / "model_comparison_summary.csv"
     manifest_path = output_path / "sample_manifest.csv"
-    df_samples.to_csv(samples_path, index=False)
-    df_summary.to_csv(summary_path, index=False)
-    df_samples[["model", "sample_uid", "video_name", "video_frame_idx"]].to_csv(
+    df_samples.to_csv(
+        samples_path,
+        index=False,
+    )
+    df_summary.to_csv(
+        summary_path,
+        index=False,
+    )
+    df_samples[
+        [
+            "model",
+            "sample_uid",
+            "video_name",
+            "video_frame_idx",
+        ]
+    ].to_csv(
         manifest_path,
         index=False,
     )
+
+    if not df_bootstrap_ci.empty:
+        df_bootstrap_ci.to_csv(
+            output_path / "bootstrap_confidence_intervals.csv",
+            index=False,
+        )
+
+    if not df_bootstrap_replicates.empty:
+        df_bootstrap_replicates.to_csv(
+            output_path / "bootstrap_replicates.csv",
+            index=False,
+        )
 
     if verbose:
         print("\nModel comparison summary:")
@@ -333,10 +711,10 @@ def run_from_config(path: str | os.PathLike[str]) -> tuple[pd.DataFrame, pd.Data
         strict_sample_match=bool(getattr(cfg, "STRICT_SAMPLE_MATCH", True)),
         require_stable_uid=bool(getattr(cfg, "REQUIRE_STABLE_UID", True)),
         verbose=bool(getattr(cfg, "VERBOSE", True)),
-        sort_by=getattr(cfg, "SORT_BY", "likelihood_optimal_score_mean"),
-        ascending=bool(getattr(cfg, "ASCENDING", False)),
-    )
-
+        sort_by=getattr(cfg, "SORT_BY", "likelihood_optimal_score_mean",),
+        ascending=bool(getattr(cfg, "ASCENDING", False,)),
+        bootstrap_config=getattr(cfg, "BOOTSTRAP", None,),
+        )
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)

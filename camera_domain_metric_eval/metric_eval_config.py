@@ -1,9 +1,9 @@
 """Configuration for offline camera-domain marked-PPP evaluation."""
 
 H5_DIRS = {
-    "1069846_ppp_finals_unet_54k_metric_eval_CamDom": "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals_cam/1069846_ppp_finals_unet_54k_metric_eval_CamDom/20260728_023617/metric_eval_data/test",
-    # "UPerNet": "/path/to/run/timestamp/metric_eval_data/test",
-    # "Transformer": "/path/to/run/timestamp/metric_eval_data/test",
+    "1069846_ppp_finals_unet_54k": "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals_cam/1069846_ppp_finals_unet_54k_metric_eval_CamDom/20260728_023617/metric_eval_data/test",
+    # "1070556_ppp_finals_upernet_run2_21k": "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals_cam/1070556_ppp_finals_upernet_run2_21k_metric_eval_CamDom/20260728_080119/metric_eval_data/test",
+    # "1069890_ppp_finals_TrafoEnc_CamDom_24k": "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals_cam/1069890_ppp_finals_TrafoEnc_CamDom_24k_CamDom_metric_eval/20260728_024516/metric_eval_data/test",
 }
 
 OUTPUT_DIR = "./camera_metric_results"
@@ -12,8 +12,8 @@ VERBOSE = True
 FAIL_FAST = True
 
 # Model comparison is only meaningful on exactly the same physical frames.
-STRICT_SAMPLE_MATCH = True
-REQUIRE_STABLE_UID = True
+STRICT_SAMPLE_MATCH = False
+REQUIRE_STABLE_UID = False
 
 METRICS = {
     "expected_count": {
@@ -55,3 +55,32 @@ METRICS = {
 # Higher optimized log-likelihood is better.
 SORT_BY = "likelihood_optimal_score_mean"
 ASCENDING = False
+
+BOOTSTRAP = {
+    "enabled": True,
+
+    # Number of paired bootstrap resamples.
+    "num_resamples": 5000,
+
+    # Percentile confidence interval.
+    "confidence_level": 0.95,
+
+    # Fixed seed for reproducibility.
+    "seed": 20260731,
+
+    "metrics": [
+        # Expected count
+        "count_bias",
+        "count_error_std",
+        "count_rmse",
+
+        # Spatial PPP score
+        "likelihood_optimal_score_mean",
+        "likelihood_optimal_sigma_px_mean",
+
+        # Mark prediction
+        "depth_mae_global",
+        "velocity_mae_global",
+        "rcs_mae_global",
+    ],
+}

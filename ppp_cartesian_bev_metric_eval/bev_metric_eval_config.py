@@ -3,26 +3,38 @@
 # One exported HDF5 directory per model. All exports must use the same fixed
 # Cartesian BEV raster and, in strict alignment mode, the same sample IDs.
 H5_DIRS = {
-    # "1049055_ppp_finals_unet_54k": (
-    #     "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
-    #     "/1049055_ppp_finals_unet_54k_BEVDom_metric_eval/20260727_004505/metric_eval_data_dense_bev_cartesian/test"
-    # ),   
-    # "1069696_ppp_finals_unet_54k_woVel": (
+    "1049055_ppp_finals_unet_54k": (
+        "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
+        "/1049055_ppp_finals_unet_54k_BEVDom_metric_eval/20260727_004505/metric_eval_data_dense_bev_cartesian/test"
+    ),   
+    "1069696_ppp_finals_unet_54k_woVel": (
+            "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
+            "/1069696_ppp_finals_unet_54k_woVel_BEVDom_metric_eval/20260728_011752/metric_eval_data_dense_bev_cartesian/test"
+        ), 
+    # "1103559_ppp_finals_unet_54k_woVel_woRCS": (
     #         "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
-    #         "/1069696_ppp_finals_unet_54k_woVel_BEVDom_metric_eval/20260728_011752/metric_eval_data_dense_bev_cartesian/test"
-        # ), 
-    "1068641_ppp_finals_TrafoEnc_BEVpolDom_20k": (
-        "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
-        "/1068641_ppp_finals_TrafoEnc_BEVpolDom_20k_metric_eval/20260727_231606/metric_eval_data_dense_bev_cartesian/test"
-    ),
-    "1070540_ppp_finals_TrafoEncDec_run2_20k": (
-        "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
-        "/1070540_ppp_finals_TrafoEncDec_run2_20k_metric_eval/20260728_075537/metric_eval_data_dense_bev_cartesian/test"
-    ),
+    #         "/1103559_ppp_finals_unet_54k_woVel_woRCS_metric_eval_BEVDom/20260730_130436/metric_eval_data_dense_bev_cartesian/test"
+    #     ), 
+    # "1104743_ppp_finals_upernet_run3_50k": (
+    #             "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
+    #             "/1104743_ppp_finals_upernet_run3_50k_metric_eval_BEVDom/20260730_144533/metric_eval_data_dense_bev_cartesian/test"
+    #         ), 
     # "1069376_ppp_finals_TrafoEnc_CamDom_24k": (
     #     "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
     #     "/1069376_ppp_finals_TrafoEnc_CamDom_24k_BEVDom_metric_eval/20260728_003228/metric_eval_data_dense_bev_cartesian/test"
     # ),
+    # "1068641_ppp_finals_TrafoEnc_BEVpolDom_20k": (
+    #     "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
+    #     "/1068641_ppp_finals_TrafoEnc_BEVpolDom_20k_metric_eval/20260727_231606/metric_eval_data_dense_bev_cartesian/test"
+    # ),
+    # "1070540_ppp_finals_TrafoEncDec_run2_20k": (
+    #     "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
+    #     "/1070540_ppp_finals_TrafoEncDec_run2_20k_metric_eval/20260728_075537/metric_eval_data_dense_bev_cartesian/test"
+    # ),
+    # "1104652_ppp_finals_TrafoEncDec_20k_woVel": (
+    #         "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
+    #         "/1104652_ppp_finals_TrafoEncDec_run2_20k_woVel_metric_eval_BEVDom/20260730_143511/metric_eval_data_dense_bev_cartesian/test"
+    #     ), 
 }
 
 OUTPUT_DIR = "./cartesian_bev_metric_results"
@@ -67,6 +79,7 @@ METRICS = {
         "velocity_mode": "signed",
         "use_circular_velocity": True,
         "require_doppler_period": True,
+        "velocity_gt_abs_min": 0.5,
     },
     "radargen": {
         "enabled": True,
@@ -106,3 +119,44 @@ METRICS = {
 # Higher likelihood is better. For Chamfer and MMD use ASCENDING=True.
 SORT_BY = "likelihood_optimal_score_mean"
 ASCENDING = False
+
+BOOTSTRAP = {
+    "enabled": True,
+
+    # 5000 is sufficient for stable percentile intervals.
+    "num_resamples": 5000,
+
+    "confidence_level": 0.95,
+    "seed": 20260731,
+
+    "metrics": [
+        # Count
+        "count_error_mean",
+        "count_error_std",
+        "count_rmse",
+
+        # PPP likelihood
+        "likelihood_optimal_score_mean",
+        "likelihood_optimal_sigma_m_mean",
+
+        # Mark prediction
+        "velocity_mae_global",
+        "velocity_nonzero_mae_global",
+        "rcs_mae_global",
+
+        # RadarGen geometry
+        "radargen_thinning_chamfer_location_m_mean",
+        "radargen_thinning_chamfer_full_normalized_mean",
+        "radargen_thinning_iou_1m_mean",
+
+        # RadarGen distance-attribute matching
+        "radargen_thinning_da_recall_mean",
+        "radargen_thinning_da_precision_mean",
+        "radargen_thinning_da_f1_mean",
+
+        # RadarGen distributional metrics
+        "radargen_thinning_mmd_location_mean",
+        "radargen_thinning_mmd_rcs_mean",
+        "radargen_thinning_mmd_velocity_mean",
+    ],
+}
