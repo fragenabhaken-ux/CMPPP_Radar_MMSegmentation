@@ -137,7 +137,7 @@ batch_size_val = 14
 
 # ----------------------------
 
-num_samples_val = 300
+num_samples_val = 2000
 
 val_dataloader = dict(
     batch_size=batch_size_val,
@@ -192,7 +192,7 @@ val_dataloader = dict(
     )
 )
 
-num_samples_test = 300
+num_samples_test = 2000
 
 test_dataloader = dict(
     batch_size=batch_size_test,

@@ -18,12 +18,19 @@ TrafoEncDec:/e/scratch/nxtaim-1/huber7/work_dirs/1041329_ppp_finals_TrafoEncDec_
     ;;
   2)
     tensorboard --logdir_spec="\
-UperNet:/e/scratch/nxtaim-1/huber7/work_dirs/1069825_ppp_finals_upernet_run2_21k/20260728_022912/vis_data/"\
+UNet:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041277_ppp_finals_unet_54k/20260725_062756/vis_data/,\
+UNet_woVel:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041278_ppp_finals_unet_54k_woVel/20260725_062804/vis_data/,\ 
+UNet_woVel_woRCS:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1047407_ppp_finals_unet_54k_woVel_woRCS/20260726_145120/vis_data/,\
+TrafoEnc_CamDom:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041091_ppp_finals_TrafoEnc_CamDom_24k/20260725_060602/vis_data/,\ 
+TrafoEnc_BEVpolDom:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041092_ppp_finals_TrafoEnc_BEVpolDom_20k/20260725_060631/vis_data/,\ 
+TrafoEncDec:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_2/1065402_ppp_finals_TrafoEncDec_run2_20k/20260727_201415/vis_data/,\ 
+UperNet:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_2/1096822_ppp_finals_upernet_run3_50k/20260730_015303/vis_data/"\
     --port=12357 serve
     ;;
     3)
     tensorboard --logdir_spec="\
-1041091_ppp_finals_TrafoEnc_CamDom_24k:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041091_ppp_finals_TrafoEnc_CamDom_24k/20260725_060602/vis_data/"\
+TrafoEnc_BEVpolDom:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041092_ppp_finals_TrafoEnc_BEVpolDom_20k/20260725_060631/vis_data/,\ 
+TrafoEncDec:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_2/1065402_ppp_finals_TrafoEncDec_run2_20k/20260727_201415/vis_data/"\
     --port=12355 serve
     ;;
     4)
@@ -34,15 +41,19 @@ UperNet_run2:/e/scratch/nxtaim-1/huber7/work_dirs/1069825_ppp_finals_upernet_run
     ;;  
     5)
     tensorboard --logdir_spec="\
-dinov3_LoRA_V3_fullMarkAbsVel_25k:/e/scratch/nxtaim-1/huber7/work_dirs/946592_ppp_dinov3_LoRA_V3_fullMarkAbsVel_25k/20260622_154135/"\
+UperNet:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_2/1096822_ppp_finals_upernet_run3_50k/20260730_015303/vis_data/"\
     --port=12355 serve
     ;;
     6)
     tensorboard --logdir_spec="\
-UNet_50k:/e/scratch/nxtaim-1/huber7/data/260615_unet_50k/858912_ppp_unet_50k/20260614_011350/vis_data/,\
-dinov3_polar_log_depth:/e/scratch/nxtaim-1/huber7/data/260617_dinov3_LoRA_V3/889927_ppp_dinov3_LoRA_V3_25k/20260615_231613/vis_data/,\
-dinov3_polar_disp_depth:/e/scratch/nxtaim-1/huber7/data/260617_dinov3_LoRA_V3/906347_ppp_dinov3_LoRA_V3_disparity_25k/20260617_043344/vis_data/,\
-dinov3_polar_log_depth_velAbs:/e/scratch/nxtaim-1/huber7/data/260617_dinov3_LoRA_V3/946592_ppp_dinov3_LoRA_V3_fullMarkAbsVel_25k/20260622_154135/vis_data/"\
+UNet:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041277_ppp_finals_unet_54k/20260725_062756/vis_data/,\ 
+UNet_woVel:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041278_ppp_finals_unet_54k_woVel/20260725_062804/vis_data/,\ 
+UNet_woVel_woRCS:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1047407_ppp_finals_unet_54k_woVel_woRCS/20260726_145120/vis_data/,\
+UperNet:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_2/1096822_ppp_finals_upernet_run3_50k/20260730_015303/vis_data/,\ 
+TrafoEnc_CamDom:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041091_ppp_finals_TrafoEnc_CamDom_24k/20260725_060602/vis_data/,\ 
+TrafoEnc_BEVpolDom:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041092_ppp_finals_TrafoEnc_BEVpolDom_20k/20260725_060631/vis_data/,\ 
+TrafoEncDec:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_2/1065402_ppp_finals_TrafoEncDec_run2_20k/20260727_201415/vis_data/,\ 
+TrafoEncDec_woVel:/e/scratch/nxtaim-1/huber7/work_dirs/1096858_ppp_finals_TrafoEncDec_run2_20k_woVel/20260730_015622/vis_data/"\
     --port=12355 serve
     ;;  
     7)
