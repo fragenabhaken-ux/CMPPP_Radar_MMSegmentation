@@ -106,7 +106,7 @@ def _call_with_supported_kwargs(fn, *args, **kwargs):
 
 @MODELS.register_module()
 class LoRAMultiLayerTIMMBackbone(BaseModule):
-    """Frozen timm DINOv3/EVA ViT backbone with LoRA and multi-layer fusion.
+    """timm DINOv3/EVA ViT backbone with optional LoRA and multi-layer fusion.
 
     It extracts several ViT block outputs, projects each selected feature to a
     smaller channel count, concatenates them, fuses them, and returns one NCHW
@@ -133,6 +133,7 @@ class LoRAMultiLayerTIMMBackbone(BaseModule):
         in_channels=3,
         patch_size=16,
         frozen_base=True,
+        use_lora=True,
         lora_r=8,
         lora_alpha=16.0,
         lora_dropout=0.0,
@@ -162,10 +163,18 @@ class LoRAMultiLayerTIMMBackbone(BaseModule):
         self.patch_size = int(patch_size)
 
         self.frozen_base = bool(frozen_base)
+        self.use_lora = bool(use_lora)
         self.lora_r = int(lora_r)
         self.lora_alpha = float(lora_alpha)
         self.lora_dropout = float(lora_dropout)
         self.target_modules = tuple(target_modules)
+
+        if self.use_lora and self.lora_r <= 0:
+            raise ValueError(
+                "lora_r must be positive when use_lora=True. "
+                f"Got lora_r={self.lora_r}. Set use_lora=False to train "
+                "the unmodified backbone without LoRA."
+            )
 
         self.out_indices = tuple(int(i) for i in out_indices)
         self.in_feature_channels = int(in_feature_channels)
@@ -202,13 +211,19 @@ class LoRAMultiLayerTIMMBackbone(BaseModule):
                 "Set use_fuse_conv=True to allow a final projection."
             )
 
-        self.timm_model = timm.create_model(
+        create_model_kwargs = dict(
             model_name=model_name,
             pretrained=pretrained,
-            checkpoint_path=checkpoint_path,
             in_chans=in_channels,
             **kwargs,
         )
+
+        # Omit checkpoint_path completely for ordinary random initialization.
+        # This also avoids passing None to timm versions that expect a string.
+        if checkpoint_path:
+            create_model_kwargs["checkpoint_path"] = checkpoint_path
+
+        self.timm_model = timm.create_model(**create_model_kwargs)
 
         if hasattr(self.timm_model, "global_pool"):
             self.timm_model.global_pool = None
@@ -220,7 +235,11 @@ class LoRAMultiLayerTIMMBackbone(BaseModule):
         if self.frozen_base:
             self.freeze_base()
 
-        self.inject_lora()
+        if self.use_lora:
+            self.inject_lora()
+        else:
+            self.lora_module_names = []
+
         self._check_intermediate_support()
 
         self.layer_projs = nn.ModuleList([
@@ -252,7 +271,11 @@ class LoRAMultiLayerTIMMBackbone(BaseModule):
             self.fuse = nn.Identity()
 
         if self.verbose:
-            self.log_lora_summary()
+            if self.use_lora:
+                self.log_lora_summary()
+            else:
+                self.log_parameter_summary()
+
             self.log_intermediate_summary()
 
         if pretrained or checkpoint_path:
@@ -483,6 +506,18 @@ class LoRAMultiLayerTIMMBackbone(BaseModule):
             name for name, p in self.named_parameters()
             if p.requires_grad
         ]
+
+    def log_parameter_summary(self):
+        """Log the parameter counts when LoRA is disabled."""
+        summary = self.get_parameter_summary()
+
+        self._log_info(
+            "Backbone parameter summary without LoRA: "
+            f"trainable={summary['trainable']:,}, "
+            f"frozen={summary['frozen']:,}, "
+            f"total={summary['total']:,}, "
+            f"trainable_ratio={summary['trainable_ratio']:.4f}%"
+        )
 
     def log_lora_summary(self):
         summary = self.get_parameter_summary()

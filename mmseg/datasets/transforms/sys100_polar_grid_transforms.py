@@ -140,6 +140,13 @@ class BuildPPPPolarGrid(BaseTransform):
         gt = self._empty_target()
         num_input_points = int(polar.shape[0])
 
+        # Exact continuous points are retained for camera-domain visualization.
+        # polar_gt_points contains every finite point inside the configured
+        # domain. polar_target_points contains the subset that survives the
+        # one-point-per-cell collision policy used by the dense target.
+        polar_gt_points = np.zeros((0, 4), dtype=np.float32)
+        polar_target_points = np.zeros((0, 4), dtype=np.float32)
+
         if num_input_points == 0:
             num_in_domain = 0
             num_target_points = 0
@@ -169,6 +176,12 @@ class BuildPPPPolarGrid(BaseTransform):
             velocity = velocity[in_domain]
             rcs = rcs[in_domain]
             num_in_domain = int(r.shape[0])
+
+            if num_in_domain > 0:
+                polar_gt_points = np.stack(
+                    (r, theta, velocity, rcs),
+                    axis=1,
+                ).astype(np.float32, copy=False)
 
             if num_in_domain == 0:
                 num_target_points = 0
@@ -214,11 +227,19 @@ class BuildPPPPolarGrid(BaseTransform):
                 gt[kept_r_idx, kept_theta_idx, 1] = velocity[keep]
                 gt[kept_r_idx, kept_theta_idx, 2] = rcs[keep]
 
+                polar_target_points = np.stack(
+                    (r[keep], theta[keep], velocity[keep], rcs[keep]),
+                    axis=1,
+                ).astype(np.float32, copy=False)
+
                 num_target_points = int(keep.shape[0])
                 collision_count = num_in_domain - num_target_points
 
         results["gt_seg_map"] = gt
         results["seg_fields"] = ["gt_seg_map"]
+        results["polar_gt_points"] = polar_gt_points
+        results["polar_target_points"] = polar_target_points
+        results["polar_point_columns"] = ("r", "theta", "velocity", "rcs")
 
         results["polar_grid_shape"] = self.grid_shape
         results["polar_r_min"] = self.r_min
@@ -246,6 +267,9 @@ class BuildPPPPolarGrid(BaseTransform):
                 polar_num_in_domain_points=num_in_domain,
                 polar_num_target_points=num_target_points,
                 polar_collision_count=collision_count,
+                polar_gt_points=polar_gt_points.copy(),
+                polar_target_points=polar_target_points.copy(),
+                polar_point_columns=("r", "theta", "velocity", "rcs"),
             )
         )
 
@@ -260,6 +284,14 @@ class BuildPPPPolarGrid(BaseTransform):
             if int(occupied.sum()) != num_target_points:
                 raise AssertionError(
                     "Occupied-cell count does not match polar_num_target_points."
+                )
+            if polar_gt_points.shape != (num_in_domain, 4):
+                raise AssertionError(
+                    "polar_gt_points does not match the in-domain point count."
+                )
+            if polar_target_points.shape != (num_target_points, 4):
+                raise AssertionError(
+                    "polar_target_points does not match the target point count."
                 )
             if np.any(gt[..., 1][~occupied] != 0.0):
                 raise AssertionError("Velocity is nonzero in an empty cell.")
@@ -277,8 +309,15 @@ class PPPPackPolarGridInputs(BaseTransform):
     meanings and may have different shapes. No resizing of the target is done.
     """
 
-    def __init__(self, debug_checks: bool = False) -> None:
+    def __init__(
+        self,
+        debug_checks: bool = False,
+        rel_x_centre: float = 0.491,
+        rel_y_centre: float = 0.4370,
+    ) -> None:
         self.debug_checks = bool(debug_checks)
+        self.rel_x_centre = float(rel_x_centre)
+        self.rel_y_centre = float(rel_y_centre)
 
     def transform(self, results: Dict[str, Any]) -> Dict[str, Any]:
         image = results["img"]
@@ -349,6 +388,29 @@ class PPPPackPolarGridInputs(BaseTransform):
                 polar_collision_count=int(
                     results["polar_collision_count"]
                 ),
+                camera_rel_x_centre=self.rel_x_centre,
+                camera_rel_y_centre=self.rel_y_centre,
+            )
+        )
+
+        for key in ("polar_gt_points", "polar_target_points"):
+            if key not in results:
+                raise KeyError(
+                    f"Missing results[{key!r}]. Use BuildPPPPolarGrid before "
+                    "PPPPackPolarGridInputs."
+                )
+            points = _as_numpy_float32(results[key])
+            if points.ndim != 2 or points.shape[1] != 4:
+                raise ValueError(
+                    f"Expected results[{key!r}] with shape [N, 4], "
+                    f"got {points.shape}."
+                )
+            metainfo[key] = points.copy()
+
+        metainfo["polar_point_columns"] = tuple(
+            results.get(
+                "polar_point_columns",
+                ("r", "theta", "velocity", "rcs"),
             )
         )
 
@@ -393,6 +455,18 @@ class PPPPackPolarGridInputs(BaseTransform):
                 raise AssertionError(
                     f"Target shape {tuple(gt.shape[-2:])} does not match "
                     f"polar_grid_shape {expected_shape}."
+                )
+            if metainfo["polar_gt_points"].shape[0] != int(
+                metainfo["polar_num_in_domain_points"]
+            ):
+                raise AssertionError(
+                    "Packed exact GT-point count does not match metadata."
+                )
+            if metainfo["polar_target_points"].shape[0] != int(
+                metainfo["polar_num_target_points"]
+            ):
+                raise AssertionError(
+                    "Packed target-point count does not match metadata."
                 )
 
         return dict(inputs=image, data_samples=data_sample)

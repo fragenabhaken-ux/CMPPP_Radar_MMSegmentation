@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ppp_finals_TrafoEncDec_LRRange
+#SBATCH --job-name=ppp_finals_TrafoEnc_2_BEVpolDom_LRRange
 #SBATCH --account=nxtaim-1
 #SBATCH --partition=booster
 #SBATCH --nodes=1
@@ -41,7 +41,8 @@ echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 # CONFIG="configs/ppp_finals_UperNet/ppp_finals_upernet_LRRange.py"
 # CONFIG="configs/ppp_finals_TrafoEnc_CamDom/ppp_finals_TrafoEnc_CamDom_LRRange.py"
 # CONFIG="configs/ppp_finals_TrafoEnc_BEVpolDom/ppp_finals_TrafoEnc_BEVpolDom_LRRange.py"
-CONFIG="configs/ppp_finals_TrafoEncDec/ppp_finals_TrafoEncDec_LRRange.py"
+# CONFIG="configs/ppp_finals_TrafoEncDec/ppp_finals_TrafoEncDec_LRRange.py"
+CONFIG="configs/ppp_finals_TrafoEnc_2_BEVpolDom/ppp_finals_TrafoEnc_2_BEVpolDom_LRRange.py"
 
 WORK_DIR="/e/scratch/nxtaim-1/huber7/work_dirs/${SLURM_JOB_ID}_${SLURM_JOB_NAME}"
 

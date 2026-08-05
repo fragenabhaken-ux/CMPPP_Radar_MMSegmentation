@@ -30,7 +30,7 @@ UperNet:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_2/1096822_ppp_finals_u
     3)
     tensorboard --logdir_spec="\
 TrafoEnc_BEVpolDom:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041092_ppp_finals_TrafoEnc_BEVpolDom_20k/20260725_060631/vis_data/,\ 
-TrafoEncDec:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_2/1065402_ppp_finals_TrafoEncDec_run2_20k/20260727_201415/vis_data/"\
+TrafoEnc_BEVpolDom_8nodes:/e/scratch/nxtaim-1/huber7/work_dirs/1235873_ppp_finals_TrafoEnc_BEVpolDom_19k_8nodes/20260804_181238/vis_data/"\
     --port=12355 serve
     ;;
     4)
