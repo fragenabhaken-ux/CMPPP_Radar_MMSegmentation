@@ -11,8 +11,6 @@ from .dpt_head import DPTHead
 from .ema_head import EMAHead
 from .enc_head import EncHead
 from .fcn_head import FCNHead
-from .ppp_head import PPPHead
-from .ppp_head_v2 import PPPHead_V2
 from .fpn_head import FPNHead
 from .gc_head import GCHead
 from .ham_head import LightHamHead
@@ -37,20 +35,7 @@ from .setr_up_head import SETRUPHead
 from .stdc_head import STDCHead
 from .uper_head import UPerHead
 from .vpd_depth_head import VPDDepthHead
-from .ppp_mark_head import PPPMarkHead
-from .ppp_mark_uper_head import PPPMarkUperHead
-from .ppp_mark_head_wo_bottlenck import PPPMarkHeadWoBottleneck
-from .ppp_mark_unet_head import PPPMarkUNetHead
-from .ppp_mark_vit_upsample_head import PPPMarkViTUpsampleHead
-from .ppp_mark_vit_patch_rearrange_head import PPPMarkViTPatchRearrangeHead
-from .ppp_mark_vit_patch_rearrange_multitask_head import PPPMarkViTPatchRearrangeMultiTaskHead
-from .ppp_mark_vit_patch_rearrange_multitask_twodepth_head import PPPMarkViTPatchRearrangeMultiTaskTwoDepthHead
-from .ppp_mark_vit_patch_rearrange_head_disparity_depth import PPPMarkViTPatchRearrangeDisparityDepthHead
-from .ppp_mark_unet_depth_loss_head import PPPMarkUNetDepthLossHead
-from .ppp_polar_liif_ppp_head import PolarLIIFPPPHead
 from .ppp_finals_polar_liif_head import PPPfinalsPolarLIIFPPPHead
-from .ppp_finals_unet_head import PPPfinalsUNetDepthLossHead
-from .ppp_finals_uper_head import PPPfinalsUperHead
 from .ppp_finals_vit_patch_rearrange_head_polarBEV import PPPPolarViTPatchRearrangeHead
 from .ppp_finals_vit_patch_rearrange_head import PPPfinalsViTPatchRearrangeHead
 
@@ -63,10 +48,6 @@ __all__ = [
     'SegformerHead', 'ISAHead', 'STDCHead', 'IterativeDecodeHead',
     'KernelUpdateHead', 'KernelUpdator', 'MaskFormerHead', 'Mask2FormerHead',
     'LightHamHead', 'PIDHead', 'DDRHead', 'VPDDepthHead', 'SideAdapterCLIPHead',
-    'PPPHead', 'PPPHead_V2', 'PPPMarkHead', 'PPPMarkUperHead', 'PPPMarkHeadWoBottleneck',
-    'PPPMarkUNetHead', 'PPPMarkViTUpsampleHead', 'PPPMarkViTPatchRearrangeHead',
-    'PPPMarkViTPatchRearrangeMultiTaskHead', 'PPPMarkViTPatchRearrangeMultiTaskTwoDepthHead',
-    'PPPMarkViTPatchRearrangeDisparityDepthHead', 'PPPMarkUNetDepthLossHead',
-    'PolarLIIFPPPHead', 'PPPfinalsPolarLIIFPPPHead', 'PPPfinalsUperHead', 'PPPPolarViTPatchRearrangeHead',
-    'PPPfinalsViTPatchRearrangeHead', 'PPPfinalsUNetDepthLossHead'
+    'PPPfinalsPolarLIIFPPPHead', 'PPPPolarViTPatchRearrangeHead',
+    'PPPfinalsViTPatchRearrangeHead'
 ]
