@@ -311,270 +311,149 @@ def summarize_results(
 
 def bootstrap_summary_confidence_intervals(
     df_samples: pd.DataFrame,
-    *,
-    metrics: list[str] | tuple[str, ...],
+    metrics: list[str],
     num_resamples: int = 5000,
     confidence_level: float = 0.95,
     seed: int = 20260731,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Compute paired percentile-bootstrap confidence intervals.
+    """
+    Compute independent bootstrap confidence intervals for each model.
 
-    Evaluation samples are drawn with replacement. The same sampled
-    positions are used for every model in each bootstrap repetition,
-    preserving the paired comparison between models.
-
-    The complete model summary is recomputed for every bootstrap sample.
-    This correctly handles nonlinear or weighted statistics such as count
-    RMSE and global point-weighted mark MAEs.
+    Each model is bootstrapped from its own successfully evaluated samples.
+    Sample IDs and sample counts do not need to match between models.
     """
     if num_resamples <= 0:
-        raise ValueError(
-            "num_resamples must be positive."
-        )
+        raise ValueError("num_resamples must be positive.")
 
     if not 0.0 < confidence_level < 1.0:
         raise ValueError(
             "confidence_level must lie strictly between 0 and 1."
         )
 
-    successful = df_samples[
-        df_samples["evaluation_status"] == "ok"
-    ].copy()
+    if not metrics:
+        raise ValueError("metrics must not be empty.")
+
+    if df_samples.empty:
+        return pd.DataFrame(), pd.DataFrame()
+
+    successful = df_samples.copy()
+
+    if "evaluation_status" in successful.columns:
+        successful = successful[
+            successful["evaluation_status"] == "ok"
+        ].copy()
 
     if successful.empty:
         raise ValueError(
-            "Cannot bootstrap because no samples were evaluated "
-            "successfully."
+            "No successfully evaluated samples are available "
+            "for bootstrapping."
         )
 
-    # Paired bootstrapping requires stable physical-frame identifiers and
-    # exactly the same evaluation samples for every model.
-    validate_sample_alignment(
-        successful,
-        require_stable_uid=True,
-    )
+    models = list(successful["model"].dropna().unique())
 
-    models = successful[
-        "model"
-    ].drop_duplicates().tolist()
-
-    if not models:
-        raise ValueError(
-            "No models found in df_samples."
-        )
-
-    model_tables: dict[str, pd.DataFrame] = {}
-
-    for model in models:
-        table = successful[
-            successful["model"] == model
-        ].copy()
-
-        table["sample_uid"] = table[
-            "sample_uid"
-        ].astype(str)
-
-        if bool(table["sample_uid"].duplicated().any()):
-            duplicates = table.loc[
-                table["sample_uid"].duplicated(keep=False),
-                "sample_uid",
-            ].tolist()
-
-            raise ValueError(
-                f"Model {model!r} contains duplicate sample UIDs: "
-                f"{duplicates[:5]}"
-            )
-
-        model_tables[model] = table.set_index(
-            "sample_uid",
-            drop=False,
-        )
-
-    reference_model = models[0]
-    reference_uids = sorted(
-        model_tables[reference_model].index.tolist()
-    )
-    reference_uid_set = set(reference_uids)
-
-    for model in models[1:]:
-        model_uid_set = set(
-            model_tables[model].index.tolist()
-        )
-
-        if model_uid_set != reference_uid_set:
-            missing = sorted(
-                reference_uid_set - model_uid_set
-            )
-            extra = sorted(
-                model_uid_set - reference_uid_set
-            )
-
-            raise ValueError(
-                "Paired bootstrapping requires identical samples "
-                "for every model. "
-                f"Model {model!r}: missing={len(missing)}, "
-                f"extra={len(extra)}, "
-                f"first_missing={missing[:5]}, "
-                f"first_extra={extra[:5]}"
-            )
-
-    # Put every model in exactly the same physical-sample order.
-    aligned_tables = {
-        model: (
-            model_tables[model]
-            .loc[reference_uids]
-            .reset_index(drop=True)
-        )
-        for model in models
-    }
-
-    original_summary = summarize_results(
-        successful,
-        sort_by="",
-        ascending=False,
-    )
-
-    missing_metrics = [
-        metric
-        for metric in metrics
-        if metric not in original_summary.columns
-    ]
-
-    if missing_metrics:
-        raise KeyError(
-            "The following requested bootstrap metrics are not "
-            "produced by summarize_results(): "
-            f"{missing_metrics}"
-        )
-
-    rng = np.random.default_rng(seed)
-    num_samples = len(reference_uids)
+    seed_sequences = np.random.SeedSequence(seed).spawn(len(models))
 
     replicate_rows: list[dict[str, Any]] = []
 
-    for bootstrap_index in range(num_resamples):
-        # Draw N sample positions from N original samples, with replacement.
-        sampled_positions = rng.integers(
-            low=0,
-            high=num_samples,
-            size=num_samples,
+    for model, model_seed in zip(models, seed_sequences):
+        model_table = (
+            successful[successful["model"] == model]
+            .reset_index(drop=True)
         )
 
-        # Use the same bootstrap draw for every model.
-        bootstrap_samples = pd.concat(
-            [
-                aligned_tables[model]
-                .iloc[sampled_positions]
-                .copy()
-                for model in models
-            ],
-            ignore_index=True,
-        )
+        n_samples = len(model_table)
 
-        bootstrap_summary = summarize_results(
-            bootstrap_samples,
-            sort_by="",
-            ascending=False,
-        )
+        if n_samples == 0:
+            continue
 
-        for _, summary_row in bootstrap_summary.iterrows():
-            replicate: dict[str, Any] = {
+        rng = np.random.default_rng(model_seed)
+
+        for bootstrap_index in range(num_resamples):
+            sampled_positions = rng.integers(
+                low=0,
+                high=n_samples,
+                size=n_samples,
+            )
+
+            sampled_table = (
+                model_table.iloc[sampled_positions]
+                .reset_index(drop=True)
+            )
+
+            sampled_summary = summarize_results(
+                sampled_table,
+                sort_by=None,
+                ascending=False,
+            )
+
+            if sampled_summary.empty:
+                continue
+
+            summary_row = sampled_summary.iloc[0]
+
+            replicate_row: dict[str, Any] = {
+                "model": model,
                 "bootstrap_index": bootstrap_index,
-                "model": summary_row["model"],
+                "bootstrap_n_samples": n_samples,
             }
 
             for metric in metrics:
-                value = summary_row.get(
-                    metric,
-                    np.nan,
+                if metric not in summary_row.index:
+                    raise ValueError(
+                        f"Bootstrap metric {metric!r} is not produced by "
+                        f"summarize_results(). Available columns: "
+                        f"{sorted(sampled_summary.columns)}"
+                    )
+
+                replicate_row[metric] = pd.to_numeric(
+                    summary_row[metric],
+                    errors="coerce",
                 )
 
-                replicate[metric] = (
-                    float(value)
-                    if pd.notna(value)
-                    else np.nan
-                )
+            replicate_rows.append(replicate_row)
 
-            replicate_rows.append(replicate)
+    df_replicates = pd.DataFrame(replicate_rows)
 
-    df_replicates = pd.DataFrame(
-        replicate_rows
-    )
-
-    alpha = (
-        1.0 - confidence_level
-    ) / 2.0
-
-    confidence_percent = int(
-        round(confidence_level * 100.0)
-    )
+    alpha = 1.0 - confidence_level
+    lower_quantile = alpha / 2.0
+    upper_quantile = 1.0 - alpha / 2.0
 
     ci_rows: list[dict[str, Any]] = []
 
-    for model, group in df_replicates.groupby(
-        "model",
-        sort=False,
-    ):
+    for model in models:
+        model_replicates = df_replicates[
+            df_replicates["model"] == model
+        ]
+
         ci_row: dict[str, Any] = {
             "model": model,
+            "bootstrap_num_resamples": len(model_replicates),
+            "bootstrap_confidence_level": confidence_level,
         }
 
         for metric in metrics:
             values = pd.to_numeric(
-                group[metric],
+                model_replicates[metric],
                 errors="coerce",
             ).to_numpy(dtype=np.float64)
 
-            finite = values[
-                np.isfinite(values)
-            ]
+            values = values[np.isfinite(values)]
 
-            low_name = (
-                f"{metric}_ci{confidence_percent}_low"
-            )
-            high_name = (
-                f"{metric}_ci{confidence_percent}_high"
-            )
-            se_name = (
-                f"{metric}_bootstrap_se"
-            )
-            n_name = (
-                f"{metric}_bootstrap_n_valid"
-            )
-
-            if finite.size == 0:
-                ci_row[low_name] = np.nan
-                ci_row[high_name] = np.nan
-                ci_row[se_name] = np.nan
-                ci_row[n_name] = 0
-                continue
-
-            ci_row[low_name] = float(
-                np.quantile(
-                    finite,
-                    alpha,
+            if len(values) == 0:
+                lower = np.nan
+                upper = np.nan
+            else:
+                lower, upper = np.quantile(
+                    values,
+                    [lower_quantile, upper_quantile],
                 )
-            )
-            ci_row[high_name] = float(
-                np.quantile(
-                    finite,
-                    1.0 - alpha,
-                )
-            )
-            ci_row[se_name] = (
-                float(finite.std(ddof=1))
-                if finite.size > 1
-                else np.nan
-            )
-            ci_row[n_name] = int(
-                finite.size
-            )
+
+            ci_row[f"{metric}_ci95_low"] = float(lower)
+            ci_row[f"{metric}_ci95_high"] = float(upper)
 
         ci_rows.append(ci_row)
 
-    df_ci = pd.DataFrame(ci_rows)
-
-    return df_ci, df_replicates
+    return pd.DataFrame(ci_rows), df_replicates
 
 def run_comparison(
     h5_dirs: dict[str, str],

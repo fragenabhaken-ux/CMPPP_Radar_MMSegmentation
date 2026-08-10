@@ -3,37 +3,45 @@
 # One exported HDF5 directory per model. All exports must use the same fixed
 # Cartesian BEV raster and, in strict alignment mode, the same sample IDs.
 H5_DIRS = {
-    "1049055_ppp_finals_unet_54k": (
+    "1140228_ppp_finals_unet_54k": (
         "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
-        "/1049055_ppp_finals_unet_54k_BEVDom_metric_eval/20260727_004505/metric_eval_data_dense_bev_cartesian/test"
+        "/1140228_ppp_finals_unet_54k_metric_eval_BEVDom/20260731_160945/metric_eval_data_dense_bev_cartesian/test"
     ),   
-    "1069696_ppp_finals_unet_54k_woVel": (
+    "1140233_ppp_finals_unet_54k_woVel": (
             "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
-            "/1069696_ppp_finals_unet_54k_woVel_BEVDom_metric_eval/20260728_011752/metric_eval_data_dense_bev_cartesian/test"
+            "/1140233_ppp_finals_unet_54k_woVel_metric_eval_BEVDom/20260731_161010/metric_eval_data_dense_bev_cartesian/test"
         ), 
-    # "1103559_ppp_finals_unet_54k_woVel_woRCS": (
+    "1140234_ppp_finals_unet_54k_woVel_woRCS": (
+            "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
+            "/1140234_ppp_finals_unet_54k_woVel_woRCS_metric_eval_BEVDom/20260731_161028/metric_eval_data_dense_bev_cartesian/test"
+        ),
+    "1140280_ppp_finals_TrafoEnc_CamDom_24k": (
+        "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
+        "/1140280_ppp_finals_TrafoEnc_CamDom_24k_BEVDom_metric_eval/20260731_161159/metric_eval_data_dense_bev_cartesian/test"
+    ),
+    "1140226_ppp_finals_TrafoEnc_BEVpolDom_20k": (
+        "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
+        "/1140226_ppp_finals_TrafoEnc_BEVpolDom_20k_metric_eval/20260731_160947/metric_eval_data_dense_bev_cartesian/test"
+    ),
+    "1140285_ppp_finals_TrafoEncDec_run2_20k": (
+        "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
+        "/1140285_ppp_finals_TrafoEncDec_run2_20k_metric_eval/20260731_161245/metric_eval_data_dense_bev_cartesian/test"
+    ),
+    "1140286_ppp_finals_TrafoEncDec_run2_20k_woVel": (
+            "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
+            "/1140286_ppp_finals_TrafoEncDec_run2_20k_woVel_metric_eval/20260731_161300/metric_eval_data_dense_bev_cartesian/test"
+        ), 
+    "1222752_ppp_finals_upernet_run2_21k": (
+            "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
+            "/1222752_ppp_finals_upernet_run2_21k_metric_eval_BEVDom/20260803_140033/metric_eval_data_dense_bev_cartesian/test"
+        ), 
+    # "1246573_ppp_finals_TrafoEnc_BEVpolDom_19k_8nodes": (
     #         "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
-    #         "/1103559_ppp_finals_unet_54k_woVel_woRCS_metric_eval_BEVDom/20260730_130436/metric_eval_data_dense_bev_cartesian/test"
+    #         "/1246573_ppp_finals_TrafoEnc_BEVpolDom_19k_8nodes_metric_eval/20260805_113233/metric_eval_data_dense_bev_cartesian/test"
     #     ), 
-    # "1104743_ppp_finals_upernet_run3_50k": (
-    #             "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
-    #             "/1104743_ppp_finals_upernet_run3_50k_metric_eval_BEVDom/20260730_144533/metric_eval_data_dense_bev_cartesian/test"
-    #         ), 
-    # "1069376_ppp_finals_TrafoEnc_CamDom_24k": (
-    #     "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
-    #     "/1069376_ppp_finals_TrafoEnc_CamDom_24k_BEVDom_metric_eval/20260728_003228/metric_eval_data_dense_bev_cartesian/test"
-    # ),
-    # "1068641_ppp_finals_TrafoEnc_BEVpolDom_20k": (
-    #     "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
-    #     "/1068641_ppp_finals_TrafoEnc_BEVpolDom_20k_metric_eval/20260727_231606/metric_eval_data_dense_bev_cartesian/test"
-    # ),
-    # "1070540_ppp_finals_TrafoEncDec_run2_20k": (
-    #     "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
-    #     "/1070540_ppp_finals_TrafoEncDec_run2_20k_metric_eval/20260728_075537/metric_eval_data_dense_bev_cartesian/test"
-    # ),
-    # "1104652_ppp_finals_TrafoEncDec_20k_woVel": (
+    # "1246573_ppp_finals_TrafoEnc_BEVpolDom_19k_8nodes_best": (
     #         "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals"
-    #         "/1104652_ppp_finals_TrafoEncDec_run2_20k_woVel_metric_eval_BEVDom/20260730_143511/metric_eval_data_dense_bev_cartesian/test"
+    #         "/1247574_ppp_finals_TrafoEnc_BEVpolDom_19k_8nodes_metric_eval_best/20260805_131102/metric_eval_data_dense_bev_cartesian/test"
     #     ), 
 }
 

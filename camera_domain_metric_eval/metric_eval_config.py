@@ -2,8 +2,8 @@
 
 H5_DIRS = {
     "1069846_ppp_finals_unet_54k": "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals_cam/1069846_ppp_finals_unet_54k_metric_eval_CamDom/20260728_023617/metric_eval_data/test",
-    # "1070556_ppp_finals_upernet_run2_21k": "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals_cam/1070556_ppp_finals_upernet_run2_21k_metric_eval_CamDom/20260728_080119/metric_eval_data/test",
-    # "1069890_ppp_finals_TrafoEnc_CamDom_24k": "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals_cam/1069890_ppp_finals_TrafoEnc_CamDom_24k_CamDom_metric_eval/20260728_024516/metric_eval_data/test",
+    "1260093_ppp_finals_upernet_run3_50k": "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals_cam/1260093_ppp_finals_upernet_run3_50k_metric_eval_CamDom/20260806_132924/metric_eval_data/test",
+    "1069890_ppp_finals_TrafoEnc_CamDom_24k": "/mnt/c/Users/uik04723/Repositories/gen_data_metric_finals_cam/1069890_ppp_finals_TrafoEnc_CamDom_24k_CamDom_metric_eval/20260728_024516/metric_eval_data/test",
 }
 
 OUTPUT_DIR = "./camera_metric_results"
