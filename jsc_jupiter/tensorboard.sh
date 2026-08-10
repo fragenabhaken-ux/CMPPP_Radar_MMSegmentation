@@ -30,7 +30,8 @@ UperNet:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_2/1096822_ppp_finals_u
     3)
     tensorboard --logdir_spec="\
 TrafoEnc_BEVpolDom:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041092_ppp_finals_TrafoEnc_BEVpolDom_20k/20260725_060631/vis_data/,\ 
-TrafoEnc_BEVpolDom_8nodes:/e/scratch/nxtaim-1/huber7/work_dirs/1235873_ppp_finals_TrafoEnc_BEVpolDom_19k_8nodes/20260804_181238/vis_data/"\
+TrafoEnc_BEVpolDom_8nodes:/e/scratch/nxtaim-1/huber7/work_dirs/1235873_ppp_finals_TrafoEnc_BEVpolDom_19k_8nodes/20260804_181238/vis_data/,\
+TrafoEnc_BEVpolDom_randinit_8nodes:/e/scratch/nxtaim-1/huber7/work_dirs/1261619_ppp_finals_TrafoEnc_2_BEVpolDom_18k_8nodes/20260806_142939/vis_data/"\
     --port=12355 serve
     ;;
     4)
@@ -41,7 +42,7 @@ UperNet_run2:/e/scratch/nxtaim-1/huber7/work_dirs/1069825_ppp_finals_upernet_run
     ;;  
     5)
     tensorboard --logdir_spec="\
-UperNet:/e/scratch/nxtaim-1/huber7/data/260725_finals/run_2/1096822_ppp_finals_upernet_run3_50k/20260730_015303/vis_data/"\
+EncBEV_trainable:/e/scratch/nxtaim-1/huber7/work_dirs/1261619_ppp_finals_TrafoEnc_2_BEVpolDom_18k_8nodes/20260806_142939/vis_data/"\
     --port=12355 serve
     ;;
     6)

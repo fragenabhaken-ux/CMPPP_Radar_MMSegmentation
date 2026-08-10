@@ -388,17 +388,19 @@ custom_hooks = [
         theta_max=theta_max,
 
         bev_x_min=0.0,
-        bev_x_max=100.0,
+        bev_x_max=110.0,
         bev_y_min=-50.0,
         bev_y_max=50.0,
 
         intensity_gamma=0.3,
         heatmap_cmap='hot',
 
-        point_size=20.0,
-        sample_point_size=20.0,
+        point_size=10.0,
+        sample_point_size=10.0,
         point_color='white',
         sample_point_color='white',
+        point_alpha=1,
+        sample_point_alpha=0.8,
         point_edge_color='black',
         point_edge_width=0.45,
 
@@ -415,8 +417,16 @@ custom_hooks = [
 
         sampling_seed_offset=1000,
 
-        figsize=(10.0, 10.0),
-        dpi=200,
+        show_axis_labels=False,
+
+        show_range_rings=True,
+        range_ring_step=10.0,
+        range_ring_color='gray',
+        range_ring_alpha=0.0,
+        range_ring_linewidth=0.8,
+
+        figsize=(6.0, 6.0),
+        dpi=800,
     )
 ]
 

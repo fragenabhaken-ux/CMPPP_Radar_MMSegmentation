@@ -15,6 +15,7 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
+from matplotlib.patches import Arc, Wedge
 
 
 @HOOKS.register_module()
@@ -72,6 +73,8 @@ class PPPPolarDenseSixBEVDemoVisHook(Hook):
         sample_point_size: float | None = None,
         point_color: str = 'white',
         sample_point_color: str = 'white',
+        point_alpha: float = 0.97,
+        sample_point_alpha: float = 0.97,
         point_edge_color: str = 'black',
         point_edge_width: float = 0.45,
         velocity_mode: str = 'signed',
@@ -86,6 +89,12 @@ class PPPPolarDenseSixBEVDemoVisHook(Hook):
         sampling_seed_offset: int = 1000,
         show_colorbar: bool = True,
         show_textbox: bool = True,
+        show_axis_labels: bool = True,
+        show_range_rings: bool = True,
+        range_ring_step: float = 10.0,
+        range_ring_color: str = 'gray',
+        range_ring_alpha: float = 0.12,
+        range_ring_linewidth: float = 0.8,
         dpi: int = 150,
         figsize: tuple[float, float] = (8.0, 8.0),
         image_ext: str = 'png',
@@ -118,6 +127,8 @@ class PPPPolarDenseSixBEVDemoVisHook(Hook):
         self.sample_point_size = float(sample_point_size) if sample_point_size is not None else float(point_size)
         self.point_color = str(point_color)
         self.sample_point_color = str(sample_point_color)
+        self.point_alpha = float(point_alpha)
+        self.sample_point_alpha = float(sample_point_alpha)
         self.point_edge_color = str(point_edge_color)
         self.point_edge_width = float(point_edge_width)
 
@@ -135,6 +146,12 @@ class PPPPolarDenseSixBEVDemoVisHook(Hook):
         self.sampling_seed_offset = int(sampling_seed_offset)
         self.show_colorbar = bool(show_colorbar)
         self.show_textbox = bool(show_textbox)
+        self.show_axis_labels = bool(show_axis_labels)
+        self.show_range_rings = bool(show_range_rings)
+        self.range_ring_step = float(range_ring_step)
+        self.range_ring_color = str(range_ring_color)
+        self.range_ring_alpha = float(range_ring_alpha)
+        self.range_ring_linewidth = float(range_ring_linewidth)
         self.dpi = int(dpi)
         self.figsize = tuple(float(v) for v in figsize)
 
@@ -156,6 +173,16 @@ class PPPPolarDenseSixBEVDemoVisHook(Hook):
             raise ValueError("rcs_link must be 'identity' or 'cube'.")
         if self.rcs_vmin >= self.rcs_vmax:
             raise ValueError('rcs_vmin must be smaller than rcs_vmax.')
+        if not 0.0 <= self.point_alpha <= 1.0:
+            raise ValueError('point_alpha must be in [0, 1].')
+        if not 0.0 <= self.sample_point_alpha <= 1.0:
+            raise ValueError('sample_point_alpha must be in [0, 1].')
+        if self.range_ring_step <= 0.0:
+            raise ValueError('range_ring_step must be positive.')
+        if not 0.0 <= self.range_ring_alpha <= 1.0:
+            raise ValueError('range_ring_alpha must be in [0, 1].')
+        if self.range_ring_linewidth < 0.0:
+            raise ValueError('range_ring_linewidth must be non-negative.')
 
         self._written_in_run = {'val': 0, 'test': 0}
 
@@ -407,10 +434,52 @@ class PPPPolarDenseSixBEVDemoVisHook(Hook):
         ax.set_xlim(self.bev_y_max, self.bev_y_min)
         ax.set_ylim(self.bev_x_min, self.bev_x_max)
         ax.set_aspect('equal', adjustable='box')
-        ax.set_xlabel('y lateral [m]', labelpad=1)
-        ax.set_ylabel('x forward [m]', labelpad=1)
+        if self.show_axis_labels:
+            ax.set_xlabel('y lateral [m]', labelpad=1)
+            ax.set_ylabel('x forward [m]', labelpad=1)
         ax.grid(True, alpha=0.22, linewidth=0.6)
         ax.tick_params(labelsize=9, pad=1)
+
+    def _draw_range_rings(self, ax) -> None:
+        if not self.show_range_rings:
+            return
+
+        max_radius = max(self.bev_x_max, abs(self.bev_y_min), abs(self.bev_y_max))
+        n_rings = int(np.ceil(max_radius / self.range_ring_step))
+
+        for ring_idx in range(1, n_rings + 1):
+            outer_radius = ring_idx * self.range_ring_step
+            inner_radius = max(0.0, outer_radius - self.range_ring_step)
+
+            if ring_idx % 2 == 1 and self.range_ring_alpha > 0.0:
+                band = Wedge(
+                    center=(0.0, 0.0),
+                    r=outer_radius,
+                    theta1=0.0,
+                    theta2=180.0,
+                    width=outer_radius - inner_radius,
+                    facecolor=self.range_ring_color,
+                    edgecolor='none',
+                    alpha=self.range_ring_alpha,
+                    zorder=1.6,
+                )
+                ax.add_patch(band)
+
+            if self.range_ring_linewidth > 0.0:
+                arc = Arc(
+                    xy=(0.0, 0.0),
+                    width=2.0 * outer_radius,
+                    height=2.0 * outer_radius,
+                    angle=0.0,
+                    theta1=0.0,
+                    theta2=180.0,
+                    color=self.range_ring_color,
+                    linewidth=self.range_ring_linewidth,
+                    alpha=min(1.0, self.range_ring_alpha * 1.35 if self.range_ring_alpha > 0.0 else 0.18),
+                    zorder=1.7,
+                )
+                ax.add_patch(arc)
+
 
     @staticmethod
     def _textbox(ax, text: str) -> None:
@@ -498,8 +567,9 @@ class PPPPolarDenseSixBEVDemoVisHook(Hook):
         # 1. intensity_with_gt
         fig, ax = self._new_axes_figure()
         mesh = ax.pcolormesh(geometry['y_edges'], geometry['x_edges'], intensity_display, shading='auto', cmap=self.heatmap_cmap)
+        self._draw_range_rings(ax)
         if gt_count > 0:
-            ax.scatter(gt_xy[:, 1], gt_xy[:, 0], s=self.point_size, c=self.point_color, alpha=0.97,
+            ax.scatter(gt_xy[:, 1], gt_xy[:, 0], s=self.point_size, c=self.point_color, alpha=self.point_alpha,
                        edgecolors=self.point_edge_color, linewidths=self.point_edge_width, zorder=3)
         self._setup_bev_axes(ax, geometry['r_min'], geometry['r_max'])
         ax.set_title('Predicted PPP intensity with GT radar points', fontsize=11, pad=4)
@@ -513,11 +583,12 @@ class PPPPolarDenseSixBEVDemoVisHook(Hook):
         fig, ax = self._new_axes_figure()
         mesh = ax.pcolormesh(geometry['y_edges'], geometry['x_edges'], velocity, shading='auto', cmap=self.velocity_cmap,
                              vmin=self.velocity_vmin, vmax=self.velocity_vmax)
+        self._draw_range_rings(ax)
         finite = np.isfinite(gt_velocity)
         if gt_count > 0 and np.any(finite):
             ax.scatter(gt_xy[finite, 1], gt_xy[finite, 0], s=self.point_size, c=gt_velocity[finite],
                        cmap=self.velocity_cmap, vmin=self.velocity_vmin, vmax=self.velocity_vmax,
-                       alpha=0.98, edgecolors=self.point_edge_color, linewidths=self.point_edge_width, zorder=3)
+                       alpha=self.point_alpha, edgecolors=self.point_edge_color, linewidths=self.point_edge_width, zorder=3)
         self._setup_bev_axes(ax, geometry['r_min'], geometry['r_max'])
         ax.set_title('Predicted velocity with GT velocity dots', fontsize=11, pad=4)
         if self.show_textbox:
@@ -531,11 +602,12 @@ class PPPPolarDenseSixBEVDemoVisHook(Hook):
         fig, ax = self._new_axes_figure()
         mesh = ax.pcolormesh(geometry['y_edges'], geometry['x_edges'], rcs, shading='auto', cmap=self.rcs_cmap,
                              vmin=self.rcs_vmin, vmax=self.rcs_vmax)
+        self._draw_range_rings(ax)
         finite = np.isfinite(gt_rcs)
         if gt_count > 0 and np.any(finite):
             ax.scatter(gt_xy[finite, 1], gt_xy[finite, 0], s=self.point_size, c=gt_rcs[finite],
                        cmap=self.rcs_cmap, vmin=self.rcs_vmin, vmax=self.rcs_vmax,
-                       alpha=0.98, edgecolors=self.point_edge_color, linewidths=self.point_edge_width, zorder=3)
+                       alpha=self.point_alpha, edgecolors=self.point_edge_color, linewidths=self.point_edge_width, zorder=3)
         self._setup_bev_axes(ax, geometry['r_min'], geometry['r_max'])
         ax.set_title('Predicted RCS with GT RCS dots', fontsize=11, pad=4)
         if self.show_textbox:
@@ -546,9 +618,10 @@ class PPPPolarDenseSixBEVDemoVisHook(Hook):
 
         # 4. sampled_plain
         fig, ax = self._new_axes_figure()
+        self._draw_range_rings(ax)
         if sample_count > 0:
             ax.scatter(sample_xy[:, 1], sample_xy[:, 0], s=self.sample_point_size, c=self.sample_point_color,
-                       alpha=0.97, edgecolors=self.point_edge_color, linewidths=self.point_edge_width, zorder=3)
+                       alpha=self.sample_point_alpha, edgecolors=self.point_edge_color, linewidths=self.point_edge_width, zorder=3)
         self._setup_bev_axes(ax, geometry['r_min'], geometry['r_max'])
         ax.set_title('Sampled predicted radar points', fontsize=11, pad=4)
         if self.show_textbox:
@@ -557,12 +630,13 @@ class PPPPolarDenseSixBEVDemoVisHook(Hook):
 
         # 5. sampled_velocity
         fig, ax = self._new_axes_figure()
+        self._draw_range_rings(ax)
         sc = None
         finite = np.isfinite(sample_velocity)
         if sample_count > 0 and np.any(finite):
             sc = ax.scatter(sample_xy[finite, 1], sample_xy[finite, 0], s=self.sample_point_size, c=sample_velocity[finite],
                             cmap=self.velocity_cmap, vmin=self.velocity_vmin, vmax=self.velocity_vmax,
-                            alpha=0.98, edgecolors=self.point_edge_color, linewidths=self.point_edge_width, zorder=3)
+                            alpha=self.sample_point_alpha, edgecolors=self.point_edge_color, linewidths=self.point_edge_width, zorder=3)
         self._setup_bev_axes(ax, geometry['r_min'], geometry['r_max'])
         ax.set_title('Sampled predicted points colored by predicted velocity', fontsize=11, pad=4)
         if self.show_textbox:
@@ -574,12 +648,13 @@ class PPPPolarDenseSixBEVDemoVisHook(Hook):
 
         # 6. sampled_rcs
         fig, ax = self._new_axes_figure()
+        self._draw_range_rings(ax)
         sc = None
         finite = np.isfinite(sample_rcs)
         if sample_count > 0 and np.any(finite):
             sc = ax.scatter(sample_xy[finite, 1], sample_xy[finite, 0], s=self.sample_point_size, c=sample_rcs[finite],
                             cmap=self.rcs_cmap, vmin=self.rcs_vmin, vmax=self.rcs_vmax,
-                            alpha=0.98, edgecolors=self.point_edge_color, linewidths=self.point_edge_width, zorder=3)
+                            alpha=self.sample_point_alpha, edgecolors=self.point_edge_color, linewidths=self.point_edge_width, zorder=3)
         self._setup_bev_axes(ax, geometry['r_min'], geometry['r_max'])
         ax.set_title('Sampled predicted points colored by predicted RCS', fontsize=11, pad=4)
         if self.show_textbox:

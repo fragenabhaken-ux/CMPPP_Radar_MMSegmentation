@@ -16,7 +16,7 @@ custom_imports = dict(
         'mmseg.datasets.transforms.sys100_polar_transforms',
         'mmseg.datasets.transforms.sys100_polar_grid_transforms',
         'mmseg.evaluation.metrics.ppp_metrics_loss_mmd',
-        'mmseg.engine.hooks.ppp_polar_dense_vis_hook',
+        'mmseg.engine.hooks.ppp_polar_dense_six_bev_demo_vis_hook',
         'mmseg.engine.hooks.prefetch_stats_hook',
     ],
     allow_failed_imports=False
@@ -151,68 +151,85 @@ DATA_PATH_VAL = os.environ.get(
    "SYS100_DATA_PATH",
    "/e/scratch/nxtaim-1/propietary/aumovio/SYS100_Validation_Dataset.csv"
 )
+# Demo sequence
+DEMO_H5_PATH = (
+    "/e/scratch/nxtaim-1/propietary/aumovio/sys100_validation/"
+    "2023.03.02_at_14.16.46/"
+    "2023.03.02_at_14.16.46_camera-radar-mi_5374_radargrids_64.h5"
+)
 
-dataset_type = 'Sys100PPPHeatmapDataset'
+# Requested EVEN video range:
+# mp4 frames 6519 ... 7159, every second frame
+DEMO_FRAME_START = 6519
+DEMO_FRAME_END = 7159
+DEMO_FRAME_STRIDE = 2
+
+DEMO_VIDEO_NAME_CONTAINS = "EVEN"
+
+DEMO_NUM_FRAMES = (
+    (DEMO_FRAME_END - DEMO_FRAME_START) // DEMO_FRAME_STRIDE + 1
+) 
+
+dataset_type = 'Sys100PPPHeatmapDatasetDemoVid'
 
 batch_size_train = 20
 batch_size_test = 20
 batch_size_val = 20
 
-train_dataloader = dict(
-    batch_size=batch_size_train,
-    num_workers=4,
-    pin_memory=True,
-    prefetch_factor=4,
-    sampler=dict(type='InfiniteSampler', shuffle=True),
-    dataset=dict(
-        type=dataset_type,
-        sys100_root=DATA_PATH_TRAIN,
-        source_is_summary_csv=True,
-        fovs=fovs_wo_fisheyeart,
-        pipeline=[
-            dict(
-                type='LoadSys100PolarSample',
-                sys100_root=DATA_PATH_TRAIN,
-                source_is_summary_csv=True,
-                out_img_size=out_img_size,
-                undistort=True,
-                fovs=fovs_wo_fisheyeart,
-                strict=False,
-                prefetch=True,
-                prefetch_dict={
-                    "buffer_size": 1024,
-                    "queue_size": 1000,
-                    "priority": 10,
-                    "num_prefetch_workers": 4,
-                    "wait_till_buffer_has": batch_size_train,
-                    "buffer_fill_pause_threshold": 0.9,
-                    "default_sleep_time": 60,
-                }
-            ),
-            dict(
-                type='PPPPolarRandomFlip',
-                prob=0.5,
-                direction='horizontal',
-            ),
-            dict(
-                type='BuildPPPPolarGrid',
-                grid_shape=polar_grid_shape,
-                r_min=r_min,
-                r_max=r_max,
-                theta_min=theta_min,
-                theta_max=theta_max,
-            ),
-            dict(type='PPPPackPolarGridInputs'),
-        ]
-    )
-)
+# train_dataloader = dict(
+#     batch_size=batch_size_train,
+#     num_workers=4,
+#     pin_memory=True,
+#     prefetch_factor=4,
+#     sampler=dict(type='InfiniteSampler', shuffle=True),
+#     dataset=dict(
+#         type=dataset_type,
+#         sys100_root=DATA_PATH_TRAIN,
+#         source_is_summary_csv=True,
+#         fovs=fovs_wo_fisheyeart,
+#         pipeline=[
+#             dict(
+#                 type='LoadSys100PolarSample',
+#                 sys100_root=DATA_PATH_TRAIN,
+#                 source_is_summary_csv=True,
+#                 out_img_size=out_img_size,
+#                 undistort=True,
+#                 fovs=fovs_wo_fisheyeart,
+#                 strict=False,
+#                 prefetch=True,
+#                 prefetch_dict={
+#                     "buffer_size": 1024,
+#                     "queue_size": 1000,
+#                     "priority": 10,
+#                     "num_prefetch_workers": 4,
+#                     "wait_till_buffer_has": batch_size_train,
+#                     "buffer_fill_pause_threshold": 0.9,
+#                     "default_sleep_time": 60,
+#                 }
+#             ),
+#             dict(
+#                 type='PPPPolarRandomFlip',
+#                 prob=0.5,
+#                 direction='horizontal',
+#             ),
+#             dict(
+#                 type='BuildPPPPolarGrid',
+#                 grid_shape=polar_grid_shape,
+#                 r_min=r_min,
+#                 r_max=r_max,
+#                 theta_min=theta_min,
+#                 theta_max=theta_max,
+#             ),
+#             dict(type='PPPPackPolarGridInputs'),
+#         ]
+#     )
+# )
 
 num_samples_val = 80
 
 val_dataloader = dict(
     batch_size=batch_size_val,
     num_workers=4,
-    sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
         type=dataset_type,
         sys100_root=DATA_PATH_VAL,
@@ -225,52 +242,6 @@ val_dataloader = dict(
                 sys100_root=DATA_PATH_VAL,
                 source_is_summary_csv=True,
                 target_dataset_size=num_samples_val,
-                out_img_size=out_img_size,
-                undistort=True,
-                fovs=fovs_wo_fisheyeart,
-                strict=False,
-                prefetch=True,
-                prefetch_dict={
-                    "buffer_size": 500,
-                    "queue_size": 1000,
-                    "priority": 19,
-                    "num_prefetch_workers": 4,
-                    "wait_till_buffer_has": 100,
-                    "buffer_fill_pause_threshold": 0.9,
-                    "default_sleep_time": 60,
-                }
-            ),
-            dict(
-                type='BuildPPPPolarGrid',
-                grid_shape=polar_grid_shape,
-                r_min=r_min,
-                r_max=r_max,
-                theta_min=theta_min,
-                theta_max=theta_max,
-            ),
-            dict(type='PPPPackPolarGridInputs'),
-        ]
-    )
-)
-
-num_samples_test = 80
-
-test_dataloader = dict(
-    batch_size=batch_size_test,
-    num_workers=4,
-    sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=dict(
-        type=dataset_type,
-        sys100_root=DATA_PATH_VAL,
-        source_is_summary_csv=True,
-        target_dataset_size=num_samples_test,
-        fovs=fovs_wo_fisheyeart,
-        pipeline=[
-            dict(
-                type='LoadSys100PolarSample',
-                sys100_root=DATA_PATH_VAL,
-                source_is_summary_csv=True,
-                target_dataset_size=num_samples_test,
                 out_img_size=out_img_size,
                 undistort=True,
                 fovs=fovs_wo_fisheyeart,
@@ -299,48 +270,92 @@ test_dataloader = dict(
     )
 )
 
-optim_wrapper = dict(
-    type='OptimWrapper',
-    optimizer=dict(
-        type='AdamW',
-        lr=1e-3,
-        weight_decay=0.01,
-        betas=(0.9, 0.999)
-    ),
-    clip_grad=dict(
-        max_norm=1.0, # t 2
-        norm_type=2
+num_samples_test = 300
+
+test_dataloader = dict(
+    batch_size=batch_size_test,
+    num_workers=4,
+    sampler=dict(type='DefaultSampler', shuffle=False),
+    dataset=dict(
+        type=dataset_type,
+        sys100_root=DEMO_H5_PATH,
+        source_is_summary_csv=False,
+
+        demo_h5_path=DEMO_H5_PATH,
+        demo_frame_start=DEMO_FRAME_START,
+        demo_frame_end=DEMO_FRAME_END,
+        demo_frame_stride=DEMO_FRAME_STRIDE,
+        demo_use_video_frame_counter=True,
+        demo_video_name_contains=DEMO_VIDEO_NAME_CONTAINS,
+
+        fovs=fovs_wo_fisheyeart,
+        pipeline=[
+            dict(
+                type='LoadSys100PolarSample',
+                sys100_root=DEMO_H5_PATH,
+                source_is_summary_csv=False,
+                target_dataset_size=None,
+                out_img_size=out_img_size,
+                undistort=True,
+                fovs=fovs_wo_fisheyeart,
+                strict=False,
+                prefetch=False,
+            ),
+            dict(
+                type='BuildPPPPolarGrid',
+                grid_shape=polar_grid_shape,
+                r_min=r_min,
+                r_max=r_max,
+                theta_min=theta_min,
+                theta_max=theta_max,
+            ),
+            dict(type='PPPPackPolarGridInputs'),
+        ]
     )
 )
 
-param_scheduler = [
-    dict(
-        type='LinearLR',
-        start_factor=1e-4,
-        end_factor=1,
-        begin=0,
-        end=2000,
-        by_epoch=False
-    ),
-    dict(
-        type='LinearLR',
-        start_factor=1,
-        end_factor=1e-1,
-        begin=2001,
-        end=16000,
-        by_epoch=False
-    ),
-    dict(
-        type='LinearLR',
-        start_factor=1,
-        end_factor=1e-1,
-        begin=16001,
-        end=18000,
-        by_epoch=False
-    )
-]
+# optim_wrapper = dict(
+#     type='OptimWrapper',
+#     optimizer=dict(
+#         type='AdamW',
+#         lr=1e-3,
+#         weight_decay=0.01,
+#         betas=(0.9, 0.999)
+#     ),
+#     clip_grad=dict(
+#         max_norm=1.0, # t 2
+#         norm_type=2
+#     )
+# )
 
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=18000, val_interval=1000)
+# param_scheduler = [
+#     dict(
+#         type='LinearLR',
+#         start_factor=1e-4,
+#         end_factor=1,
+#         begin=0,
+#         end=2000,
+#         by_epoch=False
+#     ),
+#     dict(
+#         type='LinearLR',
+#         start_factor=1,
+#         end_factor=1e-1,
+#         begin=2001,
+#         end=18000,
+#         by_epoch=False
+#     ),
+#     dict(
+#         type='LinearLR',
+#         start_factor=1,
+#         end_factor=1e-1,
+#         begin=18001,
+#         end=20000,
+#         by_epoch=False
+#     )
+# ]
+
+# train_cfg = dict(type='IterBasedTrainLoop', max_iters=20000, val_interval=1000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -354,7 +369,7 @@ default_hooks = dict(
     checkpoint=dict(
         type='CheckpointHook',
         by_epoch=False,
-        interval=1000,
+        interval=2000,
         max_keep_ckpts=5,
         save_best='ppp/optimal_score',
         rule='greater'
@@ -364,31 +379,33 @@ default_hooks = dict(
 
 custom_hooks = [
     dict(
-        type='PPPPolarDenseVisHook',
+        type='PPPPolarDenseSixBEVDemoVisHook',
 
-        train_interval=1000,
-        max_samples_train=1,
-        max_samples_val=5,
-        max_samples_test=10,
-
-        img_mean=data_rbg_mean,
-        img_std=data_rbg_std,
+        max_samples_test=DEMO_NUM_FRAMES,
+        out_dir='demo_frames_polar_dense_six_bev',
+        write_all_ranks=True,
 
         r_min=r_min,
         r_max=r_max,
         theta_min=theta_min,
         theta_max=theta_max,
 
-        # Show the complete polar wedge in Cartesian BEV.
-        bev_y_min=-r_max,
-        bev_y_max=r_max,
+        bev_x_min=0.0,
+        bev_x_max=110.0,
+        bev_y_min=-50.0,
+        bev_y_max=50.0,
 
-        gamma=0.3,
+        intensity_gamma=0.3,
+        heatmap_cmap='hot',
 
-        point_size=12.0,
-        point_color='cyan',
+        point_size=10.0,
+        sample_point_size=10.0,
+        point_color='white',
+        sample_point_color='white',
+        point_alpha=1,
+        sample_point_alpha=0.8,
         point_edge_color='black',
-        point_edge_width=0.35,
+        point_edge_width=0.45,
 
         velocity_mode='signed',
         velocity_link='cube',
@@ -401,10 +418,19 @@ custom_hooks = [
         rcs_vmax=20.0,
         rcs_cmap='viridis',
 
-        dpi=100,
-        figsize=(18, 24),
-    ),
-    dict(type='PrefetchStatsHook'),
+        sampling_seed_offset=1000,
+
+        show_axis_labels=False,
+
+        show_range_rings=True,
+        range_ring_step=10.0,
+        range_ring_color='gray',
+        range_ring_alpha=0.0,
+        range_ring_linewidth=0.8,
+
+        figsize=(6.0, 6.0),
+        dpi=800,
+    )
 ]
 
 visualizer = dict(

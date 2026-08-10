@@ -98,10 +98,10 @@ paths = [
     # ("/p/scratch/nxtaim-1/huber7/work_dirs/14061450_ppp_dinov3_LoRA_V3_polar_liif_LRrangetest/20260626_215900/20260626_215900.log", "Trafo V3 polar liif"),
     # ("/e/scratch/nxtaim-1/huber7/data/260725_finals/LR_RangeTest/1036156_ppp_finals_unet_LRRange/20260724_153653/20260724_153653.log", "UNet"),
     # ("/e/scratch/nxtaim-1/huber7/data/260725_finals/LR_RangeTest/1036445_ppp_finals_upernet_LRRange/20260724_161644/20260724_161644.log", "UperNet"),
-    # ("/e/scratch/nxtaim-1/huber7/data/260725_finals/LR_RangeTest/1036449_ppp_finals_TrafoEnc_CamDom_LRRange/20260724_161646/20260724_161646.log", "TrafoEnc CamDom"),
+    ("/e/scratch/nxtaim-1/huber7/data/260725_finals/LR_RangeTest/1036449_ppp_finals_TrafoEnc_CamDom_LRRange/20260724_161646/20260724_161646.log", "ViT-Enc-BEV"),
     # ("/e/scratch/nxtaim-1/huber7/data/260725_finals/LR_RangeTest/1036451_ppp_finals_TrafoEnc_BEVpolDom_LRRange/20260724_161706/20260724_161706.log", "TrafoEnc BEVpolDom"),
     # ("/e/scratch/nxtaim-1/huber7/data/260725_finals/LR_RangeTest/1036455_ppp_finals_TrafoEncDec_LRRange/20260724_161719/20260724_161719.log", "TrafoEncDec"),
-    ("/e/scratch/nxtaim-1/huber7/work_dirs/1252697_ppp_finals_TrafoEnc_2_BEVpolDom_LRRange/20260805_214429/20260805_214429.log", "TrafoEnc_2_BEVpolDom"),
+    # ("/e/scratch/nxtaim-1/huber7/work_dirs/1252697_ppp_finals_TrafoEnc_2_BEVpolDom_LRRange/20260805_214429/20260805_214429.log", "TrafoEnc_2_BEVpolDom"),
 ]
 
 # plot_file = "/p/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/lr_range_plot_AdamW.png"
@@ -133,7 +133,7 @@ paths = [
 # plot_file = "/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/finals_TrafoEnc_CamDom.png"
 # plot_file = "/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/finals_TrafoEnc_BEVpolDom.png"
 # plot_file = "/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/finals_TrafoEncDec.png"
-plot_file = "/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/finals_TrafoEnc_2_BEVpolDom.png"
+plot_file = "/e/project1/nxtaim-1/huber7/repos/mmsegmentation_ppp/ppp_analysis/finals_TrafoEnc_BEVpolDom.png"
 
 plt.figure(figsize=(10, 6))
 
@@ -154,7 +154,7 @@ for path, info in paths:
         # --- smooth ---
         # df["loss_smooth"] = df["loss"].rolling(700, min_periods=10).mean()
         # df["loss_smooth"] = df["loss"].rolling(50, min_periods=10, center=False, win_type="gaussian").mean(std=10)
-        df["loss_smooth"] = df["loss"].rolling(200, min_periods=10, center=True, ).mean()
+        df["loss_smooth"] = df["loss"].rolling(50, min_periods=10, center=True, ).mean()
         # df["loss_smooth"] = df["loss"].rolling(200, min_periods=10, center=True, ).mean()
         # df["loss_smooth"] = df["loss"].ewm(span=60, adjust=False).mean()
         
@@ -175,6 +175,17 @@ import matplotlib.ticker as mticker
 plt.xscale("log")
 ax = plt.gca()
 
+ax.set_xlim(right=1e-1)
+LR_string = r"$10^{-3}$"
+
+ax.axvline(
+    x=1e-3,
+    color="blue",
+    linestyle="-",
+    linewidth=2,
+    label=r"Selected maximum learning rate"
+)
+
 ax.xaxis.set_major_locator(mticker.LogLocator(base=10.0, numticks=15))
 ax.xaxis.set_minor_locator(
     mticker.LogLocator(base=10.0, subs=np.arange(2, 10), numticks=1000)
@@ -182,7 +193,7 @@ ax.xaxis.set_minor_locator(
 ax.xaxis.set_minor_formatter(mticker.NullFormatter())
 
 # plt.ylim(0.25, 1.5)
-plt.ylim(80, 270)
+plt.ylim(10, 80)
 
 plt.xlabel("Learning rate (log scale)")
 # plt.ylabel("loss (PPP + depth)")

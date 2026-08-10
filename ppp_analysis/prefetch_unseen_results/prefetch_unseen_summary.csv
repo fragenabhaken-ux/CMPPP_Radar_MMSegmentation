@@ -1,0 +1,9 @@
+model,status,log_dir,n_event_files,n_logged_values,first_step,last_step,mean_unseen_fraction,step_weighted_unseen_fraction,final_unseen_fraction,min_unseen_fraction,max_unseen_fraction,message
+TrafoEncDec,tag_not_found,,,,,,,,,,,prefetch_unseen_frac/0 not found in 1 event file(s)
+TrafoEncDec_woVel,tag_not_found,,,,,,,,,,,prefetch_unseen_frac/0 not found in 1 event file(s)
+TrafoEnc_BEVpolDom,ok,/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041092_ppp_finals_TrafoEnc_BEVpolDom_20k/20260725_060631/vis_data,1,19129,0,19128,0.9993360865697786,0.9993360518607954,1.0,0.0,1.0,
+TrafoEnc_CamDom,ok,/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041091_ppp_finals_TrafoEnc_CamDom_24k/20260725_060602/vis_data,1,24000,0,23999,0.9996607142885526,0.9996607001510589,1.0,0.0,1.0,
+UNet,ok,/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041277_ppp_finals_unet_54k/20260725_062756/vis_data,1,54000,0,53999,0.11949209895357489,0.11947999055875042,0.0,0.0,1.0,
+UNet_woVel,ok,/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1041278_ppp_finals_unet_54k_woVel/20260725_062804/vis_data,1,54000,0,53999,0.12103283965525528,0.12102051287417326,0.0,0.0,1.0,
+UNet_woVel_woRCS,ok,/e/scratch/nxtaim-1/huber7/data/260725_finals/run_1/1047407_ppp_finals_unet_54k_woVel_woRCS/20260726_145120/vis_data,1,54000,0,53999,0.10707209889249256,0.10706321734756159,0.0,0.0,1.0,
+UperNet,ok,/e/scratch/nxtaim-1/huber7/data/260725_finals/run_2/1096822_ppp_finals_upernet_run3_50k/20260730_015303/vis_data,1,48943,0,48942,0.10240778998112096,0.102400120290689,0.0,0.0,1.0,
