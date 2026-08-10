@@ -10,7 +10,10 @@ from .necks import *  # noqa: F401,F403
 from .segmentors import *  # noqa: F401,F403
 from .text_encoder import *  # noqa: F401,F403
 
+from .ppp_polar_data_preprocessor import PolarPPPDataPreProcessor
+
 __all__ = [
     'BACKBONES', 'HEADS', 'LOSSES', 'SEGMENTORS', 'build_backbone',
-    'build_head', 'build_loss', 'build_segmentor', 'SegDataPreProcessor'
+    'build_head', 'build_loss', 'build_segmentor', 'SegDataPreProcessor',
+    'PolarPPPDataPreProcessor'
 ]

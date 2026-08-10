@@ -6,6 +6,9 @@ from .bdd100k import BDD100KDataset
 from .chase_db1 import ChaseDB1Dataset
 from .cityscapes import CityscapesDataset
 from .cityscapes_instances import CityscapesInstancesDataset
+from .sys100_ppp_heatmap_dataset import Sys100PPPHeatmapDataset
+from .truckscenes_ppp_heatmap_dataset import TruckScenesPPPHeatmapDataset
+from .sys100_ppp_heatmap_dataset_demo_vid import Sys100PPPHeatmapDatasetDemoVid
 from .coco_stuff import COCOStuffDataset
 from .dark_zurich import DarkZurichDataset
 from .dataset_wrappers import MultiImageMixDataset
@@ -62,5 +65,7 @@ __all__ = [
     'MapillaryDataset_v2', 'Albu', 'LEVIRCDDataset',
     'LoadMultipleRSImageFromFile', 'LoadSingleRSImageFromFile',
     'ConcatCDInput', 'BaseCDDataset', 'DSDLSegDataset', 'BDD100KDataset',
-    'NYUDataset', 'HSIDrive20Dataset', 'CityscapesInstancesDataset'
+    'NYUDataset', 'HSIDrive20Dataset', 'CityscapesInstancesDataset',
+    'Sys100PPPHeatmapDataset', 'TruckScenesPPPHeatmapDataset',
+    'Sys100PPPHeatmapDatasetDemoVid'
 ]

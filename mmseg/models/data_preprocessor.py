@@ -8,6 +8,19 @@ from mmengine.model import BaseDataPreprocessor
 from mmseg.registry import MODELS
 from mmseg.utils import stack_batch
 
+import logging
+
+LOGGER_NAME = "preoprocessor"
+LOG_LEVEL = logging.INFO  # change to logging.INFO, logging.DEBUG 
+
+logger = logging.getLogger(__name__)
+logger.setLevel(LOG_LEVEL)
+
+if not logger.hasHandlers():
+    handler = logging.StreamHandler()
+    handler.setLevel(LOG_LEVEL)
+    logger.addHandler(handler)
+
 
 @MODELS.register_module()
 class SegDataPreProcessor(BaseDataPreprocessor):
@@ -127,6 +140,54 @@ class SegDataPreProcessor(BaseDataPreprocessor):
                 size_divisor=self.size_divisor,
                 pad_val=self.pad_val,
                 seg_pad_val=self.seg_pad_val)
+            
+            # PPP GT sanity checks
+            for i, sample in enumerate(data_samples):
+                gt = sample.gt_sem_seg.data  # [4, H, W]
+
+                assert gt.dim() == 3, (
+                    f"GT must have shape [C, H, W], got {tuple(gt.shape)}"
+                )
+                assert gt.shape[0] == 4, (
+                    "Expected 4 GT channels "
+                    "[intensity, depth, velocity, RCS], "
+                    f"got {gt.shape[0]}"
+                )
+
+                intensity = gt[0]
+                depth = gt[1]
+                vel = gt[2]
+                rcs = gt[3]
+
+                # Intensity must be binary.
+                unique_vals = torch.unique(intensity)
+                assert torch.all((unique_vals == 0) | (unique_vals == 1)), (
+                    f"Intensity channel not binary: {unique_vals}"
+                )
+
+                point_mask = intensity == 1
+                empty_mask = intensity == 0
+                n_points = int(point_mask.sum())
+
+                # Marks must be zero where no radar detection exists.
+                assert torch.all(depth[empty_mask] == 0), (
+                    "Depth non-zero where intensity == 0"
+                )
+                assert torch.all(vel[empty_mask] == 0), (
+                    "Velocity non-zero where intensity == 0"
+                )
+                assert torch.all(rcs[empty_mask] == 0), (
+                    "RCS non-zero where intensity == 0"
+                )
+
+                logger.debug(
+                    "SegDataPreProcessor | sample %d | "
+                    "img=%s | gt=%s | PPP_points=%d",
+                    i,
+                    tuple(inputs[i].shape),
+                    tuple(gt.shape),
+                    n_points,
+                )
 
             if self.batch_augments is not None:
                 inputs, data_samples = self.batch_augments(
