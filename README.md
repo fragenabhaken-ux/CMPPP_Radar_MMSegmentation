@@ -15,7 +15,7 @@ The main branches used during development are:
   https://github.com/fragenabhaken-ux/CMPPP_Radar_MMSegmentation/tree/juwels_stage
 
 - **Cleaned branch for further use by Jonas/Tobi:**  
-  https://github.com/fragenabhaken-ux/CMPPP_Radar_MMSegmentation/tree/juwels_stage
+  https://github.com/fragenabhaken-ux/CMPPP_Radar_MMSegmentation/tree/CMPPP_Radar_MMSeg
 
 The following notes refer primarily to the cleaned branch.
 
